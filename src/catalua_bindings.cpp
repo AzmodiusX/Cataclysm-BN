@@ -490,7 +490,7 @@ void cata::detail::reg_hooks_examples( sol::state &lua )
     DOC( "Called when a dialogue option is selected.  " );
     DOC( "The hook receives a table with keys:  " );
     DOC( "* `npc` (NPC): The NPC speaking  " );
-    DOC( "* `talk_topic` (string): The topic that was selected  " );
+    DOC( "* `next_topic` (string): The topic that was selected  " );
     DOC( "Return a new talk_topic id to add it as the next topic.  " );
     DOC_PARAMS( "params" );
     luna::set_fx(lib, "on_dialogue_option", [](const sol::table&) {});

@@ -336,11 +336,17 @@ T run_hooks(std::string_view hook_name)
     lua_state& state = *DynamicDataLoader::get_instance().lua;
     return run_hooks<T>(state, hook_name, [](sol::table&) {});
 }
+template std::string run_hooks<std::string>(std::string_view hook_name);
+template int run_hooks<int>(std::string_view hook_name);
+template double run_hooks<double>(std::string_view hook_name);
 template <typename T>
 T run_hooks(lua_state& state, std::string_view hook_name)
 {
     return run_hooks<T>(state, hook_name, [](sol::table&) {});
 }
+template std::string run_hooks<std::string>(lua_state& state, std::string_view hook_name);
+template int run_hooks<int>(lua_state& state, std::string_view hook_name);
+template double run_hooks<double>(lua_state& state, std::string_view hook_name);
 template <typename T>
 T run_hooks(std::string_view hook_name,
     std::function < auto(sol::table& params) -> void > init)
@@ -348,6 +354,12 @@ T run_hooks(std::string_view hook_name,
     lua_state& state = *DynamicDataLoader::get_instance().lua;
     return run_hooks<T>(state, hook_name, init);
 }
+template std::string run_hooks<std::string>(std::string_view hook_name,
+    std::function < auto(sol::table& params) -> void > init);
+template int run_hooks<int>(std::string_view hook_name,
+    std::function < auto(sol::table& params) -> void > init);
+template double run_hooks<double>(std::string_view hook_name,
+    std::function < auto(sol::table& params) -> void > init);
 template <typename T>
 T run_hooks(lua_state& state, std::string_view hook_name,
     std::function < auto(sol::table& params) -> void > init)
@@ -379,6 +391,12 @@ T run_hooks(lua_state& state, std::string_view hook_name,
     }
     return T();
 }
+template std::string run_hooks<std::string>(lua_state& state, std::string_view hook_name,
+    std::function < auto(sol::table& params) -> void > init);
+template int run_hooks<int>(lua_state& state, std::string_view hook_name,
+    std::function < auto(sol::table& params) -> void > init);
+template double run_hooks<double>(lua_state& state, std::string_view hook_name,
+    std::function < auto(sol::table& params) -> void > init);
 
 
 void reg_lua_iuse_actors( lua_state &state, Item_factory &ifactory )

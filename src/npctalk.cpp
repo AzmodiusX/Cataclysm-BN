@@ -1123,7 +1123,7 @@ void npc::talk_to_u( bool radio_contact )
 
         hook_result = cata::run_hooks<std::string>("on_dialogue_option", [&, this](auto& params) {
             params["npc"] = this;
-            params["talk_topic"] = next.id;
+            params["next_topic"] = next.id;
             });
 
         if (!hook_result.empty()) {
