@@ -632,66 +632,6 @@ static bool is_contained( const SDL_Rect &smaller, const SDL_Rect &larger )
            smaller.y + smaller.h <= larger.y + larger.h;
 }
 
-// Helper to get a pixel's RGBA bytes from a surface at (x, y)
-// Uses SDL's format information to correctly interpret pixel data
-static void get_pixel_rgba( SDL_Surface *surface, int x, int y,
-                            Uint8 &r, Uint8 &g, Uint8 &b, Uint8 &a )
-{
-    auto *pixels = static_cast<Uint8 *>( surface->pixels );
-    Uint8 *p = pixels + y * surface->pitch + x * surface->format->BytesPerPixel;
-
-    Uint32 pixel;
-    switch( surface->format->BytesPerPixel ) {
-        case 4:
-            pixel = *reinterpret_cast<Uint32 *>( p );
-            break;
-        case 3:
-            // 24-bit surfaces (rare)
-            if( SDL_BYTEORDER == SDL_BIG_ENDIAN ) {
-                pixel = p[0] << 16 | p[1] << 8 | p[2];
-            } else {
-                pixel = p[0] | p[1] << 8 | p[2] << 16;
-            }
-            break;
-        default:
-            pixel = 0;
-            break;
-    }
-
-    SDL_GetRGBA( pixel, surface->format, &r, &g, &b, &a );
-}
-
-// Helper to set a pixel's RGBA bytes on a surface at (x, y)
-// Uses SDL's format information to correctly write pixel data
-static void set_pixel_rgba( SDL_Surface *surface, int x, int y,
-                            Uint8 r, Uint8 g, Uint8 b, Uint8 a )
-{
-    Uint32 pixel = SDL_MapRGBA( surface->format, r, g, b, a );
-
-    auto *pixels = static_cast<Uint8 *>( surface->pixels );
-    Uint8 *p = pixels + y * surface->pitch + x * surface->format->BytesPerPixel;
-
-    switch( surface->format->BytesPerPixel ) {
-        case 4:
-            *reinterpret_cast<Uint32 *>( p ) = pixel;
-            break;
-        case 3:
-            // 24-bit surfaces (rare)
-            if( SDL_BYTEORDER == SDL_BIG_ENDIAN ) {
-                p[0] = ( pixel >> 16 ) & 0xff;
-                p[1] = ( pixel >> 8 ) & 0xff;
-                p[2] = pixel & 0xff;
-            } else {
-                p[0] = pixel & 0xff;
-                p[1] = ( pixel >> 8 ) & 0xff;
-                p[2] = ( pixel >> 16 ) & 0xff;
-            }
-            break;
-        default:
-            break;
-    }
-}
-
 /**
  * Creates an identity UV surface for the given dimensions.
  * In offset mode, all pixels are (127, 127) meaning no displacement.
