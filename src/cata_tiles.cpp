@@ -3795,7 +3795,8 @@ bool cata_tiles::draw_sprite_at( const tile_type &tile, point p,
     const int warp_offset_screen_y = warp_offset.y * tile_height / tileset_ptr->get_tile_height();
 
     SDL_Rect destination;
-    destination.x = p.x + tile.offset.x * tile_width / tileset_ptr->get_tile_width() + warp_offset_screen_x;
+    destination.x = p.x + tile.offset.x * tile_width / tileset_ptr->get_tile_width() +
+                    warp_offset_screen_x;
     destination.y = p.y + ( tile.offset.y - height_3d_val ) * tile_width /
                     tileset_ptr->get_tile_width() + warp_offset_screen_y;
     destination.w = width * tile_width / tileset_ptr->get_tile_width();

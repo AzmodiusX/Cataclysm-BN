@@ -447,14 +447,14 @@ State modifiers are defined in the `"state-modifiers"` array within a tileset's 
 
 ### Fields
 
-| Field       | Type   | Description                                                              |
-| ----------- | ------ | ------------------------------------------------------------------------ |
-| `id`        | string | Modifier group identifier. Must match a supported group (see below).     |
-| `override`  | bool   | If `true`, when this state is active, lower-priority groups are skipped. |
-| `use_offset`| bool   | `true` for offset mode, `false` for normalized mode. Default: `true`.    |
-| `tiles`     | array  | State-to-sprite mappings for this group.                                 |
-| `whitelist` | array  | Optional. Only apply to overlays matching these prefixes.                |
-| `blacklist` | array  | Optional. Never apply to overlays matching these prefixes.               |
+| Field        | Type   | Description                                                              |
+| ------------ | ------ | ------------------------------------------------------------------------ |
+| `id`         | string | Modifier group identifier. Must match a supported group (see below).     |
+| `override`   | bool   | If `true`, when this state is active, lower-priority groups are skipped. |
+| `use_offset` | bool   | `true` for offset mode, `false` for normalized mode. Default: `true`.    |
+| `tiles`      | array  | State-to-sprite mappings for this group.                                 |
+| `whitelist`  | array  | Optional. Only apply to overlays matching these prefixes.                |
+| `blacklist`  | array  | Optional. Never apply to overlays matching these prefixes.               |
 
 Each entry in `tiles`:
 

@@ -81,7 +81,8 @@ struct state_modifier_group {
     bool override_lower = false;   // Skip lower priority groups when active
     bool use_offset_mode = true;   // true = offset mode, false = normalized UV
     std::unordered_map<std::string, state_modifier_tile> tiles;
-    std::vector<std::string> whitelist;  // Prefix filter: only apply to matching overlays (e.g., "wielded_", "worn_")
+    std::vector<std::string>
+    whitelist;  // Prefix filter: only apply to matching overlays (e.g., "wielded_", "worn_")
     std::vector<std::string> blacklist;  // Prefix filter: never apply to matching overlays
 };
 
@@ -363,7 +364,8 @@ class tileset
          * @param offset_mode True for offset mode, false for normalized mode
          * @return The warp_hash to use with get_or_default()
          */
-        size_t register_warp_surface( SDL_Surface_Ptr surface, const point offset, const bool offset_mode ) const;
+        size_t register_warp_surface( SDL_Surface_Ptr surface, const point offset,
+                                      const bool offset_mode ) const;
 
         /** Get a registered warp surface by hash. Returns nullptr if not found. */
         std::tuple<SDL_Surface *, point, bool> get_warp_surface( const size_t warp_hash ) const;
