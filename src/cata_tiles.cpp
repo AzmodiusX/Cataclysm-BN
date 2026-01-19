@@ -875,11 +875,12 @@ static void apply_uv_remap(
     SDL_Surface *dst, const SDL_Rect &dstRect,
     SDL_Surface *src, const SDL_Rect &srcRect,
     SDL_Surface *uv_modifier,
-    point uv_modifier_offset,
-    bool offset_mode,
-    point sprite_offset,
-    int std_tile_w,
-    int std_tile_h,
+    const point uv_modifier_offset,
+    const bool offset_mode,
+    const point sprite_offset,
+    const point output_offset,  // Offset of output rect relative to sprite origin (for expanded output)
+    const int std_tile_w,
+    const int std_tile_h,
     color_pixel_function_pointer color_func = nullptr )
 {
     if( !dst || !src || !uv_modifier ) {
@@ -905,21 +906,35 @@ static void apply_uv_remap(
         SDL_LockSurface( uv_modifier );
     }
 
-    // Iterate over UV modifier bounds, not sprite bounds
-    // This allows UV warps to extend beyond the original sprite
+    // Clear the destination to transparent
+    for( int y = 0; y < dstRect.h; ++y ) {
+        for( int x = 0; x < dstRect.w; ++x ) {
+            set_pixel_rgba( dst, x + dstRect.x, y + dstRect.y, 0, 0, 0, 0 );
+        }
+    }
+
+    // Iterate over UV modifier bounds
+    // output_offset tells us where the output rect starts relative to sprite origin
+    // So a pixel at UV position (uv_x, uv_y) maps to:
+    //   - tile-relative position: uv_modifier_offset + (uv_x, uv_y)
+    //   - sprite-local position: tile-relative - sprite_offset
+    //   - output position: sprite-local - output_offset
     for( int uv_y = 0; uv_y < uv_modifier->h; ++uv_y ) {
         for( int uv_x = 0; uv_x < uv_modifier->w; ++uv_x ) {
             // Position relative to standard tile origin
-            const int rel_x = uv_modifier_offset.x + uv_x;
-            const int rel_y = uv_modifier_offset.y + uv_y;
+            const int tile_rel_x = uv_modifier_offset.x + uv_x;
+            const int tile_rel_y = uv_modifier_offset.y + uv_y;
 
-            // Position in destination (relative to sprite_offset)
-            const int dst_local_x = rel_x - sprite_offset.x;
-            const int dst_local_y = rel_y - sprite_offset.y;
+            // Position relative to sprite origin
+            const int sprite_local_x = tile_rel_x - sprite_offset.x;
+            const int sprite_local_y = tile_rel_y - sprite_offset.y;
+
+            // Position in output rect (accounting for output offset)
+            const int dst_x = sprite_local_x - output_offset.x;
+            const int dst_y = sprite_local_y - output_offset.y;
 
             // Skip if outside destination rect
-            if( dst_local_x < 0 || dst_local_x >= dstRect.w ||
-                dst_local_y < 0 || dst_local_y >= dstRect.h ) {
+            if( dst_x < 0 || dst_x >= dstRect.w || dst_y < 0 || dst_y >= dstRect.h ) {
                 continue;
             }
 
@@ -928,15 +943,15 @@ static void apply_uv_remap(
 
             // Alpha=0 means render transparent
             if( uv_a == 0 ) {
-                set_pixel_rgba( dst, dst_local_x + dstRect.x, dst_local_y + dstRect.y, 0, 0, 0, 0 );
+                set_pixel_rgba( dst, dst_x + dstRect.x, dst_y + dstRect.y, 0, 0, 0, 0 );
                 continue;
             }
 
             int src_x, src_y;
             if( offset_mode ) {
-                // Offset mode: 127 = neutral, apply offset from current position
-                src_x = dst_local_x + ( static_cast<int>( uv_r ) - 127 );
-                src_y = dst_local_y + ( static_cast<int>( uv_g ) - 127 );
+                // Offset mode: 127 = neutral, apply offset from sprite-local position
+                src_x = sprite_local_x + ( static_cast<int>( uv_r ) - 127 );
+                src_y = sprite_local_y + ( static_cast<int>( uv_g ) - 127 );
             } else {
                 // Normalized mode: UV maps to modifier bounds, then to sprite coords (G inverted)
                 int uv_target_x = uv_r * uv_modifier->w / 256;
@@ -948,7 +963,7 @@ static void apply_uv_remap(
             }
 
             if( src_x < 0 || src_x >= srcRect.w || src_y < 0 || src_y >= srcRect.h ) {
-                set_pixel_rgba( dst, dst_local_x + dstRect.x, dst_local_y + dstRect.y, 0, 0, 0, 0 );
+                set_pixel_rgba( dst, dst_x + dstRect.x, dst_y + dstRect.y, 0, 0, 0, 0 );
             } else {
                 Uint8 sr, sg, sb, sa;
                 get_pixel_rgba( src_copy.get(), src_x, src_y, sr, sg, sb, sa );
@@ -959,7 +974,7 @@ static void apply_uv_remap(
                     sb = c.b;
                     sa = c.a;
                 }
-                set_pixel_rgba( dst, dst_local_x + dstRect.x, dst_local_y + dstRect.y, sr, sg, sb, sa );
+                set_pixel_rgba( dst, dst_x + dstRect.x, dst_y + dstRect.y, sr, sg, sb, sa );
             }
         }
     }
@@ -968,19 +983,22 @@ static void apply_uv_remap(
     for( int y = 0; y < srcRect.h; ++y ) {
         for( int x = 0; x < srcRect.w; ++x ) {
             // Position relative to standard tile origin
-            const int rel_x = x + sprite_offset.x;
-            const int rel_y = y + sprite_offset.y;
+            const int tile_rel_x = x + sprite_offset.x;
+            const int tile_rel_y = y + sprite_offset.y;
 
             // Position within UV modifier surface
-            const int uv_check_x = rel_x - uv_modifier_offset.x;
-            const int uv_check_y = rel_y - uv_modifier_offset.y;
+            const int uv_check_x = tile_rel_x - uv_modifier_offset.x;
+            const int uv_check_y = tile_rel_y - uv_modifier_offset.y;
 
             const bool in_uv_bounds = uv_check_x >= 0 && uv_check_x < uv_modifier->w &&
                                       uv_check_y >= 0 && uv_check_y < uv_modifier->h;
 
             if( !in_uv_bounds ) {
                 // Outside UV bounds: pass-through original pixel
-                if( x < dstRect.w && y < dstRect.h ) {
+                // Map sprite-local (x, y) to output position
+                const int dst_x = x - output_offset.x;
+                const int dst_y = y - output_offset.y;
+                if( dst_x >= 0 && dst_x < dstRect.w && dst_y >= 0 && dst_y < dstRect.h ) {
                     Uint8 sr, sg, sb, sa;
                     get_pixel_rgba( src_copy.get(), x, y, sr, sg, sb, sa );
                     if( color_func && sa > 0 ) {
@@ -990,7 +1008,7 @@ static void apply_uv_remap(
                         sb = c.b;
                         sa = c.a;
                     }
-                    set_pixel_rgba( dst, x + dstRect.x, y + dstRect.y, sr, sg, sb, sa );
+                    set_pixel_rgba( dst, dst_x + dstRect.x, dst_y + dstRect.y, sr, sg, sb, sa );
                 }
             }
         }
@@ -1087,8 +1105,8 @@ bool tileset_loader::copy_surface_to_dynamic_atlas(
         }
 
         const auto tex_key = tileset_lookup_key{ index, TILESET_NO_MASK, tileset_fx_type::none, TILESET_NO_COLOR, TILESET_NO_WARP, point_zero };
-        auto& [at_tex, at_rect] = atl_tex;
-        ts.tile_lookup.emplace( tex_key, texture( std::move( at_tex ), at_rect ) );
+        auto &[at_tex, at_rect] = atl_tex;
+        ts.tile_lookup.emplace( tex_key, tileset::tile_lookup_entry{ texture( std::move( at_tex ), at_rect ), point_zero } );
     }
     sdl_restore_render_state( renderer.get(), state );
 
@@ -1188,7 +1206,7 @@ static void apply_surf_blend_effect(
     }
 }
 
-const texture *tileset::get_or_default( const int sprite_index,
+texture_result tileset::get_or_default( const int sprite_index,
                                         const int mask_index,
                                         const tileset_fx_type &type,
                                         const SDL_Color &color,
@@ -1205,19 +1223,20 @@ const texture *tileset::get_or_default( const int sprite_index,
 
     if( g->display_overlay_state( ACTION_DISPLAY_TILES_NO_VFX ) ) {
         const auto base_tex_it = tile_lookup.find( base_tex_key );
-        return base_tex_it == tile_lookup.end()
-               ? nullptr
-               : &base_tex_it->second;
+        if( base_tex_it == tile_lookup.end() ) {
+            return { nullptr, point_zero };
+        }
+        return { &base_tex_it->second.tex, base_tex_it->second.warp_offset };
     }
 
     const auto mod_tex_it = tile_lookup.find( mod_tex_key );
     if( mod_tex_it != tile_lookup.end() ) {
-        return &mod_tex_it->second;
+        return { &mod_tex_it->second.tex, mod_tex_it->second.warp_offset };
     }
 
     const auto base_tex_it = tile_lookup.find( base_tex_key );
     if( base_tex_it == tile_lookup.end() ) {
-        return nullptr;
+        return { nullptr, point_zero };
     }
 
     const auto mask_tex_it = tile_lookup.find( mask_tex_key );
@@ -1233,24 +1252,101 @@ const texture *tileset::get_or_default( const int sprite_index,
         const auto &r = get_sdl_renderer();
         const auto rp = r.get();
 
-        const texture &base_tex = base_tex_it->second;
-        const texture *mask_tex = ( mask_tex_it != tile_lookup.end() ) ? &mask_tex_it->second : nullptr;
+        const texture &base_tex = base_tex_it->second.tex;
+        const texture *mask_tex = ( mask_tex_it != tile_lookup.end() ) ? &mask_tex_it->second.tex : nullptr;
 
         const auto [spr_w, spr_h] = base_tex.dimension();
 
-        // Use 2x3 grid layout:
-        // Row 0: [source][mask]
-        // Row 1: [tinted][vfx-applied]
-        // Row 2: [warped][final]
-        const auto [st_tex, st_surf, st_sub_rect ] =
-            texture_atlas()->get_staging_area( spr_w * 2, spr_h * 3 );
+        // Calculate output bounds based on UV warp (if present)
+        // The output may be larger than the sprite if the UV warp extends beyond sprite bounds
+        int out_w = spr_w;
+        int out_h = spr_h;
+        point warp_output_offset = point_zero;  // Offset of output relative to sprite origin
+
+        if( warp_hash != TILESET_NO_WARP ) {
+            auto [warp_surf, warp_offset, offset_mode] = get_warp_surface( warp_hash );
+            if( warp_surf ) {
+                // Calculate the bounds of the output in sprite-local coordinates
+                // We need to scan the UV surface to find where pixels actually end up
+                // In offset mode, UV values can shift pixels beyond the UV modifier's physical bounds
+
+                // Start with sprite bounds as baseline
+                int min_x = 0;
+                int min_y = 0;
+                int max_x = spr_w;
+                int max_y = spr_h;
+
+                if( SDL_MUSTLOCK( warp_surf ) ) {
+                    SDL_LockSurface( warp_surf );
+                }
+
+                // Scan UV surface to find actual output bounds
+                for( int uv_y = 0; uv_y < warp_surf->h; ++uv_y ) {
+                    for( int uv_x = 0; uv_x < warp_surf->w; ++uv_x ) {
+                        Uint8 uv_r, uv_g, uv_b, uv_a;
+                        get_pixel_rgba( warp_surf, uv_x, uv_y, uv_r, uv_g, uv_b, uv_a );
+
+                        // Skip transparent pixels (they don't contribute to output)
+                        if( uv_a == 0 ) {
+                            continue;
+                        }
+
+                        // Calculate where this UV pixel renders in sprite-local coordinates
+                        const int tile_rel_x = warp_offset.x + uv_x;
+                        const int tile_rel_y = warp_offset.y + uv_y;
+                        const int sprite_local_x = tile_rel_x - sprite_offset.x;
+                        const int sprite_local_y = tile_rel_y - sprite_offset.y;
+
+                        // Check if this pixel references a valid source pixel
+                        int src_x, src_y;
+                        if( offset_mode ) {
+                            src_x = sprite_local_x + ( static_cast<int>( uv_r ) - 127 );
+                            src_y = sprite_local_y + ( static_cast<int>( uv_g ) - 127 );
+                        } else {
+                            int uv_target_x = uv_r * warp_surf->w / 256;
+                            int uv_target_y = ( 255 - uv_g ) * warp_surf->h / 256;
+                            int target_rel_x = warp_offset.x + uv_target_x;
+                            int target_rel_y = warp_offset.y + uv_target_y;
+                            src_x = target_rel_x - sprite_offset.x;
+                            src_y = target_rel_y - sprite_offset.y;
+                        }
+
+                        // If this UV pixel references a valid source, it will render at sprite_local position
+                        if( src_x >= 0 && src_x < spr_w && src_y >= 0 && src_y < spr_h ) {
+                            min_x = std::min( min_x, sprite_local_x );
+                            min_y = std::min( min_y, sprite_local_y );
+                            max_x = std::max( max_x, sprite_local_x + 1 );
+                            max_y = std::max( max_y, sprite_local_y + 1 );
+                        }
+                    }
+                }
+
+                if( SDL_MUSTLOCK( warp_surf ) ) {
+                    SDL_UnlockSurface( warp_surf );
+                }
+
+                out_w = max_x - min_x;
+                out_h = max_y - min_y;
+                warp_output_offset = point( min_x, min_y );
+            }
+        }
+
+        // Allocate staging area for the processing pipeline
+        // Row 0: [source (spr_w x spr_h)][mask (spr_w x spr_h)]
+        // Row 1: [tinted (spr_w x spr_h)][vfx (spr_w x spr_h)]
+        // Row 2: [warped (out_w x out_h)] - may be larger than sprite
+        // Row 3: [final (out_w x out_h)]
+        const int staging_w = std::max( spr_w * 2, out_w );
+        const int staging_h = spr_h * 2 + out_h * 2;
+        const auto [st_tex, st_surf, st_sub_rect] =
+            texture_atlas()->get_staging_area( staging_w, staging_h );
 
         const auto st_sub_rect_source = SDL_Rect{ st_sub_rect.x + 0, st_sub_rect.y + 0, spr_w, spr_h };
         const auto st_sub_rect_mask = SDL_Rect{ st_sub_rect.x + spr_w, st_sub_rect.y + 0, spr_w, spr_h };
         const auto st_sub_rect_tinted = SDL_Rect{ st_sub_rect.x + 0, st_sub_rect.y + spr_h, spr_w, spr_h };
         const auto st_sub_rect_vfx = SDL_Rect{ st_sub_rect.x + spr_w, st_sub_rect.y + spr_h, spr_w, spr_h };
-        const auto st_sub_rect_warped = SDL_Rect{ st_sub_rect.x + 0, st_sub_rect.y + spr_h * 2, spr_w, spr_h };
-        const auto st_sub_rect_final = SDL_Rect{ st_sub_rect.x + spr_w, st_sub_rect.y + spr_h * 2, spr_w, spr_h };
+        const auto st_sub_rect_warped = SDL_Rect{ st_sub_rect.x + 0, st_sub_rect.y + spr_h * 2, out_w, out_h };
+        const auto st_sub_rect_final = SDL_Rect{ st_sub_rect.x + 0, st_sub_rect.y + spr_h * 2 + out_h, out_w, out_h };
 
         const auto state = sdl_save_render_state( rp );
 
@@ -1282,17 +1378,22 @@ const texture *tileset::get_or_default( const int sprite_index,
 
         // Apply UV warp if specified
         SDL_Rect final_src_rect = st_sub_rect_vfx;
+        int final_w = spr_w;
+        int final_h = spr_h;
         if( warp_hash != TILESET_NO_WARP ) {
             auto [warp_surf, warp_offset, offset_mode] = get_warp_surface( warp_hash );
             if( warp_surf ) {
                 // Apply UV remapping from vfx result to warped slot
+                // Pass the warp_output_offset so apply_uv_remap knows where to place pixels
                 apply_uv_remap( st_surf, st_sub_rect_warped,
                                 st_surf, st_sub_rect_vfx,
                                 warp_surf, warp_offset, offset_mode,
-                                sprite_offset,  // tile.offset for UV coordinate mapping
+                                sprite_offset, warp_output_offset,
                                 tile_width, tile_height,
                                 nullptr );  // color function already applied
                 final_src_rect = st_sub_rect_warped;
+                final_w = out_w;
+                final_h = out_h;
             }
         }
 
@@ -1306,7 +1407,7 @@ const texture *tileset::get_or_default( const int sprite_index,
         if( existing.has_value() ) {
             atl_tex = std::move( existing.value() );
         } else {
-            atl_tex = tileset_atlas->allocate_sprite( spr_w, spr_h );
+            atl_tex = tileset_atlas->allocate_sprite( final_w, final_h );
             tileset_atlas->id_assign( surf_hash, atl_tex );
 
             SDL_UpdateTexture( st_tex, nullptr, st_surf->pixels, st_surf->pitch );
@@ -1315,40 +1416,33 @@ const texture *tileset::get_or_default( const int sprite_index,
         }
 
         sdl_restore_render_state( rp, state );
-        auto& [at_tex, at_rect] = atl_tex;
-        auto [entry, ok] = tile_lookup.emplace( mod_tex_key, texture( std::move( at_tex ), at_rect ) );
-        return &entry->second;
+        auto &[at_tex, at_rect] = atl_tex;
+        auto [entry, ok] = tile_lookup.emplace( mod_tex_key,
+                                                tile_lookup_entry{ texture( std::move( at_tex ), at_rect ), warp_output_offset } );
+        return { &entry->second.tex, entry->second.warp_offset };
     }
 #else
     if( sprite_index >= tile_values.size() ) {
-        return nullptr;
+        return { nullptr, point_zero };
     }
 
     switch( type ) {
         case tileset_fx_type::shadow:
-            return &shadow_tile_values[sprite_index];
-            break;
+            return { &shadow_tile_values[sprite_index], point_zero };
         case tileset_fx_type::night:
-            return &night_tile_values[sprite_index];
-            break;
+            return { &night_tile_values[sprite_index], point_zero };
         case tileset_fx_type::overexposed:
-            return &overexposed_tile_values[sprite_index];
-            break;
+            return { &overexposed_tile_values[sprite_index], point_zero };
         case tileset_fx_type::underwater:
-            return &underwater_tile_values[sprite_index];
-            break;
+            return { &underwater_tile_values[sprite_index], point_zero };
         case tileset_fx_type::underwater_dark:
-            return &underwater_dark_tile_values[sprite_index];
-            break;
+            return { &underwater_dark_tile_values[sprite_index], point_zero };
         case tileset_fx_type::memory:
-            return &memory_tile_values[sprite_index];
-            break;
+            return { &memory_tile_values[sprite_index], point_zero };
         case tileset_fx_type::z_overlay:
-            return &z_overlay_values[sprite_index];
-            break;
+            return { &z_overlay_values[sprite_index], point_zero };
         default:
-            return &tile_values[sprite_index];
-            break;
+            return { &tile_values[sprite_index], point_zero };
     }
 #endif
 }
@@ -1368,7 +1462,7 @@ std::tuple<bool, SDL_Surface *, SDL_Rect> tileset::get_sprite_surface( int sprit
     // Note: Caller must ensure readback_load() has been called on the atlas
     // before calling this function. This is done once per character in
     // draw_entity_with_overlays to avoid repeated GPU->CPU transfers.
-    return tileset_atlas->readback_find( tex_it->second );
+    return tileset_atlas->readback_find( tex_it->second.tex );
 }
 
 void tileset::ensure_readback_loaded() const
@@ -1378,8 +1472,8 @@ void tileset::ensure_readback_loaded() const
     }
 }
 
-size_t tileset::register_warp_surface( SDL_Surface_Ptr surface, point offset,
-                                       bool offset_mode ) const
+size_t tileset::register_warp_surface( SDL_Surface_Ptr surface, const point offset,
+                                       const bool offset_mode ) const
 {
     // Compute hash of the surface content
     const size_t hash = get_surface_hash( surface.get(), nullptr );
@@ -1396,7 +1490,7 @@ size_t tileset::register_warp_surface( SDL_Surface_Ptr surface, point offset,
     return hash;
 }
 
-std::tuple<SDL_Surface *, point, bool> tileset::get_warp_surface( size_t warp_hash ) const
+std::tuple<SDL_Surface *, point, bool> tileset::get_warp_surface( const size_t warp_hash ) const
 {
     const auto it = warp_cache.find( warp_hash );
     if( it == warp_cache.end() ) {
@@ -2387,12 +2481,22 @@ void tileset_loader::load_state_modifiers( const JsonObject &config )
             group.tiles[tile.state_id] = std::move( tile );
         }
 
-        // Check if a group with this ID already exists (from base tileset or earlier mod)
-        // If so, replace it; otherwise add as new. This allows mod tilesets to override
-        // state modifiers from the base tileset.
+        // Normalize filter lists (sort and deduplicate) for consistent comparison
+        std::sort( group.whitelist.begin(), group.whitelist.end() );
+        group.whitelist.erase( std::unique( group.whitelist.begin(), group.whitelist.end() ),
+                               group.whitelist.end() );
+        std::sort( group.blacklist.begin(), group.blacklist.end() );
+        group.blacklist.erase( std::unique( group.blacklist.begin(), group.blacklist.end() ),
+                               group.blacklist.end() );
+
+        // Check if a group with this ID and same filter configuration already exists.
+        // Groups with the same ID but different whitelist/blacklist are distinct entries,
+        // allowing different UV modifiers for different overlay types (e.g., wielded vs worn).
         auto existing = std::find_if( ts.state_modifiers.begin(), ts.state_modifiers.end(),
         [&group]( const state_modifier_group & g ) {
-            return g.group_id == group.group_id;
+            return g.group_id == group.group_id
+                   && g.whitelist == group.whitelist
+                   && g.blacklist == group.blacklist;
         } );
 
         if( existing != ts.state_modifiers.end() ) {
@@ -3672,8 +3776,8 @@ bool cata_tiles::draw_sprite_at( const tile_type &tile, point p,
     const size_t effective_warp_hash = ( warp_hash == TILESET_NO_WARP ) ? active_warp_hash : warp_hash;
 
     // Pass warp_hash and tile.offset to get_or_default - UV remapping is now handled there
-    const texture *sprite_tex = tileset_ptr->get_or_default( tile_idx, mask_idx, fx_type, tint_color,
-                                effective_warp_hash, tile.offset );
+    const auto [sprite_tex, warp_offset] = tileset_ptr->get_or_default( tile_idx, mask_idx, fx_type,
+                                           tint_color, effective_warp_hash, tile.offset );
 
     if( !sprite_tex ) {
         return true;
@@ -3685,10 +3789,15 @@ bool cata_tiles::draw_sprite_at( const tile_type &tile, point p,
 
     const int height_3d_val = height_3d ? *height_3d : 0;
 
+    // Apply warp_offset to destination position
+    // warp_offset is in sprite-local coordinates, scale to screen coordinates
+    const int warp_offset_screen_x = warp_offset.x * tile_width / tileset_ptr->get_tile_width();
+    const int warp_offset_screen_y = warp_offset.y * tile_height / tileset_ptr->get_tile_height();
+
     SDL_Rect destination;
-    destination.x = p.x + tile.offset.x * tile_width / tileset_ptr->get_tile_width();
+    destination.x = p.x + tile.offset.x * tile_width / tileset_ptr->get_tile_width() + warp_offset_screen_x;
     destination.y = p.y + ( tile.offset.y - height_3d_val ) * tile_width /
-                    tileset_ptr->get_tile_width();
+                    tileset_ptr->get_tile_width() + warp_offset_screen_y;
     destination.w = width * tile_width / tileset_ptr->get_tile_width();
     destination.h = height * tile_height / tileset_ptr->get_tile_height();
 
@@ -3700,13 +3809,13 @@ bool cata_tiles::draw_sprite_at( const tile_type &tile, point p,
         ret = sprite_tex->render_copy_ex( renderer, &destination, rotation, nullptr, flip );
 
         if( !static_z_effect && overlay_count > 0 ) {
-            const auto overlay =
+            const auto [overlay_tex, overlay_warp_offset] =
                 tileset_ptr->get_or_default(
                     tile_idx, TILESET_NO_MASK, tileset_fx_type::z_overlay, TILESET_NO_COLOR,
                     effective_warp_hash, tile.offset );
-            if( overlay ) {
-                overlay->set_alpha_mod( std::min( 192, overlay_count ) );
-                overlay->render_copy_ex( renderer, &destination, rotation, nullptr, flip );
+            if( overlay_tex ) {
+                overlay_tex->set_alpha_mod( std::min( 192, overlay_count ) );
+                overlay_tex->render_copy_ex( renderer, &destination, rotation, nullptr, flip );
             }
         }
         return ret;
@@ -4660,7 +4769,7 @@ static bool group_applies_to_overlay( const state_modifier_group &group,
                                       const std::vector<std::string> &global_blacklist )
 {
     // Per-group filters override global if either list is non-empty
-    bool group_has_filters = !group.whitelist.empty() || !group.blacklist.empty();
+    const bool group_has_filters = !group.whitelist.empty() || !group.blacklist.empty();
     const auto &whitelist = group_has_filters ? group.whitelist : global_whitelist;
     const auto &blacklist = group_has_filters ? group.blacklist : global_blacklist;
 
@@ -4678,7 +4787,7 @@ static bool group_applies_to_overlay( const state_modifier_group &group,
 }
 
 std::tuple<SDL_Surface_Ptr, point> cata_tiles::build_composite_uv_modifier( const Character &ch,
-        int width, int height, const std::vector<bool> &group_filter )
+        const int width, const int height, const std::vector<bool> &group_filter )
 {
 #if !defined(DYNAMIC_ATLAS)
     // UV modifier system requires dynamic atlas for sprite surface access
@@ -4811,7 +4920,7 @@ std::tuple<SDL_Surface_Ptr, point> cata_tiles::build_composite_uv_modifier( cons
 }
 
 std::tuple<SDL_Surface_Ptr, point> cata_tiles::build_composite_uv_modifier( const Character &ch,
-        int width, int height )
+        const int width, const int height )
 {
     // No filter = include all groups
     return build_composite_uv_modifier( ch, width, height, {} );
@@ -4837,30 +4946,50 @@ void cata_tiles::draw_entity_with_overlays( const Character &ch, const tripoint 
     // Maps filter signature (vector<bool>) to registered warp hash
     std::map<std::vector<bool>, size_t> signature_to_hash;
 
-    // Build the "full" composite (all groups) for the base character sprite
+    // Build composite for the base character sprite (not an overlay).
+    // Only include groups without a whitelist, since the base sprite won't match any overlay prefix.
+    // Groups with only a blacklist still apply (blacklist filters out overlays, not the base).
     size_t base_warp_hash = TILESET_NO_WARP;
-    std::vector<bool> full_signature( state_modifiers.size(), true );
+    std::vector<bool> base_signature( state_modifiers.size(), false );
+    for( size_t i = 0; i < state_modifiers.size(); ++i ) {
+        // Base sprite applies if group has no whitelist (whitelist requires matching an overlay prefix)
+        base_signature[i] = state_modifiers[i].whitelist.empty();
+    }
 
     if( use_state_modifiers ) {
 #if defined(DYNAMIC_ATLAS)
         tileset_ptr->ensure_readback_loaded();
-        auto [uv_surface, uv_offset] = build_composite_uv_modifier(
-                                           ch, tileset_ptr->get_tile_width(), tileset_ptr->get_tile_height() );
-        if( uv_surface ) {
-            // Determine offset mode from the first matching state modifier group
-            bool offset_mode = true;
-            for( const auto &group : state_modifiers ) {
-                auto state = get_character_state_for_group( ch, group.group_id );
-                if( state && group.tiles.count( *state ) ) {
-                    offset_mode = group.use_offset_mode;
-                    break;
-                }
+
+        // Check if any groups apply to the base sprite
+        bool any_base_groups = false;
+        for( bool applies : base_signature ) {
+            if( applies ) {
+                any_base_groups = true;
+                break;
             }
-            // Register the warp surface with the tileset and get its content hash
-            base_warp_hash = tileset_ptr->register_warp_surface(
-                                 std::move( uv_surface ), uv_offset, offset_mode );
-            signature_to_hash[full_signature] = base_warp_hash;
         }
+
+        if( any_base_groups ) {
+            auto [uv_surface, uv_offset] = build_composite_uv_modifier(
+                                               ch, tileset_ptr->get_tile_width(), tileset_ptr->get_tile_height(), base_signature );
+            if( uv_surface ) {
+                // Determine offset mode from the first matching state modifier group
+                bool offset_mode = true;
+                for( size_t i = 0; i < state_modifiers.size(); ++i ) {
+                    if( base_signature[i] ) {
+                        auto state = get_character_state_for_group( ch, state_modifiers[i].group_id );
+                        if( state && state_modifiers[i].tiles.count( *state ) ) {
+                            offset_mode = state_modifiers[i].use_offset_mode;
+                            break;
+                        }
+                    }
+                }
+                // Register the warp surface with the tileset and get its content hash
+                base_warp_hash = tileset_ptr->register_warp_surface(
+                                     std::move( uv_surface ), uv_offset, offset_mode );
+            }
+        }
+        signature_to_hash[base_signature] = base_warp_hash;
 #endif
     }
     active_warp_hash = base_warp_hash;
@@ -4915,50 +5044,45 @@ void cata_tiles::draw_entity_with_overlays( const Character &ch, const tripoint 
                                                state_modifiers[i], overlay_id, global_whitelist, global_blacklist );
                 }
 
-                // Check if this matches the full signature (all groups apply)
-                if( overlay_signature == full_signature ) {
-                    active_warp_hash = base_warp_hash;
+                // Look up or build composite for this signature
+                auto it = signature_to_hash.find( overlay_signature );
+                if( it != signature_to_hash.end() ) {
+                    active_warp_hash = it->second;
                 } else {
-                    // Look up or build composite for this signature
-                    auto it = signature_to_hash.find( overlay_signature );
-                    if( it != signature_to_hash.end() ) {
-                        active_warp_hash = it->second;
-                    } else {
-                        // Check if any groups apply
-                        bool any_apply = false;
-                        for( bool applies : overlay_signature ) {
-                            if( applies ) {
-                                any_apply = true;
-                                break;
-                            }
+                    // Check if any groups apply
+                    bool any_apply = false;
+                    for( bool applies : overlay_signature ) {
+                        if( applies ) {
+                            any_apply = true;
+                            break;
                         }
+                    }
 
-                        if( !any_apply ) {
-                            active_warp_hash = TILESET_NO_WARP;
-                        } else {
-                            auto [surf, off] = build_composite_uv_modifier(
-                                                   ch, tileset_ptr->get_tile_width(),
-                                                   tileset_ptr->get_tile_height(), overlay_signature );
-                            if( surf ) {
-                                // Determine offset mode from first matching group in this signature
-                                bool offset_mode = true;
-                                for( size_t i = 0; i < state_modifiers.size(); ++i ) {
-                                    if( overlay_signature[i] ) {
-                                        auto state = get_character_state_for_group( ch, state_modifiers[i].group_id );
-                                        if( state && state_modifiers[i].tiles.count( *state ) ) {
-                                            offset_mode = state_modifiers[i].use_offset_mode;
-                                            break;
-                                        }
+                    if( !any_apply ) {
+                        active_warp_hash = TILESET_NO_WARP;
+                    } else {
+                        auto [surf, off] = build_composite_uv_modifier(
+                                               ch, tileset_ptr->get_tile_width(),
+                                               tileset_ptr->get_tile_height(), overlay_signature );
+                        if( surf ) {
+                            // Determine offset mode from first matching group in this signature
+                            bool offset_mode = true;
+                            for( size_t i = 0; i < state_modifiers.size(); ++i ) {
+                                if( overlay_signature[i] ) {
+                                    auto state = get_character_state_for_group( ch, state_modifiers[i].group_id );
+                                    if( state && state_modifiers[i].tiles.count( *state ) ) {
+                                        offset_mode = state_modifiers[i].use_offset_mode;
+                                        break;
                                     }
                                 }
-                                active_warp_hash = tileset_ptr->register_warp_surface(
-                                                       std::move( surf ), off, offset_mode );
-                            } else {
-                                active_warp_hash = TILESET_NO_WARP;
                             }
+                            active_warp_hash = tileset_ptr->register_warp_surface(
+                                                   std::move( surf ), off, offset_mode );
+                        } else {
+                            active_warp_hash = TILESET_NO_WARP;
                         }
-                        signature_to_hash[overlay_signature] = active_warp_hash;
                     }
+                    signature_to_hash[overlay_signature] = active_warp_hash;
                 }
 #endif
             }
@@ -5021,7 +5145,7 @@ void tileset_loader::ensure_default_item_highlight()
         TILESET_NO_COLOR,
         TILESET_NO_WARP,
         point_zero
-    }, texture( tex, rect ) );
+    }, tileset::tile_lookup_entry{ texture( tex, rect ), point_zero } );
 #else
     const Uint8 highlight_alpha = 127;
 

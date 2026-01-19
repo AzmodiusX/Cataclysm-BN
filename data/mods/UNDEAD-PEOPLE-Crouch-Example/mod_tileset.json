@@ -13,23 +13,18 @@
         "tiles": [  ],
         "state-modifiers": [
           {
-            "id": "downed",
-            "override": true,
+            "id": "movement_mode",
+            "override": false,
             "use_offset": false,
-            "tiles": [ { "id": "normal", "fg": null }, { "id": "downed", "fg": 4 } ]
-          },
-          {
-            "id": "lying_down",
-            "override": true,
-            "use_offset": false,
-            "tiles": [ { "id": "normal", "fg": null }, { "id": "lying", "fg": 5 } ]
+			"blacklist": ["wielded_"],
+            "tiles": [ { "id": "walk", "fg": 1 }, { "id": "crouch", "fg": 2 }, { "id": "run", "fg": 1 } ]
           },
           {
             "id": "movement_mode",
             "override": false,
             "use_offset": false,
-			"blacklist": ["wielded_"],
-            "tiles": [ { "id": "walk", "fg": 1 }, { "id": "crouch", "fg": 2 }, { "id": "run", "fg": null } ]
+			"whitelist": ["wielded_"],
+            "tiles": [ { "id": "walk", "fg": 1 }, { "id": "crouch", "fg": 3 }, { "id": "run", "fg": 1 } ]
           }
         ]
       }

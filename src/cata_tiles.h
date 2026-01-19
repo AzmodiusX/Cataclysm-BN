@@ -188,6 +188,12 @@ enum class tileset_fx_type {
 
 constexpr size_t TILESET_NO_WARP = 0;  // 0 hash means no warp
 
+// Result from texture lookup, includes warp-induced offset for rendering
+struct texture_result {
+    const texture *tex = nullptr;
+    point warp_offset;  // Additional offset caused by UV warp extending beyond sprite bounds
+};
+
 struct tileset_lookup_key {
     int sprite_index;
     int mask_index;
@@ -246,7 +252,12 @@ class tileset
 
 #if defined(DYNAMIC_ATLAS)
         std::unique_ptr<dynamic_atlas> tileset_atlas;
-        mutable std::unordered_map<tileset_lookup_key, texture> tile_lookup;
+        // Stores texture + warp offset for each unique combination of sprite/effects/warp
+        struct tile_lookup_entry {
+            texture tex;
+            point warp_offset;  // Offset induced by UV warp extending beyond sprite bounds
+        };
+        mutable std::unordered_map<tileset_lookup_key, tile_lookup_entry> tile_lookup;
     public:
         dynamic_atlas *texture_atlas() const { return tileset_atlas.get(); }
     private:
@@ -300,11 +311,11 @@ class tileset
             return tileset_id;
         }
 
-        const texture *get_or_default( int sprite_index, int mask_index,
+        texture_result get_or_default( const int sprite_index, const int mask_index,
                                        const tileset_fx_type &type,
                                        const SDL_Color &color,
-                                       size_t warp_hash = TILESET_NO_WARP,
-                                       point sprite_offset = point_zero ) const;
+                                       const size_t warp_hash = TILESET_NO_WARP,
+                                       const point sprite_offset = point_zero ) const;
 
 
         tile_type &create_tile_type( const std::string &id, tile_type &&new_tile_type );
@@ -352,10 +363,10 @@ class tileset
          * @param offset_mode True for offset mode, false for normalized mode
          * @return The warp_hash to use with get_or_default()
          */
-        size_t register_warp_surface( SDL_Surface_Ptr surface, point offset, bool offset_mode ) const;
+        size_t register_warp_surface( SDL_Surface_Ptr surface, const point offset, const bool offset_mode ) const;
 
         /** Get a registered warp surface by hash. Returns nullptr if not found. */
-        std::tuple<SDL_Surface *, point, bool> get_warp_surface( size_t warp_hash ) const;
+        std::tuple<SDL_Surface *, point, bool> get_warp_surface( const size_t warp_hash ) const;
 
         /** Clear all cached warp surfaces (call at start of new character render). */
         void clear_warp_cache() const;
@@ -785,9 +796,9 @@ class cata_tiles
          *  @param group_filter Optional filter: if non-empty, only include groups where filter[i] is true.
          */
         std::tuple<SDL_Surface_Ptr, point> build_composite_uv_modifier( const Character &ch,
-                int width, int height, const std::vector<bool> &group_filter );
+                const int width, const int height, const std::vector<bool> &group_filter );
         std::tuple<SDL_Surface_Ptr, point> build_composite_uv_modifier( const Character &ch,
-                int width, int height );
+                const int width, const int height );
 
         bool draw_item_highlight( const tripoint &pos );
 

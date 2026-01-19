@@ -447,12 +447,14 @@ State modifiers are defined in the `"state-modifiers"` array within a tileset's 
 
 ### Fields
 
-| Field        | Type   | Description                                                              |
-| ------------ | ------ | ------------------------------------------------------------------------ |
-| `id`         | string | Modifier group identifier. Must match a supported group (see below).     |
-| `override`   | bool   | If `true`, when this state is active, lower-priority groups are skipped. |
-| `use_offset` | bool   | `true` for offset mode, `false` for normalized mode. Default: `true`.    |
-| `tiles`      | array  | State-to-sprite mappings for this group.                                 |
+| Field       | Type   | Description                                                              |
+| ----------- | ------ | ------------------------------------------------------------------------ |
+| `id`        | string | Modifier group identifier. Must match a supported group (see below).     |
+| `override`  | bool   | If `true`, when this state is active, lower-priority groups are skipped. |
+| `use_offset`| bool   | `true` for offset mode, `false` for normalized mode. Default: `true`.    |
+| `tiles`     | array  | State-to-sprite mappings for this group.                                 |
+| `whitelist` | array  | Optional. Only apply to overlays matching these prefixes.                |
+| `blacklist` | array  | Optional. Never apply to overlays matching these prefixes.               |
 
 Each entry in `tiles`:
 
@@ -473,6 +475,35 @@ Each entry in `tiles`:
 ### Priority and Overrides
 
 Modifier groups are processed in array order (index 0 = highest priority). When `"override": true` is set on a group and its state has an active modifier (non-null `fg`), all lower-priority groups are skipped. This allows, for example, a "downed" state to completely replace movement-based modifications.
+
+### Overlay Filtering
+
+Per-group `whitelist` and `blacklist` arrays control which overlays a modifier affects. Overlays are matched by prefix (e.g., `"wielded_"` matches `"wielded_katana"`). If a group specifies either filter, it overrides global filters. Common prefixes include `wielded_`, `worn_`, `mutation_`, `effect_`, and `bionic_`.
+
+```json
+{
+  "id": "movement_mode",
+  "blacklist": ["wielded_"],
+  "tiles": [...]
+}
+```
+
+Multiple groups can share the same `id` if they have different filters, allowing different UV modifiers for different overlay types. When doing this, **filters must be mutually exclusive**—each overlay should match at most one group per ID. Overlapping filters cause duplicate rendering artifacts.
+
+```json
+{
+  "id": "movement_mode",
+  "blacklist": ["wielded_"],
+  "tiles": [...]
+},
+{
+  "id": "movement_mode",
+  "whitelist": ["wielded_"],
+  "tiles": [...]
+}
+```
+
+**Base sprite behavior:** The base character sprite (skin, eyes, hair, etc.) is not an overlay and has no prefix. Groups with a `whitelist` never apply to the base sprite since it cannot match any prefix. Groups with only a `blacklist` (or no filters) apply to the base sprite normally. To apply different modifiers to the base sprite vs specific overlays, use a blacklist group for the base and a whitelist group for the overlays.
 
 ### Creating UV Modifier Sprites
 
@@ -534,8 +565,7 @@ As an example, if one were to implement facial expressions as a new modifier gro
 
 ### Sprite Bounds
 
-Currently, if a pixel is moved outside it's own sprite's bounds, it is clipped.
-This seems logical in order to prevent stacking modifiers from causing excessive issue, but let us know if this is too limiting.
+Pixels moved outside the original sprite bounds are supported, but there is a rendering limitation: tiles are drawn row by row from top to bottom, so if a warped sprite extends downward into the row below, that portion will be overwritten when the next row's terrain is drawn. Sprites extending upward, left, or right render correctly. This is a fundamental limitation of the tile rendering order.
 
 ### Performance
 
