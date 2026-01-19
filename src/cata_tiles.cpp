@@ -984,7 +984,10 @@ static void apply_uv_remap(
                 get_pixel_rgba( src_copy.get(), x, y, sr, sg, sb, sa );
                 if( color_func && sa > 0 ) {
                     SDL_Color c = color_func( SDL_Color{ sr, sg, sb, sa } );
-                    sr = c.r; sg = c.g; sb = c.b; sa = c.a;
+                    sr = c.r;
+                    sg = c.g;
+                    sb = c.b;
+                    sa = c.a;
                 }
                 set_pixel_rgba( dst, x + dstRect.x, y + dstRect.y, sr, sg, sb, sa );
                 continue;
@@ -1021,7 +1024,10 @@ static void apply_uv_remap(
                 get_pixel_rgba( src_copy.get(), src_x, src_y, sr, sg, sb, sa );
                 if( color_func && sa > 0 ) {
                     SDL_Color c = color_func( SDL_Color{ sr, sg, sb, sa } );
-                    sr = c.r; sg = c.g; sb = c.b; sa = c.a;
+                    sr = c.r;
+                    sg = c.g;
+                    sb = c.b;
+                    sa = c.a;
                 }
                 set_pixel_rgba( dst, x + dstRect.x, y + dstRect.y, sr, sg, sb, sa );
             }
@@ -1410,7 +1416,8 @@ void tileset::ensure_readback_loaded() const
     }
 }
 
-size_t tileset::register_warp_surface( SDL_Surface_Ptr surface, point offset, bool offset_mode ) const
+size_t tileset::register_warp_surface( SDL_Surface_Ptr surface, point offset,
+                                       bool offset_mode ) const
 {
     // Compute hash of the surface content
     const size_t hash = get_surface_hash( surface.get(), nullptr );
@@ -3693,7 +3700,8 @@ bool cata_tiles::draw_sprite_at( const tile_type &tile, point p,
 
     SDL_Rect destination;
     destination.x = p.x + tile.offset.x * tile_width / tileset_ptr->get_tile_width();
-    destination.y = p.y + ( tile.offset.y - height_3d_val ) * tile_width / tileset_ptr->get_tile_width();
+    destination.y = p.y + ( tile.offset.y - height_3d_val ) * tile_width /
+                    tileset_ptr->get_tile_width();
     destination.w = width * tile_width / tileset_ptr->get_tile_width();
     destination.h = height * tile_height / tileset_ptr->get_tile_height();
 

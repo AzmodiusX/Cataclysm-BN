@@ -402,12 +402,14 @@ UV mapping is a technique from 3D graphics where a 2D image controls how another
 State modifiers support two interpretation modes for the UV data:
 
 **Offset Mode** (`"use_offset": true`, default):
+
 - Red/Green values encode displacement relative to neutral (127, 127)
 - Value 127 = no movement, 0 = -127 pixels, 255 = +128 pixels
 - Easy to understand: paint gray (127,127) where no change is needed
 - Displacements from multiple modifiers stack additively
 
 **Normalized Mode** (`"use_offset": false`):
+
 - Red/Green values encode absolute UV coordinates normalized to tile dimensions
 - (0,0) samples bottom-left, (255,255) samples top-right
 - More precise for complex remapping but harder to intuit
@@ -445,28 +447,28 @@ State modifiers are defined in the `"state-modifiers"` array within a tileset's 
 
 ### Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Modifier group identifier. Must match a supported group (see below). |
-| `override` | bool | If `true`, when this state is active, lower-priority groups are skipped. |
-| `use_offset` | bool | `true` for offset mode, `false` for normalized mode. Default: `true`. |
-| `tiles` | array | State-to-sprite mappings for this group. |
+| Field        | Type   | Description                                                              |
+| ------------ | ------ | ------------------------------------------------------------------------ |
+| `id`         | string | Modifier group identifier. Must match a supported group (see below).     |
+| `override`   | bool   | If `true`, when this state is active, lower-priority groups are skipped. |
+| `use_offset` | bool   | `true` for offset mode, `false` for normalized mode. Default: `true`.    |
+| `tiles`      | array  | State-to-sprite mappings for this group.                                 |
 
 Each entry in `tiles`:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | State identifier within the group. |
-| `fg` | int/null | Sprite index for the UV modifier image. `null` means identity (no modification). |
-| `offset` | object | Optional `{"x": n, "y": n}` for oversized modifier sprites. |
+| Field    | Type     | Description                                                                      |
+| -------- | -------- | -------------------------------------------------------------------------------- |
+| `id`     | string   | State identifier within the group.                                               |
+| `fg`     | int/null | Sprite index for the UV modifier image. `null` means identity (no modification). |
+| `offset` | object   | Optional `{"x": n, "y": n}` for oversized modifier sprites.                      |
 
 ### Supported Modifier Groups
 
-| Group ID | States | Description |
-|----------|--------|-------------|
-| `movement_mode` | `walk`, `run`, `crouch` | Character movement stance |
-| `downed` | `normal`, `downed` | Whether character is knocked down |
-| `lying_down` | `normal`, `lying` | Whether character is lying down (sleeping, etc.) |
+| Group ID        | States                  | Description                                      |
+| --------------- | ----------------------- | ------------------------------------------------ |
+| `movement_mode` | `walk`, `run`, `crouch` | Character movement stance                        |
+| `downed`        | `normal`, `downed`      | Whether character is knocked down                |
+| `lying_down`    | `normal`, `lying`       | Whether character is lying down (sleeping, etc.) |
 
 ### Priority and Overrides
 
@@ -482,7 +484,7 @@ Modifier groups are processed in array order (index 0 = highest priority). When 
 
 For a crouch effect, you might paint the lower portion of the modifier with green values < 127 to pull pixels downward, compressing the sprite vertically.
 
--------------------------
+---
 
 #### Method 2; use_offset = false
 
@@ -517,7 +519,7 @@ This is dead simple. There are some small adjustements to the back to lie flatte
 <img src=".\img\uv_lying_down_result.png" width="256" height="256">
 </details>
 
--------------------------
+---
 
 The blue channel is ignored, and alpha 0 makes the pixel transparent.
 

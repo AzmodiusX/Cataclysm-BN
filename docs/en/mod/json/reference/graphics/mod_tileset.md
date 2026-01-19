@@ -74,11 +74,11 @@ State modifiers allow mod tilesets to define or override UV-based sprite modific
 
 The `state-modifiers` array goes inside a `tiles-new` entry alongside `tiles`. Each modifier group requires:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Group identifier (`movement_mode`, `downed`, `lying_down`). |
-| `override` | bool | Skip lower-priority groups when this state is active. |
-| `use_offset` | bool | `true` for offset mode, `false` for normalized UV mode. |
-| `tiles` | array | State-to-sprite mappings. |
+| Field        | Type   | Description                                                 |
+| ------------ | ------ | ----------------------------------------------------------- |
+| `id`         | string | Group identifier (`movement_mode`, `downed`, `lying_down`). |
+| `override`   | bool   | Skip lower-priority groups when this state is active.       |
+| `use_offset` | bool   | `true` for offset mode, `false` for normalized UV mode.     |
+| `tiles`      | array  | State-to-sprite mappings.                                   |
 
 See the [State Modifiers section in Tilesets](./tileset.md#state-modifiers) for full documentation on UV mapping modes and creating modifier sprites.
