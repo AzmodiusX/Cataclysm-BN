@@ -10,7 +10,8 @@ class Character;
 
 /**
  * Returns the active state for a modifier group.
- * Supported: "movement_mode" (walk/run/crouch), "downed", "lying_down".
+ * Supported: "movement_mode" (walk/run/crouch), "downed", "lying_down",
+ *            "activity", "body_size" (tiny/small/normal/large/huge).
  */
 std::optional<std::string> get_character_state_for_group(
     const Character &ch,

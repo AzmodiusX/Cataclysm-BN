@@ -2,6 +2,8 @@
 
 #include "character.h"
 #include "effect.h"
+#include "enum_conversions.h"
+#include "enums.h"
 #include "npc.h"
 #include "player_activity.h"
 #include "type_id.h"
@@ -47,11 +49,30 @@ std::optional<std::string> get_character_state_for_group(
         return "none";
     }
 
+    if( group_id == "body_size" ) {
+        creature_size size = ch.get_size();
+        // Return lowercase version of size name for consistency with other states
+        switch( size ) {
+            case creature_size::tiny:
+                return "tiny";
+            case creature_size::small:
+                return "small";
+            case creature_size::medium:
+                return "medium";
+            case creature_size::large:
+                return "large";
+            case creature_size::huge:
+                return "huge";
+            default:
+                return "medium";
+        }
+    }
+
     // Unknown group_id - return nullopt to indicate it's not supported
     return std::nullopt;
 }
 
 std::vector<std::string> get_supported_modifier_groups()
 {
-    return { "movement_mode", "downed", "lying_down", "activity" };
+    return { "movement_mode", "downed", "lying_down", "activity", "body_size" };
 }
