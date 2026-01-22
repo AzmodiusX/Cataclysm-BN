@@ -657,8 +657,8 @@ static SDL_Surface_Ptr create_identity_uv_surface( int w, int h, bool offset_mod
                 g = 127;
             } else {
                 // Normalized: map coordinates directly (G inverted for bottom-left origin)
-                r = static_cast<Uint8>( w > 0 ? x * 256 / w : 0 );
-                g = static_cast<Uint8>( h > 0 ? 255 - ( y * 256 / h ) : 255 );
+                r = static_cast<Uint8>( w > 1 ? x * 255 / ( w - 1 ) : 0 );
+                g = static_cast<Uint8>( h > 1 ? 255 - y * 255 / ( h - 1 ) : 255 );
             }
             set_pixel_rgba( surf.get(), x, y, r, g, 0, 255 );
         }
@@ -722,8 +722,8 @@ static void chain_uv_modifier(
             } else {
                 // Normalized: the modifier's UV encodes positions relative to its own
                 // dimensions. Convert to composite space (here at origin, so dst=0).
-                int sample_x = mod_r * modifier->w / 256;
-                int sample_y = ( 255 - mod_g ) * modifier->h / 256;
+                int sample_x = modifier->w > 1 ? ( mod_r * ( modifier->w - 1 ) + 127 ) / 255 : 0;
+                int sample_y = modifier->h > 1 ? ( ( 255 - mod_g ) * ( modifier->h - 1 ) + 127 ) / 255 : 0;
                 sample_x = std::clamp( sample_x, 0, composite->w - 1 );
                 sample_y = std::clamp( sample_y, 0, composite->h - 1 );
 
@@ -832,8 +832,8 @@ static void chain_uv_modifier_at(
                 // Normalized: the modifier's UV encodes target positions relative to the
                 // modifier's own coordinate space. Convert to composite space by adding
                 // the destination offset.
-                int sample_x_in_mod = mod_r * modifier->w / 256;
-                int sample_y_in_mod = ( 255 - mod_g ) * modifier->h / 256;
+                int sample_x_in_mod = modifier->w > 1 ? ( mod_r * ( modifier->w - 1 ) + 127 ) / 255 : 0;
+                int sample_y_in_mod = modifier->h > 1 ? ( ( 255 - mod_g ) * ( modifier->h - 1 ) + 127 ) / 255 : 0;
                 int sample_x = dst_x + sample_x_in_mod;
                 int sample_y = dst_y + sample_y_in_mod;
                 sample_x = std::clamp( sample_x, 0, composite->w - 1 );
@@ -954,8 +954,8 @@ static void apply_uv_remap(
                 src_y = sprite_local_y + ( static_cast<int>( uv_g ) - 127 );
             } else {
                 // Normalized mode: UV maps to modifier bounds, then to sprite coords (G inverted)
-                int uv_target_x = uv_r * uv_modifier->w / 256;
-                int uv_target_y = ( 255 - uv_g ) * uv_modifier->h / 256;
+                int uv_target_x = uv_modifier->w > 1 ? ( uv_r * ( uv_modifier->w - 1 ) + 127 ) / 255 : 0;
+                int uv_target_y = uv_modifier->h > 1 ? ( ( 255 - uv_g ) * ( uv_modifier->h - 1 ) + 127 ) / 255 : 0;
                 int target_rel_x = uv_modifier_offset.x + uv_target_x;
                 int target_rel_y = uv_modifier_offset.y + uv_target_y;
                 src_x = target_rel_x - sprite_offset.x;
@@ -1303,8 +1303,8 @@ texture_result tileset::get_or_default( const int sprite_index,
                             src_x = sprite_local_x + ( static_cast<int>( uv_r ) - 127 );
                             src_y = sprite_local_y + ( static_cast<int>( uv_g ) - 127 );
                         } else {
-                            int uv_target_x = uv_r * warp_surf->w / 256;
-                            int uv_target_y = ( 255 - uv_g ) * warp_surf->h / 256;
+                            int uv_target_x = warp_surf->w > 1 ? ( uv_r * ( warp_surf->w - 1 ) + 127 ) / 255 : 0;
+                            int uv_target_y = warp_surf->h > 1 ? ( ( 255 - uv_g ) * ( warp_surf->h - 1 ) + 127 ) / 255 : 0;
                             int target_rel_x = warp_offset.x + uv_target_x;
                             int target_rel_y = warp_offset.y + uv_target_y;
                             src_x = target_rel_x - sprite_offset.x;
