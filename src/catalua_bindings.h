@@ -49,6 +49,7 @@ void reg_spell( sol::state &lua );
 void reg_known_magic( sol::state &lua );
 void reg_testing_library( sol::state &lua );
 void reg_technique( sol::state &lua );
+void reg_tile_display( sol::state &lua );
 void reg_time_types( sol::state &lua );
 void reg_types( sol::state &lua );
 void reg_ui_elements( sol::state &lua );

@@ -768,6 +768,7 @@ void cata::reg_all_bindings( sol::state &lua )
     reg_constants( lua );
     reg_hooks_examples( lua );
     reg_technique( lua );
+    reg_tile_display( lua );
     reg_types( lua );
     reg_time_types( lua );
     reg_effect( lua );

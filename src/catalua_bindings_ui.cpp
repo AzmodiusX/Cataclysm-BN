@@ -7,6 +7,12 @@
 #include "popup.h"
 #include "string_input_popup.h"
 
+#include <algorithm>
+
+#if defined(TILES)
+#include "tile_display_window.h"
+#endif
+
 void cata::detail::reg_ui_elements( sol::state &lua )
 {
     {
@@ -132,4 +138,82 @@ void cata::detail::reg_ui_elements( sol::state &lua )
             return sipop.query_int();
         } );
     }
+}
+
+void cata::detail::reg_tile_display( sol::state &lua )
+{
+#if defined(TILES)
+    {
+        DOC( "A window that renders arbitrary tiles from the tileset." );
+        DOC( "Supports multiple layers, tinting, animations, and zoom control." );
+        DOC( "Only available in TILES builds." );
+        sol::usertype<tile_display_window> ut =
+            luna::new_usertype<tile_display_window>(
+                lua,
+                luna::no_bases,
+                luna::constructors <
+                tile_display_window()
+                > ()
+            );
+
+        DOC( "Set position in terminal cells. Use -1 for centered (default)." );
+        luna::set_fx( ut, "set_position", &tile_display_window::set_position );
+
+        DOC( "Clear all tile layers." );
+        luna::set_fx( ut, "clear_layers", &tile_display_window::clear_layers );
+
+        DOC( "Add a tile layer. Overloads:" );
+        DOC( "  add_layer(tile_id) - just tile ID" );
+        DOC( "  add_layer(tile_id, r, g, b) - with RGB tint (alpha=255)" );
+        DOC( "  add_layer(tile_id, r, g, b, a) - with RGBA tint" );
+        DOC( "  add_layer(tile_id, r, g, b, a, rotation) - with tint and rotation" );
+        luna::set_fx( ut, "add_layer", sol::overload(
+        []( tile_display_window & win, const std::string & tile_id ) {
+            win.add_layer( tile_id );
+        },
+        []( tile_display_window & win, const std::string & tile_id, int r, int g, int b ) {
+            win.add_layer_with_tint( tile_id,
+                                     static_cast<uint8_t>( std::clamp( r, 0, 255 ) ),
+                                     static_cast<uint8_t>( std::clamp( g, 0, 255 ) ),
+                                     static_cast<uint8_t>( std::clamp( b, 0, 255 ) ) );
+        },
+        []( tile_display_window & win, const std::string & tile_id, int r, int g, int b, int a ) {
+            win.add_layer_with_tint( tile_id,
+                                     static_cast<uint8_t>( std::clamp( r, 0, 255 ) ),
+                                     static_cast<uint8_t>( std::clamp( g, 0, 255 ) ),
+                                     static_cast<uint8_t>( std::clamp( b, 0, 255 ) ),
+                                     static_cast<uint8_t>( std::clamp( a, 0, 255 ) ) );
+        },
+        []( tile_display_window & win, const std::string & tile_id, int r, int g, int b, int a,
+        int rotation ) {
+            win.add_layer_full( tile_id,
+                                static_cast<uint8_t>( std::clamp( r, 0, 255 ) ),
+                                static_cast<uint8_t>( std::clamp( g, 0, 255 ) ),
+                                static_cast<uint8_t>( std::clamp( b, 0, 255 ) ),
+                                static_cast<uint8_t>( std::clamp( a, 0, 255 ) ),
+                                rotation );
+        }
+                      ) );
+
+        DOC( "Add a tile layer with rotation only (0=N, 1=W, 2=S, 3=E, 4=flip horizontal)." );
+        luna::set_fx( ut, "add_layer_rotated", &tile_display_window::add_layer_rotated );
+
+        DOC( "Set the zoom level (0.25 to 4.0, default 1.0)." );
+        luna::set_fx( ut, "set_zoom", &tile_display_window::set_zoom );
+
+        DOC( "Display the window and wait for user to close it (ESC or q)." );
+        DOC( "This is a blocking call. Animations update automatically." );
+        DOC( "Returns the action that closed the window (usually 'QUIT')." );
+        luna::set_fx( ut, "query", &tile_display_window::query );
+
+        DOC( "Check if a tile ID exists in the current tileset." );
+        luna::set_fx( ut, "tile_exists", &tile_display_window::tile_exists );
+
+        DOC( "Clear all layers and reset settings." );
+        luna::set_fx( ut, "clear", &tile_display_window::clear );
+    }
+#else
+    // Non-TILES build: register a stub that does nothing
+    ( void )lua;
+#endif
 }
