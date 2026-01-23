@@ -2451,6 +2451,7 @@ int Character::get_mod_stat_from_bionic( const character_stat &Stat ) const
     int ret = 0;
     for( const bionic &i : get_bionic_collection() ) {
         const bionic_id &bid = i.id;
+        if ( bid->activated && !i.powered ) { continue; }
         const auto St_bn = bid->stat_bonus.find( Stat );
         if( St_bn != bid->stat_bonus.end() ) {
             ret += St_bn->second;
@@ -3101,6 +3102,7 @@ units::mass Character::weight_capacity() const
     units::mass bio_weight_bonus = 0_gram;
     for( const bionic &i : get_bionic_collection() ) {
         const bionic_id &bid = i.id;
+        if (bid->activated && !i.powered) { continue; }
         ret *= bid->weight_capacity_modifier;
         bio_weight_bonus +=  bid->weight_capacity_bonus;
     }
@@ -7735,6 +7737,7 @@ int Character::get_armor_bash_base( bodypart_id bp ) const
     }
     for( const bionic &i : get_bionic_collection() ) {
         const bionic_id &bid = i.id;
+        if ( bid->activated && !i.powered ) { continue; }
         const auto bash_prot = bid->bash_protec.find( bp.id() );
         if( bash_prot != bid->bash_protec.end() ) {
             ret += bash_prot->second;
@@ -7755,6 +7758,7 @@ int Character::get_armor_cut_base( bodypart_id bp ) const
     }
     for( const bionic &i : get_bionic_collection() ) {
         const bionic_id &bid = i.id;
+        if ( bid->activated && !i.powered ) { continue; }
         const auto cut_prot = bid->cut_protec.find( bp.id() );
         if( cut_prot != bid->cut_protec.end() ) {
             ret += cut_prot->second;
@@ -7776,6 +7780,7 @@ int Character::get_armor_bullet_base( bodypart_id bp ) const
 
     for( const bionic &i : get_bionic_collection() ) {
         const bionic_id &bid = i.id;
+        if ( bid->activated && !i.powered ) { continue; }
         const auto bullet_prot = bid->bullet_protec.find( bp.id() );
         if( bullet_prot != bid->bullet_protec.end() ) {
             ret += bullet_prot->second;
@@ -7798,6 +7803,7 @@ int Character::get_env_resist( bodypart_id bp ) const
 
     for( const bionic &i : get_bionic_collection() ) {
         const bionic_id &bid = i.id;
+        if ( bid->activated && !i.powered ) { continue; }
         const auto EP = bid->env_protec.find( bp.id() );
         if( ( !bid->activated || has_active_bionic( bid ) ) && EP != bid->env_protec.end() ) {
             ret += EP->second;
@@ -9088,6 +9094,7 @@ float Character::bionic_armor_bonus( const bodypart_id &bp, damage_type dt ) con
     if( dt == DT_CUT || dt == DT_STAB ) {
         for( const bionic &i : get_bionic_collection() ) {
             const bionic_id &bid = i.id;
+            if (bid->activated && !i.powered) { continue; }
             const auto cut_prot = bid->cut_protec.find( bp.id() );
             if( cut_prot != bid->cut_protec.end() ) {
                 result += cut_prot->second;
@@ -9096,6 +9103,7 @@ float Character::bionic_armor_bonus( const bodypart_id &bp, damage_type dt ) con
     } else if( dt == DT_BASH ) {
         for( const bionic &i : get_bionic_collection() ) {
             const bionic_id &bid = i.id;
+            if (bid->activated && !i.powered) { continue; }
             const auto bash_prot = bid->bash_protec.find( bp.id() );
             if( bash_prot != bid->bash_protec.end() ) {
                 result += bash_prot->second;
@@ -9104,6 +9112,7 @@ float Character::bionic_armor_bonus( const bodypart_id &bp, damage_type dt ) con
     } else if( dt == DT_BULLET ) {
         for( const bionic &i : get_bionic_collection() ) {
             const bionic_id &bid = i.id;
+            if (bid->activated && !i.powered) { continue; }
             const auto bullet_prot = bid->bullet_protec.find( bp.id() );
             if( bullet_prot != bid->bullet_protec.end() ) {
                 result += bullet_prot->second;
