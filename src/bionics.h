@@ -146,11 +146,6 @@ struct bionic_data {
     * Also prevents those bionics from being installed while this bionic is installed.
     */
     std::vector<bionic_id> conflicting_bionics;
-    /**
-    * If true, this bionic cannot be uninstalled without causing death.
-    * The player should be notified on installation, and attempted uninstallation.
-    */
-    bool is_integral = false;
 
     bool can_uninstall = true;
     std::string no_uninstall_reason;

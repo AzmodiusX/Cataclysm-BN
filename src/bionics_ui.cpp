@@ -391,10 +391,6 @@ static void draw_description( const catacurses::window &win, const bionic &bio,
                                 _( "Power usage: %s" ), poweronly_string );
     }
     ypos += 1 + fold_and_print( win, point( 0, ypos ), width, c_light_blue, "%s", bio.id->description );
-    if( bio.info().is_integral ) {
-        ypos += fold_and_print( win, point( 0, ypos ), width, c_light_blue,
-                                "This bionic is an integral part of your body." );
-    }
     if( !bio.info().activated && bio.info().power_over_time > 0_kJ &&
         bio.is_this_fuel_powered( STATIC( itype_id( "metabolism" ) ) ) ) {
         ypos += fold_and_print( win, point( 0, ypos ), width, c_light_blue,

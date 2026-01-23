@@ -9,7 +9,8 @@
     "conflicting_bionics": [ "bio_digestion" ],
     "fuel_options": [ "metabolism" ],
     "fuel_efficiency": 0.25,
-    "flags": [ "BIONIC_SLEEP_FRIENDLY", "BIONIC_NPC_USABLE", "BIONIC_INTEGRAL" ],
+    "flags": [ "BIONIC_SLEEP_FRIENDLY", "BIONIC_NPC_USABLE" ],
+    "can_uninstall": false,
     "react_cost": "1 J",
     "time": 10
   }

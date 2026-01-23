@@ -198,7 +198,6 @@ static const trait_id trait_THRESH_MEDICAL( "THRESH_MEDICAL" );
 static const flag_id flag_BIONIC_GUN( "BIONIC_GUN" );
 static const flag_id flag_BIONIC_WEAPON( "BIONIC_WEAPON" );
 static const flag_id flag_BIONIC_TOGGLED( "BIONIC_TOGGLED" );
-static const flag_id flag_BIONIC_INTEGRAL( "BIONIC_INTEGRAL" );
 static const flag_id flag_BIONIC_POWER_SOURCE( "BIONIC_POWER_SOURCE" );
 static const std::string flag_SAFE_FUEL_OFF( "SAFE_FUEL_OFF" );
 static const std::string flag_SEALED( "SEALED" );
@@ -2180,13 +2179,6 @@ bool Character::can_uninstall_bionic( const bionic_id &b_id, Character &installe
         }
     }
 
-    if( b_id->is_integral ) {
-        if( !g->u.query_yn(
-                _( "WARNING: Removing this bionic will result in death. Remove anyway?" ) ) ) {
-            return false;
-        }
-    }
-
     for( const bionic &i : get_bionic_collection() ) {
         const bionic_id &bid = i.id;
         if( bid->is_included( b_id ) ) {
@@ -2304,7 +2296,6 @@ bool Character::uninstall_bionic( const bionic_id &b_id, Character &installer, b
     int success = chance_of_success - rng( 1, 100 );
     if( installer.has_trait( trait_DEBUG_BIONICS ) ) {
         perform_uninstall( b_id, difficulty, success, b_id->capacity, pl_skill );
-        if( b_id->is_integral ) { die( &installer ); }
         return true;
     }
     assign_activity( ACT_OPERATION, to_moves<int>( difficulty * 20_minutes ) );
@@ -2335,15 +2326,9 @@ void Character::perform_uninstall( bionic_id bid, int difficulty, int success,
     if( success > 0 ) {
         g->events().send<event_type::removes_cbm>( getID(), bid );
 
-
         // until bionics can be flagged as non-removable
-        if( bid->is_integral ) {
-            add_msg_player_or_npc( m_neutral, _( "You pass away during the removal process." ),
-                                   _( "<npcname> passes away during the removal process." ) );
-        } else {
-            add_msg_player_or_npc( m_neutral, _( "Your parts are jiggled back into their familiar places." ),
-                                   _( "<npcname>'s parts are jiggled back into their familiar places." ) );
-        }
+        add_msg_player_or_npc( m_neutral, _( "Your parts are jiggled back into their familiar places." ),
+                               _( "<npcname>'s parts are jiggled back into their familiar places." ) );
         add_msg( m_good, _( "Successfully removed %s." ), bid.obj().name );
         remove_bionic( bid );
 
@@ -2414,23 +2399,12 @@ bool Character::uninstall_bionic( const bionic &target_cbm, monster &installer, 
 
     if( success > 0 ) {
 
-        if( target_cbm.info().is_integral ) { die( &installer ); }
         if( patient.is_player() ) {
-            if( target_cbm.info().is_integral ) {
-                add_msg( m_bad, _( "You pass away during the removal process." ) );
-            } else {
-                add_msg( m_neutral, _( "Your parts are jiggled back into their familiar places." ) );
-            }
-
+            add_msg( m_neutral, _( "Your parts are jiggled back into their familiar places." ) );
             add_msg( m_mixed, _( "Successfully removed %s." ), target_cbm.info().name );
         } else if( patient.is_npc() && g->u.sees( patient ) ) {
-            if( target_cbm.info().is_integral ) {
-                add_msg( m_neutral, _( "%s passes away during the removal process." ), patient.disp_name() );
-            } else {
-                add_msg( m_neutral, _( "%s's parts are jiggled back into their familiar places." ),
-                         patient.disp_name() );
-            }
-
+            add_msg( m_neutral, _( "%s's parts are jiggled back into their familiar places." ),
+                     patient.disp_name() );
             add_msg( m_mixed, _( "Successfully removed %s." ), target_cbm.info().name );
         }
 
@@ -2528,13 +2502,6 @@ bool Character::can_install_bionics( const itype &type, Character &installer, bo
     for( const trait_id &mid : bioid->canceled_mutations ) {
         if( has_trait( mid ) ) {
             conflicting_muts.push_back( mid->name() );
-        }
-    }
-
-    if( bioid->is_integral ) {
-        if( !g->u.query_yn(
-                _( "WARNING: This bionic is permanent. Removing this bionic will result in death.  Continue anyway?" ) ) ) {
-            return false;
         }
     }
 
