@@ -129,6 +129,12 @@
     "info": "A <good>follower</good> could <info>make use of this CBM</info> if installed properly."
   },
   {
+    "id": "BIONIC_INTEGRAL",
+    "type": "json_flag",
+    "context": [ "BIONIC_ITEM" ],
+    "info": "Installation of this bionic is <bad>permanent</bad>. This bionic makes the user reliant on it, and will cause death upon removal."
+  },
+  {
     "id": "BLIND",
     "type": "json_flag",
     "context": [ "ARMOR", "TOOL_ARMOR" ],

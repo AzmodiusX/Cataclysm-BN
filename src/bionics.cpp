@@ -198,6 +198,8 @@ static const trait_id trait_THRESH_MEDICAL( "THRESH_MEDICAL" );
 static const flag_id flag_BIONIC_GUN( "BIONIC_GUN" );
 static const flag_id flag_BIONIC_WEAPON( "BIONIC_WEAPON" );
 static const flag_id flag_BIONIC_TOGGLED( "BIONIC_TOGGLED" );
+static const flag_id flag_BIONIC_INTEGRAL( "BIONIC_INTEGRAL" );
+static const flag_id flag_BIONIC_POWER_SOURCE( "BIONIC_POWER_SOURCE" );
 static const std::string flag_SAFE_FUEL_OFF( "SAFE_FUEL_OFF" );
 static const std::string flag_SEALED( "SEALED" );
 
@@ -320,6 +322,7 @@ void bionic_data::load( const JsonObject &jsobj, const std::string &src )
     assign_map_from_array( jsobj, "learned_spells", learned_spells, strict );
     assign( jsobj, "included_bionics", included_bionics, strict );
     assign( jsobj, "required_bionics", required_bionics, strict );
+    assign( jsobj, "conflicting_bionics", conflicting_bionics, strict );
     assign( jsobj, "upgraded_bionic", upgraded_bionic, strict );
     assign( jsobj, "available_upgrades", available_upgrades, strict );
     assign( jsobj, "flags", flags, strict );
@@ -330,8 +333,8 @@ void bionic_data::load( const JsonObject &jsobj, const std::string &src )
 
 
     activated = has_flag( flag_BIONIC_TOGGLED ) ||
-                power_activate > 0_kJ ||
-                charge_time > 0;
+                has_flag( flag_BIONIC_POWER_SOURCE );
+    is_integral = has_flag( flag_BIONIC_INTEGRAL );
 }
 
 void bionic_data::finalize() const
@@ -428,6 +431,16 @@ void bionic_data::check() const
                 rep.warn( "The CBM %s requires itself as a prerequisite for installation", it.str() );
             } else if( !it.is_valid() ) {
                 rep.warn( "The CBM %s requires undefined bionic %s", id.str(), it.str() );
+            }
+        }
+    }
+    if (!conflicting_bionics.empty()) {
+        for (const bionic_id& it : conflicting_bionics) {
+            if (it == id) {
+                rep.warn("The CBM %s prevents itself from being installed", it.str());
+            }
+            else if (!it.is_valid()) {
+                rep.warn("The CBM %s is mutually exclusive with undefined bionic %s", id.str(), it.str());
             }
         }
     }
@@ -1262,7 +1275,7 @@ bool Character::deactivate_bionic( bionic &bio, bool eff_only )
 bool Character::burn_fuel( bionic &bio, bool start )
 {
     if( ( bio.info().fuel_opts.empty() && !bio.info().is_remote_fueled ) ||
-        bio.is_this_fuel_powered( fuel_type_muscle ) ) {
+        bio.is_this_fuel_powered( fuel_type_muscle ) && bio.info().has_flag( flag_BIONIC_POWER_SOURCE )) {
         return true;
     }
     const bool is_metabolism_powered = bio.is_this_fuel_powered( fuel_type_metabolism );
@@ -1423,7 +1436,7 @@ void Character::passive_power_gen( bionic &bio )
 {
     const float passive_fuel_efficiency = bio.info().passive_fuel_efficiency;
     if( bio.info().fuel_opts.empty() || bio.is_this_fuel_powered( fuel_type_muscle ) ||
-        passive_fuel_efficiency == 0.0 ) {
+        passive_fuel_efficiency == 0.0 || !bio.info().has_flag( flag_BIONIC_POWER_SOURCE ) ) {
         return;
     }
     const float effective_passive_efficiency = get_effective_efficiency( bio, passive_fuel_efficiency );
@@ -1687,7 +1700,7 @@ static bool attempt_recharge( Character &p, bionic &bio, units::energy &amount, 
 
 void Character::process_bionic( bionic &bio )
 {
-    if( ( !bio.id->fuel_opts.empty() || bio.id->is_remote_fueled ) && bio.is_auto_start_on() ) {
+    if( ( !bio.id->fuel_opts.empty() || bio.id->is_remote_fueled ) && bio.is_auto_start_on() && bio.info().has_flag( flag_BIONIC_POWER_SOURCE ) ) {
         const float start_threshold = bio.get_auto_start_thresh();
         std::vector<itype_id> fuel_available = get_fuel_available( bio.id );
         if( bio.id->is_remote_fueled ) {
@@ -1712,7 +1725,7 @@ void Character::process_bionic( bionic &bio )
     }
 
     // Only powered bionics should be processed
-    if( !bio.powered ) {
+    if( !bio.powered && bio.info().has_flag( flag_BIONIC_POWER_SOURCE ) ) {
         passive_power_gen( bio );
         return;
     }
@@ -1725,7 +1738,7 @@ void Character::process_bionic( bionic &bio )
         bio.charge_timer -= discharge_rate;
     } else {
         if( bio.info().charge_time > 0 ) {
-            if( bio.info().has_flag( STATIC( flag_id( "BIONIC_POWER_SOURCE" ) ) ) ) {
+            if( bio.info().has_flag( flag_BIONIC_POWER_SOURCE ) ) {
                 // Convert fuel to bionic power
                 burn_fuel( bio );
                 // This is our first turn of charging, so subtract a turn from the recharge delay.
@@ -1735,10 +1748,27 @@ void Character::process_bionic( bionic &bio )
                 units::energy cost = 0_J;
                 bool recharged = attempt_recharge( *this, bio, cost, discharge_factor, discharge_rate );
                 if( !recharged ) {
-                    // No power to recharge, so deactivate
-                    add_msg_if_player( m_neutral, _( "Your %s powers down." ), bio.info().name );
-                    // This purposely bypasses the deactivation cost
-                    deactivate_bionic( bio, true );
+                    // We take this to mean the bionic can draw directly from matabolism if needed
+                    const bool is_metabolism_powered = bio.is_this_fuel_powered(fuel_type_metabolism);
+                    if (is_metabolism_powered) {
+                        int stored_kcals = max_stored_kcal();
+                        if (stored_kcals > 0) {
+                            const item& met_fuel = *item::spawn_temporary( fuel_type_metabolism );
+                            int power_draw = units::to_joule( bio.info().power_over_time );
+                            const int kcal_consumed = std::min( stored_kcals, static_cast<int>( met_fuel.fuel_energy() * power_draw ) );
+                            const float effective_efficiency = get_effective_efficiency( bio, bio.info().fuel_efficiency );
+                            // 1kcal = 4187 J
+                            cost = kcal_consumed * 4184_J * effective_efficiency;
+                            mod_stored_kcal( -kcal_consumed );
+                        }
+                        // We'll just not worry about having none. Starving is enough of a downside.
+                    }
+                    else {
+                        // No power to recharge, so deactivate
+                        add_msg_if_player(m_neutral, _("Your %s powers down."), bio.info().name);
+                        // This purposely bypasses the deactivation cost
+                        deactivate_bionic(bio, true);
+                    }
                     return;
                 }
                 if( cost > 0_J ) {
@@ -2143,9 +2173,16 @@ bool Character::can_uninstall_bionic( const bionic_id &b_id, Character &installe
         return false;
     }
 
-    if( ( b_id == bio_reactor ) || ( b_id == bio_advreactor ) ) {
+    if ((b_id == bio_reactor) || (b_id == bio_advreactor)) {
+        if (!g->u.query_yn(
+            _("WARNING: Removing a reactor may leave radioactive material!  Remove anyway?"))) {
+            return false;
+        }
+    }
+
+    if( b_id->is_integral ) {
         if( !g->u.query_yn(
-                _( "WARNING: Removing a reactor may leave radioactive material!  Remove anyway?" ) ) ) {
+                _( "WARNING: Removing this bionic will result in death. Remove anyway?" ) ) ) {
             return false;
         }
     }
@@ -2267,6 +2304,7 @@ bool Character::uninstall_bionic( const bionic_id &b_id, Character &installer, b
     int success = chance_of_success - rng( 1, 100 );
     if( installer.has_trait( trait_DEBUG_BIONICS ) ) {
         perform_uninstall( b_id, difficulty, success, b_id->capacity, pl_skill );
+        if (b_id->is_integral) { die( &installer ); }
         return true;
     }
     assign_activity( ACT_OPERATION, to_moves<int>( difficulty * 20_minutes ) );
@@ -2297,9 +2335,16 @@ void Character::perform_uninstall( bionic_id bid, int difficulty, int success,
     if( success > 0 ) {
         g->events().send<event_type::removes_cbm>( getID(), bid );
 
+
         // until bionics can be flagged as non-removable
-        add_msg_player_or_npc( m_neutral, _( "Your parts are jiggled back into their familiar places." ),
-                               _( "<npcname>'s parts are jiggled back into their familiar places." ) );
+        if (bid->is_integral) {
+            add_msg_player_or_npc(m_neutral, _("You pass away during the removal process."),
+                _("<npcname> passes away during the removal process."));
+        }
+        else {
+            add_msg_player_or_npc(m_neutral, _("Your parts are jiggled back into their familiar places."),
+                _("<npcname>'s parts are jiggled back into their familiar places."));
+        }
         add_msg( m_good, _( "Successfully removed %s." ), bid.obj().name );
         remove_bionic( bid );
 
@@ -2370,12 +2415,24 @@ bool Character::uninstall_bionic( const bionic &target_cbm, monster &installer, 
 
     if( success > 0 ) {
 
+        if ( target_cbm.info().is_integral ) { die(&installer); }
         if( patient.is_player() ) {
-            add_msg( m_neutral, _( "Your parts are jiggled back into their familiar places." ) );
+            if (target_cbm.info().is_integral) {
+                add_msg(m_bad, _("You pass away during the removal process."));
+            }
+            else {
+                add_msg(m_neutral, _("Your parts are jiggled back into their familiar places."));
+            }
+            
             add_msg( m_mixed, _( "Successfully removed %s." ), target_cbm.info().name );
         } else if( patient.is_npc() && g->u.sees( patient ) ) {
-            add_msg( m_neutral, _( "%s's parts are jiggled back into their familiar places." ),
-                     patient.disp_name() );
+            if (target_cbm.info().is_integral) {
+                add_msg(m_neutral, _("%s passes away during the removal process."), patient.disp_name());
+            }
+            else {
+                add_msg(m_neutral, _("%s's parts are jiggled back into their familiar places."), patient.disp_name());
+            }
+            
             add_msg( m_mixed, _( "Successfully removed %s." ), target_cbm.info().name );
         }
 
@@ -2441,10 +2498,43 @@ bool Character::can_install_bionics( const itype &type, Character &installer, bo
         }
     }
 
+    std::string list_of_conflicting_bionics;
+    if ( !bioid->conflicting_bionics.empty() ) {
+        for ( const bionic_id& conf_bid : bioid->conflicting_bionics ) {
+            if ( has_bionic(conf_bid) ) {
+                list_of_conflicting_bionics += " " + conf_bid->name;
+                if ( conf_bid != bioid->conflicting_bionics.back() ) {
+                    list_of_conflicting_bionics += ",";
+                }
+            }
+        }
+    }
+
+    for ( const bionic &check_bio : get_bionic_collection() ) {
+        if ( std::find( check_bio.info().conflicting_bionics.begin(), check_bio.info().conflicting_bionics.end(), bioid ) != check_bio.info().conflicting_bionics.end() ) {
+            list_of_conflicting_bionics += " " + check_bio.info().name;
+            if ( bioid != check_bio.info().conflicting_bionics.back() ) {
+                list_of_conflicting_bionics += ",";
+            }
+        }
+    }
+
+    if ( !list_of_conflicting_bionics.empty() ) {
+        popup(_("CBM installation blocked by prior installation of%s."), list_of_conflicting_bionics);
+        return false;
+    }
+
     std::vector<std::string> conflicting_muts;
     for( const trait_id &mid : bioid->canceled_mutations ) {
         if( has_trait( mid ) ) {
             conflicting_muts.push_back( mid->name() );
+        }
+    }
+
+    if( bioid->is_integral ) {
+        if( !g->u.query_yn(
+                _( "WARNING: This bionic is permanent. Removing this bionic will result in death.  Continue anyway?" ) ) ) {
+            return false;
         }
     }
 
@@ -2783,12 +2873,18 @@ std::map<bodypart_id, int> Character::bionic_installation_issues( const bionic_i
 
 int Character::get_total_bionics_slots( const bodypart_id &bp ) const
 {
-    return bp->bionic_slots();
+    int used_slots = get_used_bionics_slots(bp);
+    int bio_slots = bp->bionic_slots();
+    if ( used_slots < 0 ) { return bio_slots - used_slots; }
+    return bio_slots;
 }
 
 int Character::get_free_bionics_slots( const bodypart_id &bp ) const
 {
-    return get_total_bionics_slots( bp ) - get_used_bionics_slots( bp );
+    int total_slots = get_total_bionics_slots(bp);
+    int used_slots = get_used_bionics_slots( bp );
+    if ( used_slots < 0 ) { return total_slots; }
+    return total_slots - used_slots;
 }
 
 bool cbm_needs_anesthesia( const Character &who )
