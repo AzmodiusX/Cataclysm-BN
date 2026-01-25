@@ -1098,10 +1098,10 @@ void npc::talk_to_u( bool radio_contact )
         params["npc"] = this;
         params["next_topic"] = d.topic_stack.back().id;
     } );
-    for ( const auto &result : hook_results ) {
-        if ( !result.second.is<sol::table>() ) { continue; };
+    for( const auto &result : hook_results ) {
+        if( !result.second.is<sol::table>() ) { continue; };
         auto new_topic = result.second.as<sol::table>().get<std::string>( "result" );
-        if ( !new_topic.empty() && new_topic != d.topic_stack.back().id ) {
+        if( !new_topic.empty() && new_topic != d.topic_stack.back().id ) {
             d.add_topic( new_topic );
         }
     }
@@ -1131,8 +1131,8 @@ void npc::talk_to_u( bool radio_contact )
             params["next_topic"] = next.id;
         } );
         auto final_result = d.topic_stack.back().id;
-        for ( const auto& result : hook_results ) {
-            if ( !result.second.is<sol::table>() ) { continue; };
+        for( const auto &result : hook_results ) {
+            if( !result.second.is<sol::table>() ) { continue; };
             final_result = result.second.as<sol::table>().get_or<std::string>( "result", final_result );
             // Allow higher priority topics to veto, but still trigger subsequent calls?
             // auto allowed = result.second.as<sol::table>().get<sol::object>( "allowed" );
