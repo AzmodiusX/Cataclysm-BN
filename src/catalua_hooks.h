@@ -32,7 +32,6 @@ auto run_hooks(
 const hook_opts &opts = {}
 ) -> sol::table;
 
-
 /// Define all hooks that are used in the game.
 void define_hooks( lua_state &state );
 
