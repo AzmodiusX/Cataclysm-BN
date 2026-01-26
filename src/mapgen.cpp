@@ -6276,10 +6276,10 @@ character_id map::place_npc( point p, const string_id<npc_template> &type, bool 
     temp->spawn_at_precise( { abs_sub.xy() }, { p, abs_sub.z } );
     temp->toggle_trait( trait_NPC_STATIC_NPC );
     overmap_buffer.insert_npc( temp );
-    cata::run_hooks( "on_creature_spawn", [&]( sol::table &params ) {
+    cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
         params["creature"] = temp.get();
     } );
-    cata::run_hooks( "on_npc_spawn", [&]( sol::table &params ) {
+    cata::run_hooks( "on_npc_spawn", [&]( sol::table & params ) {
         params["npc"] = temp.get();
     } );
     return temp->getID();

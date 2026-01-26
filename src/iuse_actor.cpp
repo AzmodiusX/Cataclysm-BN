@@ -1228,10 +1228,10 @@ int place_monster_iuse::use( player &p, item &it, bool, const tripoint &pos ) co
         newmon.no_extra_death_drops = true;
         it.deactivate();
     }
-    cata::run_hooks( "on_creature_spawn", [&]( sol::table &params ) {
+    cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
         params["creature"] = &newmon;
     } );
-    cata::run_hooks( "on_monster_spawn", [&]( sol::table &params ) {
+    cata::run_hooks( "on_monster_spawn", [&]( sol::table & params ) {
         params["monster"] = &newmon;
     } );
     if( place_random ) {

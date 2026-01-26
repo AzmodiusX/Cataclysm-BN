@@ -2890,10 +2890,10 @@ void npc::on_load()
         hallucination = true;
     }
 
-    cata::run_hooks( "on_creature_loaded", [this]( sol::table &params ) {
+    cata::run_hooks( "on_creature_loaded", [this]( sol::table & params ) {
         params["creature"] = this;
     } );
-    cata::run_hooks( "on_npc_loaded", [this]( sol::table &params ) {
+    cata::run_hooks( "on_npc_loaded", [this]( sol::table & params ) {
         params["npc"] = this;
     } );
 }
