@@ -345,20 +345,22 @@ void npc::load_npc_template( const string_id<npc_template> &ident )
 
 npc::~npc() = default;
 
-void npc::on_spawn_hook() {
+void npc::on_spawn_hook()
+{
     Creature::on_spawn_hook();
-    cata::run_hooks( "on_npc_spawn", [&,
-        this]( sol::table& params ) {
-            params["npc"] = this;
-        } );
+    cata::run_hooks( "on_npc_spawn", [ &,
+    this]( sol::table & params ) {
+        params["npc"] = this;
+    } );
 }
 
-void npc::on_loaded_hook() {
+void npc::on_loaded_hook()
+{
     Creature::on_loaded_hook();
-    cata::run_hooks( "on_npc_loaded", [&,
-        this]( sol::table& params ) {
-            params["npc"] = this;
-        } );
+    cata::run_hooks( "on_npc_loaded", [ &,
+    this]( sol::table & params ) {
+        params["npc"] = this;
+    } );
 }
 
 void npc::randomize( const npc_class_id &type )

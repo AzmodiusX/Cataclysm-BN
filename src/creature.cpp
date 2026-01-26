@@ -191,14 +191,14 @@ void Creature::reset()
 
 void Creature::on_spawn_hook()
 {
-    cata::run_hooks( "on_creature_spawn", [&, this]( sol::table & params ) {
+    cata::run_hooks( "on_creature_spawn", [ &, this]( sol::table & params ) {
         params["creature"] = this;
     } );
 }
 
 void Creature::on_loaded_hook()
 {
-    cata::run_hooks( "on_creature_loaded", [&, this]( sol::table & params ) {
+    cata::run_hooks( "on_creature_loaded", [ &, this]( sol::table & params ) {
         params["creature"] = this;
     } );
 }

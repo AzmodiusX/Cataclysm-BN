@@ -327,20 +327,22 @@ monster::monster( const monster &source ) : Creature( source ),
 
 monster::~monster() = default;
 
-void monster::on_spawn_hook() {
+void monster::on_spawn_hook()
+{
     Creature::on_spawn_hook();
-    cata::run_hooks( "on_monster_spawn", [&,
-        this]( sol::table& params ) {
-            params["monster"] = this;
-        } );
+    cata::run_hooks( "on_monster_spawn", [ &,
+    this]( sol::table & params ) {
+        params["monster"] = this;
+    } );
 }
 
-void monster::on_loaded_hook() {
+void monster::on_loaded_hook()
+{
     Creature::on_loaded_hook();
-    cata::run_hooks( "on_monster_loaded", [&,
-        this]( sol::table& params ) {
-            params["monster"] = this;
-        } );
+    cata::run_hooks( "on_monster_loaded", [ &,
+    this]( sol::table & params ) {
+        params["monster"] = this;
+    } );
 }
 
 void monster::setpos( const tripoint &p )
