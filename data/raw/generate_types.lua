@@ -245,6 +245,14 @@ on_shoot = {}
 ---@field item Item
 on_throw = {}
 
+---@class OnTryNPCInterationParams
+---@field npc NPC
+on_try_npc_interaction = {}
+
+---@class OnNPCInterationParams
+---@field npc NPC
+on_npc_interaction = {}
+
 ---@class OnDialogueStartParams
 ---@field npc NPC
 ---@field next_topic string

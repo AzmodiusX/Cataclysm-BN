@@ -28,3 +28,18 @@ mod.on_dialogue_end = function(params)
   local npc = params.npc
   print("Dialogue ended with " .. npc.name .. ".")
 end
+
+mod.on_try_npc_interaction = function(params)
+	local check = QueryPopup.new()
+	check:message("Allow Interaction?")
+	return check:query_yn() == "YES"
+end
+
+mod.force_talk = function(params)
+	params.npc:talk_to_u()
+	return false
+end
+
+mod.on_npc_interaction = function(params)
+	print("Interacted with "..params.npc.name)
+end

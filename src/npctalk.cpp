@@ -976,7 +976,7 @@ void npc_chatbin::check_missions()
     ma.erase( last, ma.end() );
 }
 
-void npc::talk_to_u( bool radio_contact )
+void npc::talk_to_u( bool radio_contact, bool enforce_first_topic )
 {
     avatar &you = get_avatar();
     if( you.is_dead_state() ) {
@@ -1015,7 +1015,7 @@ void npc::talk_to_u( bool radio_contact )
             d.missions_assigned.push_back( mission );
         }
     }
-    d.add_topic( chatbin.first_topic );
+    if( !enforce_first_topic ) { d.add_topic( chatbin.first_topic ); }
     if( radio_contact ) {
         d.add_topic( "TALK_RADIO" );
         d.by_radio = true;
@@ -1092,7 +1092,7 @@ void npc::talk_to_u( bool radio_contact )
     }
 
     decide_needs();
-
+    
     const auto hook_results = cata::run_hooks( "on_dialogue_start", [ &,
     this]( sol::table & params ) {
         params["npc"] = this;
@@ -1105,6 +1105,7 @@ void npc::talk_to_u( bool radio_contact )
             d.add_topic( new_topic );
         }
     }
+    if( !enforce_first_topic ) { d.add_topic( chatbin.first_topic ); }
 
     dialogue_window d_win;
     // Main dialogue loop
