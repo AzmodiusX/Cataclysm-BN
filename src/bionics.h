@@ -220,6 +220,8 @@ struct bionic {
 
         void serialize( JsonOut &json ) const;
         void deserialize( JsonIn &jsin );
+
+        LUA_TYPE_OPS(bionic, id);
     private:
         // generic bionic specific flags
         cata::flat_set<std::string> bionic_tags;

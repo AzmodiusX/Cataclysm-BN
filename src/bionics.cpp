@@ -224,6 +224,8 @@ bool string_id<bionic_data>::is_valid() const
     return bionic_factory.is_valid( *this );
 }
 
+
+
 std::vector<bodypart_id> get_occupied_bodyparts( const bionic_id &bid )
 {
     std::vector<bodypart_id> parts;
