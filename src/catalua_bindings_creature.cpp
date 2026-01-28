@@ -1118,11 +1118,9 @@ void cata::detail::reg_npc( sol::state &lua )
         luna::set_fx( ut, "set_first_topic", []( UT_CLASS & npchar, const std::string & str ) -> void { npchar.chatbin.first_topic = str; } );
 
         DOC( "Triggers the npc menu to open." );
-
         luna::set_fx( ut, "npc_menu", []( UT_CLASS & npchar, sol::optional<bool> force ) -> void { g->npc_menu( npchar, force.value_or( false ) ); } );
 
         DOC( "Causes the npc to talk to you. Passing a topic will force that topic to be used in place of all others, including code enforced topics such as 'TALK_STOLE_ITEM'." );
-
         luna::set_fx( ut, "talk_to_u", []( UT_CLASS & npchar, sol::optional<std::string> topic, sol::optional<bool> radio_contact ) -> void {
             if( topic.has_value() && !topic.value().empty() ) {  npchar.chatbin.first_topic = topic.value(); }
             npchar.talk_to_u( radio_contact.value_or( false ), topic.has_value() );
