@@ -43,7 +43,7 @@
 #include "damage.h"
 #include "debug.h"
 #include "distribution_grid.h"
-#include "effect.h" // for weed_msg
+#include "effect.h"
 #include "enums.h"
 #include "event.h"
 #include "event_bus.h"

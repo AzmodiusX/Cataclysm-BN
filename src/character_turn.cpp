@@ -6,6 +6,7 @@
 #include "catalua_hooks.h"
 #include "catalua_sol.h"
 #include "character_effects.h"
+#include "effect.h"
 #include "character_functions.h"
 #include "character_stat.h"
 #include "character_martial_arts.h"
@@ -567,6 +568,9 @@ void Character::process_one_effect( effect &it, bool is_new )
             params["effect"] = &it;
         } );
     }
+
+    // Process dynamic messages for this effect
+    it.get_effect_type()->process_dynamic_message( it, *this );
 }
 
 void Character::process_effects_internal()

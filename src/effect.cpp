@@ -7,9 +7,11 @@
 #include <unordered_set>
 
 #include "assign.h"
+#include "character.h"
 #include "color.h"
 #include "debug.h"
 #include "enums.h"
+#include "eoc.h"
 #include "json.h"
 #include "messages.h"
 #include "output.h"
@@ -31,13 +33,6 @@ static const efftype_id effect_in_pit( "in_pit" );
 static const efftype_id effect_lightsnare( "lightsnare" );
 static const efftype_id effect_tied( "tied" );
 static const efftype_id effect_webbed( "webbed" );
-static const efftype_id effect_weed_high( "weed_high" );
-
-static const itype_id itype_holybook_bible( "holybook_bible" );
-static const itype_id itype_money_bundle( "money_bundle" );
-
-static const trait_id trait_LACTOSE( "LACTOSE" );
-static const trait_id trait_VEGETARIAN( "VEGETARIAN" );
 
 namespace
 {
@@ -73,154 +68,6 @@ std::vector<efftype_id> find_all_effect_types()
         return pr.first;
     } );
     return all;
-}
-
-void weed_msg( Character &who )
-{
-    const time_duration howhigh = who.get_effect_dur( effect_weed_high );
-    ///\EFFECT_INT changes messages when smoking weed
-    int smarts = who.get_int();
-    if( howhigh > 12_minutes && one_in( 7 ) ) {
-        int msg = rng( 0, 5 );
-        switch( msg ) {
-            case 0:
-                // Freakazoid
-                who.add_msg_if_player(
-                    _( "The scariest thing in the world would be… if all the air in the world turned to WOOD!" ) );
-                return;
-            case 1:
-                // Simpsons
-                who.add_msg_if_player(
-                    _( "Could Jesus microwave a burrito so hot, that he himself couldn't eat it?" ) );
-                who.mod_stored_kcal( -20 );
-                return;
-            case 2:
-                if( smarts > 8 ) {
-                    // Timothy Leary
-                    who.add_msg_if_player( _( "Science is all metaphor." ) );
-                } else if( smarts < 3 ) {
-                    // It's Always Sunny in Philadelphia
-                    who.add_msg_if_player( _( "Science is a liar sometimes." ) );
-                } else {
-                    // Durr
-                    who.add_msg_if_player( _( "Science is… wait, what was I talking about again?" ) );
-                }
-                return;
-            case 3:
-                // Dazed and Confused
-                who.add_msg_if_player(
-                    _( "Behind every good man there is a woman, and that woman was Martha Washington, man." ) );
-                if( one_in( 2 ) ) {
-                    who.add_msg_if_player(
-                        _( "Every day, George would come home, and she would have a big fat bowl waiting for him when he came in the door, man." ) );
-                    if( one_in( 2 ) ) {
-                        who.add_msg_if_player( _( "She was a hip, hip, hip lady, man." ) );
-                    }
-                }
-                return;
-            case 4:
-                if( who.has_amount( itype_money_bundle, 1 ) ) { // Half Baked
-                    who.add_msg_if_player( _( "You ever see the back of a twenty dollar bill… on weed?" ) );
-                    if( one_in( 2 ) ) {
-                        who.add_msg_if_player(
-                            _( "Oh, there's some crazy shit, man.  There's a dude in the bushes.  Has he got a gun?  I dunno!" ) );
-                        if( one_in( 3 ) ) {
-                            who.add_msg_if_player( _( "RED TEAM GO, RED TEAM GO!" ) );
-                        }
-                    }
-                } else if( who.has_amount( itype_holybook_bible, 1 ) ) {
-                    who.add_msg_if_player( _( "You have a sudden urge to flip your bible open to Genesis 1:29…" ) );
-                } else { // Big Lebowski
-                    who.add_msg_if_player( _( "That rug really tied the room together…" ) );
-                }
-                return;
-            case 5:
-                who.add_msg_if_player( _( "I used to do drugs…  I still do, but I used to, too." ) );
-            default:
-                return;
-        }
-    } else if( howhigh > 10_minutes && one_in( 5 ) ) {
-        int msg = rng( 0, 5 );
-        switch( msg ) {
-            case 0:
-                // Bob Marley
-                who.add_msg_if_player( _( "The herb reveals you to yourself." ) );
-                return;
-            case 1:
-                // Freakazoid
-                who.add_msg_if_player(
-                    _( "Okay, like, the scariest thing in the world would be… if like you went to grab something and it wasn't there!" ) );
-                return;
-            case 2:
-                // Simpsons
-                who.add_msg_if_player( _( "They call them fingers, but I never see them fing." ) );
-                if( smarts > 2 && one_in( 2 ) ) {
-                    who.add_msg_if_player( _( "…oh, there they go." ) );
-                }
-                return;
-            case 3:
-                // Bill Hicks
-                who.add_msg_if_player(
-                    _( "You suddenly realize that all matter is merely energy condensed to a slow vibration, and we are all one consciousness experiencing itself subjectively." ) );
-                return;
-            case 4:
-                // Steve Martin
-                who.add_msg_if_player( _( "I usually only smoke in the late evening." ) );
-                if( one_in( 4 ) ) {
-                    who.add_msg_if_player(
-                        _( "Oh, occasionally the early evening, but usually the late evening, or the mid-evening." ) );
-                }
-                if( one_in( 4 ) ) {
-                    who.add_msg_if_player( _( "Just the early evening, mid-evening and late evening." ) );
-                }
-                if( one_in( 4 ) ) {
-                    who.add_msg_if_player(
-                        _( "Occasionally, early afternoon, early mid-afternoon, or perhaps the late mid-afternoon." ) );
-                }
-                if( one_in( 4 ) ) {
-                    who.add_msg_if_player( _( "Oh, sometimes the early-mid-late-early-morning." ) );
-                }
-                if( smarts > 2 ) {
-                    who.add_msg_if_player( _( "…But never at dusk." ) );
-                }
-                return;
-            case 5:
-            default:
-                return;
-        }
-    } else if( howhigh > 5_minutes && one_in( 3 ) ) {
-        int msg = rng( 0, 5 );
-        switch( msg ) {
-            case 0:
-                // Cheech and Chong
-                who.add_msg_if_player( _( "Dave's not here, man." ) );
-                return;
-            case 1:
-                // Real Life
-                who.add_msg_if_player( _( "Man, a cheeseburger sounds SO awesome right now." ) );
-                who.mod_stored_kcal( -40 );
-                if( who.has_trait( trait_VEGETARIAN ) ) {
-                    who.add_msg_if_player( _( "Eh… maybe not." ) );
-                } else if( who.has_trait( trait_LACTOSE ) ) {
-                    who.add_msg_if_player( _( "I guess, maybe, without the cheese… yeah." ) );
-                }
-                return;
-            case 2:
-                // Dazed and Confused
-                who.add_msg_if_player( _( "Walkin' down the hall, by myself, smokin' a j with fifty elves." ) );
-                return;
-            case 3:
-                // Half Baked
-                who.add_msg_if_player( _( "That weed was the shiz-nittlebam snip-snap-sack." ) );
-                return;
-            case 4:
-                // re-roll
-                weed_msg( who );
-            case 5:
-            default:
-                return;
-        }
-    }
 }
 
 static void extract_effect(
@@ -1433,7 +1280,47 @@ void load_effect_type( const JsonObject &jo )
         }
     }
 
+    // Load dynamic_message for JSON-configurable conditional messages
+    if( jo.has_member( "dynamic_message" ) ) {
+        new_etype.dynamic_message = effect_message_t::from_member( jo, "dynamic_message" );
+    }
+
+    // Load dynamic_message timing configuration
+    if( jo.has_string( "dynamic_message_frequency" ) ) {
+        new_etype.dynamic_message_frequency = read_from_json_string<time_duration>(
+                *jo.get_raw( "dynamic_message_frequency" ), time_duration::units );
+    }
+    if( jo.has_int( "dynamic_message_chance" ) ) {
+        new_etype.dynamic_message_chance = jo.get_int( "dynamic_message_chance" );
+    }
+
     effect_types[new_etype.id] = new_etype;
+}
+
+void effect_type::process_dynamic_message( const effect &it, Character &who ) const
+{
+    if( !dynamic_message.is_valid() ) {
+        return;
+    }
+
+    // Check frequency - only process at the specified interval
+    if( dynamic_message_frequency > 0_turns ) {
+        const time_duration freq = dynamic_message_frequency;
+        if( ( calendar::turn - calendar::turn_zero ) % freq != 0_turns ) {
+            return;
+        }
+    }
+
+    // Check one_in chance
+    if( dynamic_message_chance > 1 && !one_in( dynamic_message_chance ) ) {
+        return;
+    }
+
+    effect_context ctx( &who, &it );
+    std::string msg = dynamic_message( ctx );
+    if( !msg.empty() ) {
+        who.add_msg_if_player( msg );
+    }
 }
 
 bool effect::has_flag( const flag_id &flag ) const

@@ -953,11 +953,10 @@ int consume_drug_iuse::use( player &p, item &it, bool, const tripoint & ) const
         p.i_add( std::move( cig ) );
     }
 
-    if( do_weed_msg ) {
-        if( one_in( snippet_chance ) ) {
-            weed_msg( p );
-        }
-    }
+    // do_weed_msg is kept for legacy mod compatibility but is now vestigial.
+    // Effects handle their own dynamic messages via the dynamic_message JSON field,
+    // which is processed automatically in Character::process_one_effect().
+    ( void )do_weed_msg;  // Suppress unused variable warning
 
     // item used to "fake" addiction (ripped from old ecig iuse)
     if( !fake_item.empty() ) {

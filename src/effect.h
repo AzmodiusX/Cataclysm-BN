@@ -10,6 +10,7 @@
 #include "bodypart.h"
 #include "calendar.h"
 #include "catalua_type_operators.h"
+#include "eoc.h"
 #include "flat_set.h"
 #include "hash_utils.h"
 #include "translations.h"
@@ -22,9 +23,6 @@ class JsonIn;
 class JsonObject;
 class JsonOut;
 class effect;
-
-/** Handles the large variety of weed messages. */
-void weed_msg( Character &who );
 
 enum effect_rating {
     e_good,     // The effect is good for the one who has it.
@@ -148,6 +146,14 @@ class effect_type
 
         static void check_consistency();
 
+        /**
+         * Process the dynamic_message for this effect and display it to the character.
+         * Checks frequency and chance before displaying.
+         * @param it The effect instance.
+         * @param who The character with this effect.
+         */
+        void process_dynamic_message( const effect &it, Character &who ) const;
+
         LUA_TYPE_OPS( effect_type, id );
 
     private:
@@ -214,6 +220,13 @@ class effect_type
         /** Key tuple order is:("base_mods"/"scaling_mods", reduced: bool, type of mod: "STR", desired argument: "tick") */
         std::unordered_map <
         std::tuple<std::string, bool, std::string, std::string>, double, cata::tuple_hash > mod_data;
+
+        /** Dynamic message system for JSON-configurable conditional messages. */
+        effect_message_t dynamic_message;
+        /** How often to check for displaying dynamic_message. Default: 1 minute. */
+        time_duration dynamic_message_frequency = 1_minutes;
+        /** One-in-N chance to display dynamic_message when frequency triggers. Default: 1 (always). */
+        int dynamic_message_chance = 1;
 };
 
 class effect

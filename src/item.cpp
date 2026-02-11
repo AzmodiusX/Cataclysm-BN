@@ -44,7 +44,7 @@
 #include "debug.h"
 #include "dispersion.h"
 #include "drop_token.h"
-#include "effect.h" // for weed_msg
+#include "effect.h"
 #include "enums.h"
 #include "explosion.h"
 #include "faction.h"
@@ -10304,7 +10304,7 @@ detached_ptr<item> item::process_litcig( detached_ptr<item> &&self, player *carr
             if( carrier != nullptr ) {
                 carrier->add_effect( effect_weed_high, 1_minutes ); // one last puff
                 here.add_field( pos + point( rng( -1, 1 ), rng( -1, 1 ) ), fd_weedsmoke, 2 );
-                weed_msg( *carrier );
+                // Dynamic messages are now handled by the effect itself in process_one_effect()
             }
         }
         it.deactivate();
