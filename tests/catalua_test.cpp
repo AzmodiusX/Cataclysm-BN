@@ -216,7 +216,7 @@ TEST_CASE("minirose_lua_detonates", "[lua][minirose]") {
         has_minirose = false;
         minirose_armed = false;
     };
-    fake_char["bub_pos"] = [](const sol::table&) { return tripoint_bub_ms(60, 60, 0); };
+    fake_char["bub_pos"] = [](const sol::table&) { return bub_test_origin(); };
     fake_char["is_avatar"] = [](const sol::table&) { return true; };
 
     const auto load_res = lua.load_file("data/json/lua/minirose.lua");

@@ -24,5 +24,8 @@ void clear_vehicles();
 void build_test_map(const ter_id& terrain);
 void build_water_test_map(const ter_id& surface, const ter_id& mid, const ter_id& bottom);
 void set_time(const time_point& time);
+// Returns the bubble projected absolute 0,0,0 point
+static constexpr tripoint_abs_ms test_origin = tripoint_abs_ms::zero();
+tripoint_bub_ms bub_test_origin();
 
 #endif // CATA_TESTS_MAP_HELPERS_H

@@ -5562,6 +5562,20 @@ auto mapbuffer::bash( const tripoint_abs_ms &p, int str, bool silent,
     return 0;
 }
 
+auto mapbuffer::destroy( const tripoint_abs_ms &p, bool silent,
+                         const mapbuffer_lookup_options options ) -> void
+{
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    if( !tile ) {
+        return;
+    }
+    int count = 0;
+    while( count <= 25 && !passable( p, options ) ) {
+        bash( p, 999, true, options );
+        count++;
+    }
+}
+
 auto mapbuffer::board_vehicle( const tripoint_abs_ms &p, Character &who,
                                const mapbuffer_lookup_options options ) -> bool
 {

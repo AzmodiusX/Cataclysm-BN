@@ -33,8 +33,8 @@ TEST_CASE("vehicle_collision_with_wall_terminates", "[vehicle]") {
     build_test_map(ter_id("t_pavement"));
     clear_vehicles();
 
-    const auto veh_pos = tripoint_bub_ms(60, 60, 0);
-    const auto wall_pos = tripoint_bub_ms(60, 59, 0);
+    const auto veh_pos = bub_test_origin();
+    const auto wall_pos = veh_pos + point_rel_ms::north();
 
     auto* veh_ptr = here.add_vehicle(vproto_id("bicycle_test"), veh_pos, 270_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
@@ -71,13 +71,12 @@ TEST_CASE("hallucination_monsters_do_not_shove_vehicles", "[vehicle][monster][ha
     build_test_map(ter_id("t_pavement"));
     clear_vehicles();
 
-    const auto monster_pos = tripoint_abs_ms(60, 60, 0);
-    const auto veh_pos = tripoint_abs_ms(60, 59, 0);
+    const auto veh_pos = test_origin + point_rel_ms::north();
     auto* veh_ptr =
         here.add_vehicle(vproto_id("bicycle_test"), abs_to_bub(veh_pos), 270_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
-    auto& hallucination = spawn_test_monster("mon_zombie_seaweed_brute", abs_to_bub(monster_pos));
+    auto& hallucination = spawn_test_monster("mon_zombie_seaweed_brute", bub_test_origin());
     hallucination.hallucination = true;
     REQUIRE(hallucination.is_hallucination());
     REQUIRE(hallucination.has_flag(MF_PUSH_VEH));
@@ -94,8 +93,8 @@ TEST_CASE("vehicle_collision_with_hallucination_terminates", "[vehicle]") {
     build_test_map(ter_id("t_pavement"));
     clear_vehicles();
 
-    const auto veh_pos = tripoint_bub_ms(60, 60, 0);
-    const auto hallucination_pos = tripoint_bub_ms(60, 59, 0);
+    const auto veh_pos = bub_test_origin();
+    const auto hallucination_pos = veh_pos + point_rel_ms::north();
 
     auto* veh_ptr = here.add_vehicle(vproto_id("bicycle_test"), veh_pos, 270_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);

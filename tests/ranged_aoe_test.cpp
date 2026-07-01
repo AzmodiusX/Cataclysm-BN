@@ -46,8 +46,8 @@ static auto fire_shell_at_target(
     clear_all_state();
     rng_set_engine_seed(seed);
 
-    const auto shooter_pos = tripoint_abs_ms(60, 60, 0);
-    const auto target_pos = tripoint_abs_ms(62, 60, 0);
+    const auto shooter_pos = test_origin;
+    const auto target_pos = test_origin + point_rel_ms(2, 0);
     auto& target = get_player_character();
     target.set_body();
     target.setpos(target_pos);
@@ -112,14 +112,14 @@ static auto reachable_shape_points_no_obstacle(const shape& s, mapbuffer& here)
             queue.push(candidate);
         };
 
-    for (auto tile : simulated_tiles_in_radius(here, origin, 1)) {
+    for (const auto &tile : simulated_tiles_in_radius(here, origin, 1)) {
         try_enqueue(origin, tile.abs_pos());
     };
 
     while (!queue.empty()) {
         const auto p = queue.front();
         queue.pop();
-        for (auto tile : simulated_tiles_in_radius(here, p, 1)) { try_enqueue(p, tile.abs_pos()); };
+        for (const auto &tile : simulated_tiles_in_radius(here, p, 1)) { try_enqueue(p, tile.abs_pos()); };
     }
 
     reachable.erase(origin);
@@ -170,69 +170,65 @@ static void shape_coverage_vs_distance_no_obstacle(
 TEST_CASE("expected shape coverage mass test", "[shape]") {
     clear_all_state();
     cone_factory c(15_degrees, 10.0);
-    const tripoint_abs_ms origin = map_local_to_abs(get_map(), tripoint_bub_ms(60, 60, 0));
-    for (const tripoint_abs_ms& end : points_in_radius<tripoint_abs_ms>(origin, 5)) {
-        shape_coverage_vs_distance_no_obstacle(c, origin, end);
+    for (const tripoint_abs_ms& end : points_in_radius<tripoint_abs_ms>(test_origin, 5)) {
+        shape_coverage_vs_distance_no_obstacle(c, test_origin, end);
     }
 
     // Hard case
     shape_coverage_vs_distance_no_obstacle(
-        c, {65, 65, 0}, tripoint_abs_ms{65, 65, 0} + point_rel_ms(2, 1));
+        c, {5, 5, 0}, tripoint_abs_ms{5, 5, 0} + point_rel_ms(2, 1));
 }
 
 TEST_CASE("expected shape coverage without obstacles", "[shape]") {
     clear_all_state();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(g->u.abs_pos());
     cone_factory c(22.5_degrees, 10.0);
-    const tripoint_abs_ms origin = map_local_to_abs(get_map(), tripoint_bub_ms(60, 60, 0));
     const tripoint_rel_ms offset(5, 5, 0);
-    const tripoint_abs_ms end = origin + offset;
-    std::shared_ptr<shape> s = c.create(rl_vec3d(origin), rl_vec3d(end));
+    const tripoint_abs_ms end = test_origin + offset;
+    std::shared_ptr<shape> s = c.create(rl_vec3d(test_origin), rl_vec3d(end));
     auto cov = ranged::expected_coverage(*s, get_map().get_mapbuffer(), 3);
 
-    for (size_t i = 1; i <= 4; i++) { CHECK(cov[origin + point(i, i)] == 1.0); }
+    for (size_t i = 1; i <= 4; i++) { CHECK(cov[test_origin + point(i, i)] == 1.0); }
 
-    CHECK(cov[origin + point(2, 1)] == 1.0);
-    CHECK(cov[origin + point(1, 2)] == 1.0);
+    CHECK(cov[test_origin + point(2, 1)] == 1.0);
+    CHECK(cov[test_origin + point(1, 2)] == 1.0);
 }
 
 TEST_CASE("expected shape coverage through windows", "[shape]") {
     clear_all_state();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(g->u.abs_pos());
     cone_factory c(22.5_degrees, 10.0);
-    const tripoint_abs_ms origin = map_local_to_abs(get_map(), tripoint_bub_ms(60, 60, 0));
     const tripoint_rel_ms offset(5, 0, 0);
-    const tripoint_abs_ms end = origin + offset;
+    const auto end = test_origin + offset;
     auto& here = get_map().get_mapbuffer();
     for (int wall_offset = -10; wall_offset <= 10; wall_offset++) {
-        here.set_ter(origin + tripoint_rel_ms(2, wall_offset, 0), ter_id("test_t_window"));
+        here.set_ter(test_origin + tripoint_rel_ms(2, wall_offset, 0), ter_id("test_t_window"));
     }
 
-    std::shared_ptr<shape> s = c.create(rl_vec3d(origin), rl_vec3d(end));
+    std::shared_ptr<shape> s = c.create(rl_vec3d(test_origin), rl_vec3d(end));
     auto cov = ranged::expected_coverage(*s, here, 3);
-    CHECK(cov[origin + point_east] == 1.0);
+    CHECK(cov[test_origin + point_east] == 1.0);
 
-    CHECK(cov[origin + 2 * point_east] == Approx(0.25));
-    CHECK(cov[origin + 3 * point_east] == Approx(0.25));
-    CHECK(cov[origin + 4 * point_east] == Approx(0.25));
+    CHECK(cov[test_origin + 2 * point_east] == Approx(0.25));
+    CHECK(cov[test_origin + 3 * point_east] == Approx(0.25));
+    CHECK(cov[test_origin + 4 * point_east] == Approx(0.25));
 }
 
 TEST_CASE("shaped attacks apply trail ammo effects", "[ranged][projectile]") {
     clear_all_state();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(g->u.abs_pos());
 
     auto& attacker = get_player_character();
     auto& here = attacker.get_mapbuffer();
-    const auto origin = bub_to_abs(tripoint_bub_ms(60, 60, 0));
-    const auto target = origin + 5 * point_east;
+    const auto target = test_origin + 5 * point_east;
     attacker.set_body();
-    attacker.setpos(origin);
+    attacker.setpos(test_origin);
 
     const auto shape_factory = cone_factory(15_degrees, 6.0);
-    const auto attack_shape = shape_factory.create(rl_vec3d(origin), rl_vec3d(target));
+    const auto attack_shape = shape_factory.create(rl_vec3d(test_origin), rl_vec3d(target));
     auto proj = projectile{};
     proj.speed = 1000;
     proj.range = 6;
@@ -242,8 +238,8 @@ TEST_CASE("shaped attacks apply trail ammo effects", "[ranged][projectile]") {
     ranged::execute_shaped_attack(*attack_shape, proj, attacker, nullptr);
 
     const auto trail_field = field_type_id("test_fd_trail");
-    CHECK(here.get_field_entry(origin + point_east, trail_field));
-    CHECK(here.get_field_entry(origin + 2 * point_east, trail_field));
+    CHECK(here.get_field_entry(test_origin + point_east, trail_field));
+    CHECK(here.get_field_entry(test_origin + 2 * point_east, trail_field));
 }
 
 TEST_CASE("character using birdshot against another character", "[ranged]") {
@@ -266,8 +262,8 @@ TEST_CASE(
     clear_all_state();
     rng_set_engine_seed(deterministic_rng_seeds.front());
 
-    const auto shooter_pos = tripoint_abs_ms(60, 60, 0);
-    const auto target_pos = tripoint_abs_ms(62, 60, 0);
+    const auto shooter_pos = test_origin;
+    const auto target_pos = test_origin + point_rel_ms(2, 0);
     auto& target = get_player_character();
     target.set_body();
     target.setpos(target_pos);

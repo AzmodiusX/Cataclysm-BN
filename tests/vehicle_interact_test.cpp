@@ -29,14 +29,13 @@ static const trait_id trait_DEBUG_HS("DEBUG_HS");
 
 static void test_repair(std::vector<detached_ptr<item>>& tools, bool expect_craftable) {
 
-    const tripoint_bub_ms test_origin(60, 60, 0);
     g->u.setpos(test_origin);
     g->u.wear_item(item::spawn("backpack"), false);
     for (detached_ptr<item>& gear : tools) { g->u.i_add(std::move(gear)); }
 
-    const tripoint_bub_ms vehicle_origin = test_origin + tripoint_rel_ms::south_east();
+    const auto vehicle_origin = test_origin + tripoint_rel_ms::south_east();
     vehicle* veh_ptr =
-        get_map().add_vehicle(vproto_id("bicycle"), vehicle_origin, -90_degrees, 0, 0);
+        get_map().add_vehicle(vproto_id("bicycle"), abs_to_bub(vehicle_origin), -90_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
     // Find the frame at the origin.
     vehicle_part* origin_frame = nullptr;
@@ -117,16 +116,15 @@ TEST_CASE("debug_hammerspace_installs_full_vehicle_battery", "[vehicle][veh_inte
     you.toggle_trait(trait_DEBUG_HS);
     you.set_body();
 
-    const tripoint_bub_ms vehicle_origin(60, 60, 0);
-    you.setpos(vehicle_origin + point_south);
+    you.setpos(test_origin + point_south);
 
-    vehicle* veh_ptr = here.add_vehicle(vproto_id("bicycle"), vehicle_origin, 0_degrees, 0, 0);
+    vehicle* veh_ptr = here.add_vehicle(vproto_id("bicycle"), you.bub_pos() + point_north, 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     const auto install_part_id = vpart_id("storage_battery");
     const auto reference_part_index = 0;
     const auto reference_part = &veh_ptr->part(reference_part_index);
-    const auto reference_pos = map_local_to_abs(here, veh_ptr->bub_part_location(*reference_part));
+    const auto reference_pos = veh_ptr->abs_part_location(*reference_part);
 
     you.assign_activity(ACT_VEHICLE, 1, static_cast<int>('i'));
     you.activity->values =

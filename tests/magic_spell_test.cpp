@@ -129,8 +129,8 @@ TEST_CASE(
     g->reset_light_level();
 
     avatar& you = get_avatar();
-    const auto target_pos = test_origin_abs + point_rel_ms(5, 0);
-    you.setpos( test_origin_abs );
+    const auto target_pos = test_origin + point_rel_ms(5, 0);
+    you.setpos( test_origin );
     you.set_mutation(trait_id("INFRARED"));
     you.recalc_sight_limits();
 
@@ -557,9 +557,6 @@ TEST_CASE("spell area of effect", "[magic][spell][aoe]") {
 // spell_effect::target_attack
 TEST_CASE("spell effect - target_attack", "[magic][spell][effect][target_attack]") {
     clear_all_state();
-    // Locations for avatar and monster
-    const tripoint_abs_ms dummy_loc = {60, 60, 0};
-    const tripoint_abs_ms mummy_loc = {62, 60, 0};
 
     // For tracking spell damage
     int before_hp = 0;
@@ -568,9 +565,10 @@ TEST_CASE("spell effect - target_attack", "[magic][spell][effect][target_attack]
     // Avatar/spellcaster
     avatar& dummy = g->u;
     clear_character(dummy);
-    dummy.setpos(dummy_loc);
-    REQUIRE(dummy.abs_pos() == dummy_loc);
-    REQUIRE(g->critter_at(dummy_loc));
+    dummy.setpos(test_origin);
+    const tripoint_abs_ms mummy_loc = test_origin + point_rel_ms(2, 0);
+    REQUIRE(dummy.abs_pos() == test_origin);
+    REQUIRE(g->critter_at(test_origin));
     REQUIRE(g->num_creatures() == 1);
 
     // Monster/defender

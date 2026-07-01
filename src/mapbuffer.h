@@ -1156,6 +1156,9 @@ class mapbuffer
         auto bash( const tripoint_abs_ms &p, int str, bool silent = false,
         mapbuffer_lookup_options options = {} ) -> int;
 
+        auto destroy( const tripoint_abs_ms &p, bool silent = false,
+        const mapbuffer_lookup_options options = {} ) -> void;
+
         /// Board a vehicle at @p p with @p who as passenger.
         auto board_vehicle( const tripoint_abs_ms &p, Character &who,
         mapbuffer_lookup_options options = {} ) -> bool;

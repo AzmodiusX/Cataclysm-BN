@@ -106,8 +106,9 @@ void clear_fields(const int zlevel) {
 
 void clear_items(const int zlevel) {
     const int mapsize = g->m.getmapsize() * SEEX;
+    auto &here = get_map();
     for (int x = 0; x < mapsize; ++x) {
-        for (int y = 0; y < mapsize; ++y) { g->m.i_clear(tripoint_bub_ms{x, y, zlevel}); }
+        for (int y = 0; y < mapsize; ++y) { here.i_clear(tripoint_bub_ms{x, y, zlevel}); }
     }
 }
 
@@ -132,21 +133,18 @@ void clear_map() {
 
     // Ensure simulated islands exist so simulated_tiles_in_radius and
     // for_each_simulated_submap work for tests that use this map.
-    ensure_simulated_islands_for( test_origin_abs );
+    ensure_simulated_islands_for( test_origin );
 }
 
 void put_player_underground() {
     // Make sure the player doesn't block the path of the monster being tested.
-    g->u.setpos(map_local_to_abs(
-        get_map(), tripoint_bub_ms(g_half_mapsize_x + SEEX - 1, g_half_mapsize_y + SEEY - 1, -2)));
+    g->u.setpos(test_origin + tripoint_rel_ms::below() * 2);
 }
 
 auto move_player_out_of_the_way() -> void {
-    auto& here = get_map();
     g->u.setpos(map_local_to_abs(
-        here,
-        tripoint_bub_ms(
-            g_half_mapsize_x + SEEX - 1, g_half_mapsize_y + SEEY - 1, g->u.abs_pos().z())));
+        get_map(),
+        tripoint_bub_ms::zero() + tripoint_rel_ms::below() * g->u.abs_pos().z()));
 }
 
 monster& spawn_test_monster(const std::string& monster_type, const tripoint_bub_ms& start) {
@@ -158,6 +156,7 @@ monster& spawn_test_monster(const std::string& monster_type, const tripoint_bub_
 // Build a map of size MAPSIZE_X x MAPSIZE_Y around tripoint_bub_ms::zero() with a given
 // terrain, and no furniture, traps, or items.
 void build_test_map(const ter_id& terrain) {
+    MAPBUFFER.clear();
     for (const tripoint_bub_ms& p : g->m.points_in_rectangle(
              tripoint_bub_ms::zero(), tripoint_bub_ms(MAPSIZE * SEEX, MAPSIZE * SEEY, 0))) {
         g->m.furn_set(p, furn_id("f_null"));
@@ -171,7 +170,8 @@ void build_test_map(const ter_id& terrain) {
 
     // Ensure simulated islands exist so simulated_tiles_in_radius and
     // for_each_simulated_submap work for tests that use this map.
-    const tripoint_abs_ms center = map_local_to_abs(g->m, tripoint_bub_ms(0, 0, 0));
+    const tripoint_abs_ms center = map_local_to_abs(g->m, tripoint_bub_ms(g_half_mapsize_x + SEEX - 1,
+                                                                          g_half_mapsize_y + SEEY - 1, 0));
     const point_abs_sm center_sm = project_to<coords::sm>(center).xy();
     const int radius = MAPSIZE / 2 + 1;
     std::unordered_set<point_abs_sm> columns;
@@ -213,4 +213,9 @@ void set_time(const time_point& time) {
     g->m.invalidate_map_cache(z);
     g->m.build_map_cache(z);
     g->m.update_visibility_cache(z);
+}
+
+
+tripoint_bub_ms bub_test_origin() {
+    return abs_to_bub(test_origin);
 }

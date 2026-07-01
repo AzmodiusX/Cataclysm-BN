@@ -42,7 +42,7 @@ auto setup_adjacent_pit_move(const ter_id& origin_terrain, const ter_id& destina
     -> adjacent_pit_move {
     clear_all_state();
     auto& here = get_map();
-    const auto origin = tripoint_bub_ms(60, 60, 0);
+    const auto origin = bub_test_origin();
     const auto destination = origin + tripoint_rel_ms::east();
 
     g->place_player(origin);
@@ -191,11 +191,10 @@ TEST_CASE("moving_between_adjacent_pit_traps") {
 TEST_CASE("destroy_grabbed_furniture") {
     clear_all_state();
     GIVEN("Furniture grabbed by the player") {
-        const tripoint_bub_ms test_origin(60, 60, 0);
-        map& here = get_map();
         g->u.setpos(test_origin);
-        const tripoint_bub_ms grab_point = test_origin + tripoint_rel_ms::east();
-        here.furn_set(grab_point, furn_id("f_chair"));
+        auto& here = g->u.get_mapbuffer();
+        const auto grab_point = test_origin + tripoint_rel_ms::east();
+        here.set_furn(grab_point, furn_id("f_chair"));
         g->u.grab(OBJECT_FURNITURE, tripoint_rel_ms::east());
         WHEN("The furniture grabbed by the player is destroyed") {
             here.destroy(grab_point);
@@ -211,8 +210,8 @@ TEST_CASE("mapbuffer_vehicle_lookup_uses_absolute_coordinates") {
     clear_all_state();
 
     auto& here = get_map();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
-    const auto local_pos = tripoint_bub_ms(60, 60, 0);
+    g->place_player(test_origin);
+    const auto local_pos = bub_test_origin();
     here.ter_set(local_pos, ter_id("t_floor"));
 
     auto* const veh = here.add_vehicle(vproto_id("none"), local_pos, 0_degrees, 0, 0);
@@ -704,32 +703,29 @@ TEST_CASE("monster_tracker_uses_absolute_positions") {
 
     auto& here = get_map();
     auto& you = get_avatar();
-    const auto player_center = tripoint_bub_ms(g_half_mapsize_x, g_half_mapsize_y, 0);
-    you.setpos(map_local_to_abs(here, player_center));
+    you.setpos(test_origin);
 
-    const auto monster_start = player_center + point_rel_ms(2, 0);
-    auto* const mon = g->place_critter_at(mtype_id("mon_zombie"), monster_start);
+    const auto monster_start = test_origin + point_rel_ms(2, 0);
+    auto* const mon = g->place_critter_at(mtype_id("mon_zombie"), bub_test_origin());
     REQUIRE(mon != nullptr);
     const auto monster_abs = mon->abs_pos();
 
-    CHECK(mon->bub_pos() == monster_start);
+    CHECK(mon->abs_pos() == monster_start);
     CHECK(g->critter_at<monster>(monster_start) == mon);
     CHECK(g->critter_at<monster>(monster_abs) == mon);
 
     you.setpos(you.abs_pos() + tripoint_rel_ms(SEEX, 0, 0));
-    const auto player_shifted_monster_pos = abs_to_bub(monster_abs);
     CHECK(mon->abs_pos() == monster_abs);
-    CHECK(mon->bub_pos() == player_shifted_monster_pos);
     CHECK(g->critter_at<monster>(monster_abs) == mon);
-    CHECK(g->critter_at<monster>(player_shifted_monster_pos) == mon);
+    CHECK(g->critter_at<monster>(abs_to_bub(monster_abs)) == mon);
     CHECK(g->critter_at<monster>(monster_start) == nullptr);
 
     const auto moved_abs = monster_abs + tripoint_rel_ms(1, 0, 0);
     mon->setpos(moved_abs);
-    const auto moved_bub = abs_to_bub(moved_abs);
     CHECK(mon->abs_pos() == moved_abs);
-    CHECK(g->critter_at<monster>(moved_bub) == mon);
-    CHECK(g->critter_at<monster>(player_shifted_monster_pos) == nullptr);
+    CHECK(g->critter_at<monster>(moved_abs) == mon);
+    CHECK(g->critter_at<monster>(abs_to_bub(moved_abs)) == mon);
+    CHECK(g->critter_at<monster>(abs_to_bub(monster_abs)) == nullptr);
 }
 
 TEST_CASE("placed_monsters_inherit_bound_dimension") {
@@ -760,17 +756,17 @@ static std::ostream& operator<<(std::ostream& os, const ter_id& tid) {
 
 TEST_CASE("tree_terrain_supports_climbing_destination_above") {
     clear_all_state();
-    auto& here = get_map();
+    auto& here = get_map().get_mapbuffer();
 
     static const ter_str_id t_tree("t_tree");
     static const ter_str_id t_open_air("t_open_air");
-    const auto tree_pos = tripoint_bub_ms(65, 65, 0);
+    const auto tree_pos = tripoint_abs_ms(5, 5, 0);
     const auto climb_destination = tree_pos + tripoint_above;
 
-    here.ter_set(tree_pos, t_tree);
-    here.ter_set(climb_destination, t_open_air);
+    here.set_ter(tree_pos, t_tree);
+    here.set_ter(climb_destination, t_open_air);
 
-    CHECK(here.supports_above(tree_pos));
+    CHECK(get_map().supports_above(abs_to_bub(tree_pos)));
     CHECK(here.has_floor_or_support(climb_destination));
 }
 
@@ -816,7 +812,7 @@ TEST_CASE("bash_through_roof_can_destroy_multiple_times") {
     static const ter_str_id t_strong_roof("t_strong_roof");
     static const ter_str_id t_rock_floor_no_roof("t_rock_floor_no_roof");
     static const ter_str_id t_open_air("t_open_air");
-    static const tripoint_bub_ms p(65, 65, 1);
+    const auto p = abs_to_bub(tripoint_abs_ms(5, 5, 1));
     WHEN(
         "A wall has a matching roof above it, but the roof turns to a stronger roof on successful bash") {
         static const ter_str_id t_fragile_wall("t_fragile_wall");

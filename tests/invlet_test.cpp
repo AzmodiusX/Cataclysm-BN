@@ -666,10 +666,10 @@ static void merge_invlet_test(player& dummy, inventory_location from) {
 TEST_CASE("Inventory letter test", "[invlet]") {
     clear_all_state();
     player& dummy = get_avatar();
-    const tripoint_bub_ms spot(60, 60, 0);
-    dummy.setpos(spot);
-    get_map().ter_set(spot, ter_id("t_dirt"));
-    get_map().furn_set(spot, furn_id("f_null"));
+    dummy.setpos(test_origin);
+    auto& here = dummy.get_mapbuffer();
+    here.set_ter(test_origin, ter_id("t_dirt"));
+    here.set_furn(test_origin, furn_id("f_null"));
     if (!dummy.has_trait(trait_debug_storage)) { dummy.set_mutation(trait_debug_storage); }
 
     invlet_test_autoletter_off("Picking up items from the ground", dummy, GROUND, INVENTORY);

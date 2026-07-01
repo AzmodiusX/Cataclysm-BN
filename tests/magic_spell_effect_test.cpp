@@ -2,6 +2,7 @@
 #include "json.h"
 #include "magic/magic.h"
 #include "magic/magic_spell_effect_helpers.h"
+#include "map_helpers.h"
 #include "npc.h"
 #include "player_helpers.h"
 #include "state_helpers.h"
@@ -35,7 +36,7 @@ TEST_CASE("line_attack", "[magic]") {
     // set up Character to test with, only need position
     npc& c = spawn_npc(tripoint_bub_ms::zero(), "test_talker");
     clear_character(c);
-    c.setpos(tripoint_abs_ms::zero());
+    c.setpos(test_origin);
 
     // target point 5 tiles east of zero
     auto target = tripoint_abs_ms(5, 0, 0);

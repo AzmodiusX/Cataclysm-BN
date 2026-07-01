@@ -54,7 +54,7 @@ static void full_map_test(
     const ter_id t_open_air("t_open_air");
 
     Character& player_character = get_player_character();
-    player_character.setpos( test_origin_abs );
+    player_character.setpos( test_origin );
     get_weather().weather_id = weather_type_id("clear");
     g->reset_light_level();
 

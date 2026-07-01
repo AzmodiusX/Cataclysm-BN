@@ -1,6 +1,7 @@
 #include "catch/catch.hpp"
 #include "character.h"
 #include "map.h"
+#include "map_helpers.h"
 #include "point.h"
 #include "state_helpers.h"
 #include "type_id.h"
@@ -19,9 +20,8 @@ TEST_CASE("vehicle_split_section") {
     Character& player_character = get_player_character();
     for (units::angle dir = 0_degrees; dir < 360_degrees; dir += 15_degrees) {
         CHECK(!player_character.in_vehicle);
-        const tripoint_bub_ms test_origin(15, 15, 0);
         player_character.setpos(test_origin);
-        auto vehicle_origin = tripoint_bub_ms(10, 10, 0);
+        auto vehicle_origin = tripoint_abs_ms(-5, -5, 0);
         VehicleList vehs = here.get_vehicles();
         vehicle* veh_ptr;
         for (auto& vehs_v : vehs) {
@@ -29,11 +29,11 @@ TEST_CASE("vehicle_split_section") {
             here.destroy_vehicle(veh_ptr);
         }
         REQUIRE(here.get_vehicles().empty());
-        veh_ptr = here.add_vehicle(vproto_id("cross_split_test"), vehicle_origin, dir, 0, 0);
+        veh_ptr = here.add_vehicle(vproto_id("cross_split_test"), abs_to_bub(vehicle_origin), dir, 0, 0);
         REQUIRE(veh_ptr != nullptr);
         std::set<tripoint_abs_ms> original_points = veh_ptr->get_points(true);
 
-        here.destroy(vehicle_origin);
+        here.destroy(abs_to_bub(vehicle_origin));
         veh_ptr->part_removal_cleanup();
         REQUIRE(veh_ptr->get_parts_at(vehicle_origin, "", part_status_flag::available).empty());
         vehs = here.get_vehicles();
@@ -71,10 +71,10 @@ TEST_CASE("vehicle_split_section") {
             here.destroy_vehicle(vehs[0].v);
         }
         REQUIRE(here.get_vehicles().empty());
-        vehicle_origin = tripoint_bub_ms(20, 20, 0);
-        veh_ptr = here.add_vehicle(vproto_id("circle_split_test"), vehicle_origin, dir, 0, 0);
+        vehicle_origin = tripoint_abs_ms(20, 20, 0);
+        veh_ptr = here.add_vehicle(vproto_id("circle_split_test"), abs_to_bub(vehicle_origin), dir, 0, 0);
         REQUIRE(veh_ptr != nullptr);
-        here.destroy(vehicle_origin);
+        here.destroy(abs_to_bub(vehicle_origin));
         veh_ptr->part_removal_cleanup();
         REQUIRE(veh_ptr->get_parts_at(vehicle_origin, "", part_status_flag::available).empty());
         vehs = here.get_vehicles();
@@ -89,8 +89,8 @@ TEST_CASE("vehicle_split_section") {
 TEST_CASE("split vehicle keeps selected structure part at origin") {
     clear_all_state();
     auto& here = get_map();
-    const auto vehicle_origin = tripoint_bub_ms(10, 10, 0);
-    auto* veh_ptr = here.add_vehicle(vproto_id("none"), vehicle_origin, 0_degrees, 0, 0);
+    const auto vehicle_origin = tripoint_abs_ms(10, 10, 0);
+    auto* veh_ptr = here.add_vehicle(vproto_id("none"), abs_to_bub(vehicle_origin), 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     const auto anchor_frame =

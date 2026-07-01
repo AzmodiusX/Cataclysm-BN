@@ -25,8 +25,8 @@ auto setup_shriek_stun_test() -> shriek_stun_setup {
     build_test_map(ter_id("t_floor"));
 
     auto& target = get_avatar();
-    const auto screecher_pos = tripoint_abs_ms(60, 60, 0);
-    const auto target_pos = tripoint_abs_ms(62, 60, 0);
+    const auto screecher_pos = tripoint_abs_ms(0, 0, 0);
+    const auto target_pos = tripoint_abs_ms(2, 0, 0);
     target.setpos(target_pos);
 
     auto& screecher = spawn_test_monster("mon_zombie_screecher", abs_to_bub(screecher_pos));

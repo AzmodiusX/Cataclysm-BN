@@ -46,18 +46,19 @@ static auto make_storage(const vpart_id& storage_part, const bool enabled)
     clear_all_state();
     calendar::turn = calendar::start_of_cataclysm + 91_days;
     set_map_temperature(get_weather(), 18_c);
-
-    auto& here = get_map();
-    const auto vehicle_pos = tripoint_bub_ms(60, 60, 0);
-    here.set_temperature(vehicle_pos, 100);
-    auto* veh = here.add_vehicle(vproto_id("none"), vehicle_pos, 0_degrees, 0, 0);
+    
+    auto& map = get_map();
+    auto& here = map.get_mapbuffer();
+    const auto vehicle_pos = bub_test_origin();
+    map.set_temperature(vehicle_pos, 100);
+    auto* veh = map.add_vehicle(vproto_id("none"), vehicle_pos, 0_degrees, 0, 0);
     REQUIRE(veh != nullptr);
     REQUIRE(veh->install_part(tripoint_mnt_veh::zero(), vpart_id("frame_vertical"), true) >= 0);
     const auto part_index = veh->install_part(tripoint_mnt_veh::zero(), storage_part, true);
     REQUIRE(part_index >= 0);
     veh->part(part_index).enabled = enabled;
-    here.add_vehicle_to_cache(veh);
-    here.build_map_cache(vehicle_pos.z(), true);
+    map.add_vehicle_to_cache(veh);
+    map.build_map_cache(vehicle_pos.z(), true);
 
     return {.veh = veh, .part_index = part_index, .pos = vehicle_pos};
 }
@@ -229,7 +230,7 @@ TEST_CASE("Rate of rotting") {
 
         set_map_temperature(weather, 18_c);
         ensure_no_temperature_mods(tripoint_bub_ms::zero());
-        REQUIRE(weather.get_temperature(tripoint_abs_ms::zero()) == 18_c);
+        REQUIRE(weather.get_temperature(test_origin) == 18_c);
 
         normal_item = item::process(
             std::move(normal_item), nullptr, tripoint_bub_ms::zero(), false,
@@ -791,7 +792,7 @@ TEST_CASE("Contained item keeps parent location while temporarily detached") {
 
 TEST_CASE("Sealed containers keep rotten nested contents on location removal", "[item][rot]") {
     prepare_map_storage_test();
-    const auto pos = tripoint_bub_ms(60, 60, 0);
+    const auto pos = bub_test_origin();
     get_map().set_temperature(pos, 100);
     get_map().add_item(pos, make_sealed_carton_with_rotten_nested_sashimi());
 
@@ -808,7 +809,7 @@ TEST_CASE("Sealed containers keep rotten nested contents on location removal", "
 TEST_CASE("Map powered fridge and freezer furniture controls food rot") {
     SECTION("powered freezer furniture preserves food") {
         prepare_map_storage_test();
-        const auto pos = tripoint_bub_ms(60, 60, 0);
+        const auto pos = bub_test_origin();
         get_map().set_temperature(pos, 100);
         get_map().furn_set(pos, f_test_minifreezer_on);
         add_sashimi_to_map(pos);
@@ -823,7 +824,7 @@ TEST_CASE("Map powered fridge and freezer furniture controls food rot") {
 
     SECTION("powered fridge furniture partially protects food") {
         prepare_map_storage_test();
-        const auto pos = tripoint_bub_ms(60, 60, 0);
+        const auto pos = bub_test_origin();
         get_map().set_temperature(pos, 100);
         get_map().furn_set(pos, f_test_fridge_on);
         add_sashimi_to_map(pos);
@@ -838,7 +839,7 @@ TEST_CASE("Map powered fridge and freezer furniture controls food rot") {
 
     SECTION("powered freezer furniture keeps food fresh when removed after missed processing") {
         prepare_map_storage_test();
-        const auto pos = tripoint_bub_ms(60, 60, 0);
+        const auto pos = bub_test_origin();
         get_map().set_temperature(pos, 100);
         get_map().furn_set(pos, f_test_minifreezer_on);
         add_sashimi_to_map(pos);
@@ -856,7 +857,7 @@ TEST_CASE("Map powered fridge and freezer furniture controls food rot") {
 
     SECTION("powered freezer furniture keeps nested food fresh after missed processing") {
         prepare_map_storage_test();
-        const auto pos = tripoint_bub_ms(60, 60, 0);
+        const auto pos = bub_test_origin();
         get_map().set_temperature(pos, 100);
         get_map().furn_set(pos, f_test_minifreezer_on);
         add_backpack_with_sashimi_to_map(pos);
@@ -875,7 +876,7 @@ TEST_CASE("Map powered fridge and freezer furniture controls food rot") {
 
     SECTION("powered freezer furniture keeps whole food fresh when consumed for crafting") {
         prepare_map_storage_test();
-        const auto pos = tripoint_bub_ms(60, 60, 0);
+        const auto pos = bub_test_origin();
         get_map().set_temperature(pos, 100);
         get_map().furn_set(pos, f_test_minifreezer_on);
         add_sashimi_to_map(pos);
@@ -894,7 +895,7 @@ TEST_CASE("Map powered fridge and freezer furniture controls food rot") {
 
     SECTION("powered fridge furniture catches up whole food rot when consumed for crafting") {
         prepare_map_storage_test();
-        const auto pos = tripoint_bub_ms(60, 60, 0);
+        const auto pos = bub_test_origin();
         get_map().set_temperature(pos, 100);
         get_map().furn_set(pos, f_test_fridge_on);
         add_sashimi_to_map(pos);
@@ -913,7 +914,7 @@ TEST_CASE("Map powered fridge and freezer furniture controls food rot") {
 
     SECTION("powered freezer furniture keeps charge food fresh when consumed for crafting") {
         prepare_map_storage_test();
-        const auto pos = tripoint_bub_ms(60, 60, 0);
+        const auto pos = bub_test_origin();
         get_map().set_temperature(pos, 100);
         get_map().furn_set(pos, f_test_minifreezer_on);
         add_food_to_map(pos, itype_id("bread"));
@@ -938,7 +939,7 @@ TEST_CASE("Map powered fridge and freezer furniture controls food rot") {
 
     SECTION("powered fridge furniture catches up charge food rot when consumed for crafting") {
         prepare_map_storage_test();
-        const auto pos = tripoint_bub_ms(60, 60, 0);
+        const auto pos = bub_test_origin();
         get_map().set_temperature(pos, 100);
         get_map().furn_set(pos, f_test_fridge_on);
         add_food_to_map(pos, itype_id("bread"));
@@ -964,7 +965,7 @@ TEST_CASE("Map powered fridge and freezer furniture controls food rot") {
 
     SECTION("unprotected map storage reports stale rot when inspected before processing") {
         prepare_map_storage_test();
-        const auto pos = tripoint_bub_ms(60, 60, 0);
+        const auto pos = bub_test_origin();
         get_map().set_temperature(pos, 100);
         add_sashimi_to_map(pos);
 
@@ -978,7 +979,7 @@ TEST_CASE("Map powered fridge and freezer furniture controls food rot") {
 
     SECTION("unprotected map storage rots food normally") {
         prepare_map_storage_test();
-        const auto pos = tripoint_bub_ms(60, 60, 0);
+        const auto pos = bub_test_origin();
         get_map().set_temperature(pos, 100);
         add_sashimi_to_map(pos);
 

@@ -83,7 +83,7 @@ auto make_active_bionic_scanner_benchmark_fixture(
     avatar& you, const active_bionic_scanner_benchmark_options& opts)
     -> active_bionic_scanner_benchmark_fixture {
     auto& here = get_map();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     set_time(calendar::turn_zero + 12_hours);
     you.recalc_sight_limits();
 
@@ -124,7 +124,7 @@ TEST_CASE("bionic_scanner_on_ground_marks_corpses_with_cbms", "[iuse][bionic_sca
     auto& you = get_avatar();
     const auto restore_avatar_id = restore_bionic_scanner_avatar_id(you);
     auto& here = get_map();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(you.abs_pos());
     set_time(calendar::turn_zero + 12_hours);
     you.recalc_sight_limits();
@@ -166,7 +166,7 @@ TEST_CASE(
     auto& you = get_avatar();
     const auto restore_avatar_id = restore_bionic_scanner_avatar_id(you);
     auto& here = get_map();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(you.abs_pos());
     set_time(calendar::turn_zero + 12_hours);
     you.recalc_sight_limits();
@@ -210,7 +210,7 @@ TEST_CASE("bionic_scanner_inside_container_marks_corpses_with_cbms", "[iuse][bio
     auto& you = get_avatar();
     const auto restore_avatar_id = restore_bionic_scanner_avatar_id(you);
     auto& here = get_map();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(you.abs_pos());
     set_time(calendar::turn_zero + 12_hours);
     you.recalc_sight_limits();
@@ -253,7 +253,7 @@ TEST_CASE("bionic_scanner_consumes_charge_for_each_scanned_corpse", "[iuse][bion
     auto& you = get_avatar();
     const auto restore_avatar_id = restore_bionic_scanner_avatar_id(you);
     auto& here = get_map();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(you.abs_pos());
     set_time(calendar::turn_zero + 12_hours);
     you.recalc_sight_limits();
@@ -294,7 +294,7 @@ TEST_CASE("bionic_scanner_marks_new_corpse_after_activation", "[iuse][bionic_sca
     auto& you = get_avatar();
     const auto restore_avatar_id = restore_bionic_scanner_avatar_id(you);
     auto& here = get_map();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(you.abs_pos());
     set_time(calendar::turn_zero + 12_hours);
     you.recalc_sight_limits();
@@ -336,7 +336,7 @@ TEST_CASE(
     auto& you = get_avatar();
     const auto restore_avatar_id = restore_bionic_scanner_avatar_id(you);
     auto& here = get_map();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(you.abs_pos());
     set_time(calendar::turn_zero + 12_hours);
     you.recalc_sight_limits();
@@ -385,7 +385,7 @@ TEST_CASE("bionic_scanner_updates_same_monster_corpse_pile_display", "[iuse][bio
     auto& you = get_avatar();
     const auto restore_avatar_id = restore_bionic_scanner_avatar_id(you);
     auto& here = get_map();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(you.abs_pos());
     set_time(calendar::turn_zero + 12_hours);
     you.recalc_sight_limits();
@@ -437,7 +437,7 @@ TEST_CASE(
     auto& you = get_avatar();
     const auto restore_avatar_id = restore_bionic_scanner_avatar_id(you);
     auto& here = get_map();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(you.abs_pos());
     set_time(calendar::turn_zero + 12_hours);
     you.recalc_sight_limits();
@@ -496,7 +496,7 @@ TEST_CASE(
     auto& you = get_avatar();
     const auto restore_avatar_id = restore_bionic_scanner_avatar_id(you);
     auto& here = get_map();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(you.abs_pos());
     set_time(calendar::turn_zero + 12_hours);
     you.recalc_sight_limits();
@@ -594,7 +594,7 @@ TEST_CASE("bionic_scanner_inside_worn_container_marks_corpse_stack", "[iuse][bio
     auto& you = get_avatar();
     const auto restore_avatar_id = restore_bionic_scanner_avatar_id(you);
     auto& here = get_map();
-    g->place_player(tripoint_bub_ms(60, 60, 0));
+    g->place_player(test_origin);
     ensure_simulated_islands_for(you.abs_pos());
     set_time(calendar::turn_zero + 12_hours);
     you.recalc_sight_limits();

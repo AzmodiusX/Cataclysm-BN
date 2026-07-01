@@ -160,7 +160,7 @@ static int can_catch_player(
     std::vector<detached_ptr<item>> temp;
     while (test_player.takeoff(test_player.i_at(-2), &temp));
 
-    const tripoint_abs_ms center{65, 65, 0};
+    const tripoint_abs_ms center{5, 5, 0};
     test_player.setpos(center);
     test_player.set_moves(0);
     // Give the player a head start.
@@ -453,11 +453,11 @@ TEST_CASE("monster_vertical_melee_respects_floors", "[monster][z-level]") {
             blimp->part_with_feature(tripoint_mnt_veh::zero(), "BOARDABLE", true);
         REQUIRE(cockpit_part != -1);
 
-        const auto blimp_tile = blimp->bub_part_location(cockpit_part);
+        const auto blimp_tile = blimp->abs_part_location(cockpit_part);
         you.setpos(blimp_tile);
         grabber.setpos(blimp_tile + tripoint_below);
 
-        CHECK(here.veh_at(you.bub_pos()).part_with_feature("BOARDABLE", true).has_value());
+        CHECK(here.veh_at(you.abs_pos()).part_with_feature("BOARDABLE", true).has_value());
         CHECK_FALSE(grabber.attack_at(you.abs_pos()));
     }
 }
