@@ -194,18 +194,19 @@ static void full_map_test(
         for (int x = 0; x < width; ++x) {
             const auto p = origin + point_rel_ms(x, y);
             const auto& visibility_cache = map.get_visibility_variables_cache();
+            const auto bub_p = abs_to_bub(p);
             const map::apparent_light_info al =
-                map::apparent_light_helper(cache, abs_to_bub(p), visibility_cache.visibility_scale_factor);
-            for (auto& pr : map.field_at(abs_to_bub(p))) { fields << pr.second.name() << ','; }
+                map::apparent_light_helper(cache, bub_p, visibility_cache.visibility_scale_factor);
+            for (auto& pr : map.field_at(bub_p)) { fields << pr.second.name() << ','; }
             fields << ' ';
-            transparency << std::setw(6) << cache.transparency_cache[cache.idx(p.x(), p.y())] << ' ';
-            seen << std::setw(6) << cache.seen_cache[cache.idx(p.x(), p.y())] << ' ';
-            lm << std::setw(6) << cache.lm[cache.idx(p.x(), p.y())] << ' ';
+            transparency << std::setw(6) << cache.transparency_cache[cache.idx(bub_p.x(), bub_p.y())] << ' ';
+            seen << std::setw(6) << cache.seen_cache[cache.idx(bub_p.x(), bub_p.y())] << ' ';
+            lm << std::setw(6) << cache.lm[cache.idx(bub_p.x(), bub_p.y())] << ' ';
             apparent_light << std::setw(6) << al.apparent_light << ' ';
-            visibility_cache_dump << std::setw(6) << cache.visibility_cache[cache.idx(p.x(), p.y())]
+            visibility_cache_dump << std::setw(6) << cache.visibility_cache[cache.idx(bub_p.x(), bub_p.y())]
                                   << ' ';
             obstructed << (al.obstructed ? '#' : '.') << ' ';
-            floor_above << (above_cache.floor_cache[above_cache.idx(p.x(), p.y())] ? '#' : '.')
+            floor_above << (above_cache.floor_cache[above_cache.idx(bub_p.x(), bub_p.y())] ? '#' : '.')
                         << ' ';
         }
         fields << '\n';
