@@ -233,13 +233,13 @@ TEST_CASE("Rate of rotting") {
         REQUIRE(weather.get_temperature(test_origin) == 18_c);
 
         normal_item = item::process(
-            std::move(normal_item), nullptr, tripoint_bub_ms::zero(), false,
+            std::move(normal_item), nullptr, false,
             temperature_flag::TEMP_NORMAL, weather);
         sealed_item = item::process(
-            std::move(sealed_item), nullptr, tripoint_bub_ms::zero(), false,
+            std::move(sealed_item), nullptr, false,
             temperature_flag::TEMP_NORMAL, weather);
         freeze_item = item::process(
-            std::move(freeze_item), nullptr, tripoint_bub_ms::zero(), false,
+            std::move(freeze_item), nullptr, false,
             temperature_flag::TEMP_NORMAL, weather);
 
         // Item should exist with no rot when it is brand new
@@ -251,13 +251,13 @@ TEST_CASE("Rate of rotting") {
 
         calendar::turn += 20_minutes;
         normal_item = item::process(
-            std::move(normal_item), nullptr, tripoint_bub_ms::zero(), false,
+            std::move(normal_item), nullptr, false,
             temperature_flag::TEMP_NORMAL, weather);
         sealed_item = item::process(
-            std::move(sealed_item), nullptr, tripoint_bub_ms::zero(), false,
+            std::move(sealed_item), nullptr, false,
             temperature_flag::TEMP_NORMAL, weather);
         freeze_item = item::process(
-            std::move(freeze_item), nullptr, tripoint_bub_ms::zero(), false,
+            std::move(freeze_item), nullptr, false,
             temperature_flag::TEMP_FREEZER, weather);
 
         // After 20 minutes the normal item should have 20 minutes of rot
@@ -272,10 +272,10 @@ TEST_CASE("Rate of rotting") {
         // TODO: Check >1 hour normal processing as well - can't be "simply done" because of weather
         // globals
         sealed_item = item::process(
-            std::move(sealed_item), nullptr, tripoint_bub_ms::zero(), false,
+            std::move(sealed_item), nullptr, false,
             temperature_flag::TEMP_NORMAL, weather);
         freeze_item = item::process(
-            std::move(freeze_item), nullptr, tripoint_bub_ms::zero(), false,
+            std::move(freeze_item), nullptr, false,
             temperature_flag::TEMP_FREEZER, weather);
         // In freezer and in preserving container still should be no rot
         CHECK(sealed_item->get_rot() == 0_turns);
@@ -411,7 +411,7 @@ TEST_CASE("Preserving containers stop contained food rot") {
 
         calendar::turn += 25_hours;
         outer = item::process(
-            std::move(outer), nullptr, tripoint_bub_ms::zero(), false,
+            std::move(outer), nullptr, false,
             temperature_flag::TEMP_NORMAL, get_weather());
 
         namespace ranges = std::ranges;
@@ -438,14 +438,14 @@ TEST_CASE("Items rot away") {
 
         // Process item once to set all of its values.
         test_item = item::process(
-            std::move(test_item), nullptr, tripoint_bub_ms::zero(), false,
+            std::move(test_item), nullptr, false,
             temperature_flag::TEMP_HEATER, weather);
 
         // Set rot to >2 days and process again. process_rot should destroy the item.
         calendar::turn += 20_minutes;
         test_item->mod_rot(4_days);
         test_item = item::process_rot(
-            std::move(test_item), false, tripoint_bub_ms::zero(), nullptr,
+            std::move(test_item), false, nullptr,
             temperature_flag::TEMP_HEATER, weather);
         CHECK(!test_item);
     }
@@ -459,7 +459,7 @@ TEST_CASE("Items rot away") {
         }
 
         detached_ptr<item> test_item = item::process(
-            item::spawn("meat_cooked"), nullptr, tripoint_bub_ms::zero(), false,
+            item::spawn("meat_cooked"), nullptr, false,
             temperature_flag::TEMP_HEATER, weather);
         map& m = get_map();
         m.add_item_or_charges(loc, std::move(test_item), false);
@@ -783,7 +783,7 @@ TEST_CASE("Contained item keeps parent location while temporarily detached") {
     container->contents.remove_top_items_with([&](detached_ptr<item>&& it) {
         checked = true;
         CHECK(it->parent_item() == &*container);
-        CHECK(rot::temp::for_location(get_map(), *it) == temperature_flag::TEMP_NORMAL);
+        CHECK(rot::temp::for_location(*it) == temperature_flag::TEMP_NORMAL);
         return std::move(it);
     });
 

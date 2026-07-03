@@ -195,44 +195,56 @@ class RemovePartHandler
     public:
         virtual ~RemovePartHandler() = default;
 
-        virtual void unboard( const tripoint_bub_ms &loc ) = 0;
-        virtual detached_ptr<item> add_item_or_charges( const tripoint_bub_ms &loc, detached_ptr<item> &&it,
-                bool permit_oob ) = 0;
+        virtual void unboard( const tripoint_abs_ms &loc ) = 0;
+        virtual detached_ptr<item> add_item_or_charges( const tripoint_abs_ms &loc,
+                                                        detached_ptr<item> &&it, bool permit_oob ) = 0;
         virtual void set_transparency_cache_dirty( int z ) = 0;
         virtual void set_floor_cache_dirty( int z ) = 0;
         virtual void removed( vehicle &veh, int part ) = 0;
-        virtual void spawn_animal_from_part( item &base, const tripoint_bub_ms &loc ) = 0;
-        virtual auto part_location( const vehicle &veh, const int part ) const -> tripoint_bub_ms = 0;
+        virtual void spawn_animal_from_part( item &base, const tripoint_abs_ms &loc ) = 0;
+        virtual auto abs_part_location( const vehicle &veh, const int part ) const -> tripoint_abs_ms = 0;
 };
 
 class DefaultRemovePartHandler : public RemovePartHandler
 {
+    private:
+        mapbuffer &here;
+
     public:
+        DefaultRemovePartHandler( mapbuffer &m ) : here( m ) { }
+
         ~DefaultRemovePartHandler() override = default;
 
-        void unboard( const tripoint_bub_ms &loc ) override {
-            g->m.unboard_vehicle( loc );
+        void unboard( const tripoint_abs_ms &loc ) override {
+            here.unboard_vehicle( loc );
         }
-        detached_ptr<item> add_item_or_charges( const tripoint_bub_ms &loc, detached_ptr<item> &&it,
-                                                bool /*permit_oob*/ ) override {
-            return g->m.add_item_or_charges( loc, std::move( it ) );
+        detached_ptr<item> add_item_or_charges( const tripoint_abs_ms &loc,
+                                                detached_ptr<item> &&it, bool /*permit_oob*/ ) override {
+            return here.add_item_or_charges( loc, std::move( it ) );
         }
         void set_transparency_cache_dirty( const int z ) override {
-            map &here = get_map();
-            here.set_transparency_cache_dirty( z );
-            here.set_seen_cache_dirty( tripoint_bub_ms::zero() );
+            if( here.get_dimension_id() != get_avatar().get_dimension() ) {
+                return;
+            }
+            get_map().set_transparency_cache_dirty( z );
+            get_map().set_seen_cache_dirty( tripoint_bub_ms::zero() );
         }
         void set_floor_cache_dirty( const int z ) override {
+            if( here.get_dimension_id() != get_avatar().get_dimension() ) {
+                return;
+            }
             get_map().set_floor_cache_dirty( z );
         }
         void removed( vehicle &veh, const int part ) override {
             avatar &player_character = get_avatar();
             // If the player is currently working on the removed part, stop them as it's futile now.
             const player_activity &act = *player_character.activity;
-            map &here = get_map();
+            if( here.get_dimension_id() != player_character.get_dimension() ) {
+                return;
+            }
             if( act.id() == ACT_VEHICLE && act.moves_left > 0 && act.values.size() > 6 ) {
-                if( veh_pointer_or_null( here.veh_at( tripoint_bub_ms( act.values[0], act.values[1],
-                                                      player_character.bub_pos().z() ) ) ) == &veh ) {
+                if( veh_pointer_or_null( here.veh_at( bub_to_abs( tripoint_bub_ms( act.values[0], act.values[1],
+                                                      player_character.bub_pos().z() ) ) ) ) == &veh ) {
                     if( act.values[6] >= part ) {
                         player_character.cancel_activity();
                         add_msg( m_info, _( "The vehicle part you were working on has gone!" ) );
@@ -249,48 +261,38 @@ class DefaultRemovePartHandler : public RemovePartHandler
                 }
             }
 
-            here.dirty_vehicle_list.insert( &veh );
+            get_map().dirty_vehicle_list.insert( &veh );
         }
-        void spawn_animal_from_part( item &base, const tripoint_bub_ms &loc ) override {
+        void spawn_animal_from_part( item &base, const tripoint_abs_ms &loc ) override {
             base.release_monster( loc, 1 );
         }
-        auto part_location( const vehicle &veh, const int part ) const -> tripoint_bub_ms override {
-            return veh.bub_part_location( part );
+        auto abs_part_location( const vehicle &veh, const int part ) const -> tripoint_abs_ms override {
+            return veh.abs_part_location( part );
         }
 };
 
 class MapgenRemovePartHandler : public RemovePartHandler
 {
     private:
-        map &m;
+        mapbuffer &here;
 
     public:
-        MapgenRemovePartHandler( map &m ) : m( m ) { }
+        MapgenRemovePartHandler( mapbuffer &m ) : here( m ) { }
 
         ~MapgenRemovePartHandler() override = default;
 
-        void unboard( const tripoint_bub_ms &/*loc*/ ) override {
+        void unboard( const tripoint_abs_ms &/*loc*/ ) override {
             debugmsg( "Tried to unboard during mapgen!" );
             // Ignored. Will almost certainly not be called anyway, because
             // there are no creatures that could have been mounted during mapgen.
         }
-        detached_ptr<item> add_item_or_charges( const tripoint_bub_ms &loc, detached_ptr<item> &&it,
+        detached_ptr<item> add_item_or_charges( const tripoint_abs_ms &loc, detached_ptr<item> &&it,
                                                 bool permit_oob ) override {
-            if( !m.inbounds( loc ) ) {
-                point_sm_ms offset;
-                if( !m.get_mapbuffer().is_outside_pocket_dimension_bounds( map_local_to_abs( m, loc ) ) &&
-                    m.get_submap_at( loc, offset ) != nullptr ) {
-                    return m.add_item_or_charges( loc, std::move( it ) );
-                }
-                if( !permit_oob ) {
-                    return std::move( it );
-                }
-                auto copy = loc;
-                m.clip_to_bounds( copy );
-                assert( m.inbounds( copy ) ); // prevent infinite recursion
-                return add_item_or_charges( copy, std::move( it ), false );
+            if( !here.is_outside_pocket_dimension_bounds( loc ) ) {
+                return here.add_item_or_charges( loc, std::move( it ), { .lookup = { .mode = permit_oob ?
+                                                                            mapbuffer_lookup_mode::simulated_only :
+                                                                            mapbuffer_lookup_mode::resident_only } } );
             }
-            return m.add_item_or_charges( loc, std::move( it ) );
         }
         void set_transparency_cache_dirty( const int /*z*/ ) override {
             // Ignored for now. We don't initialize the transparency cache in mapgen anyway.
@@ -300,55 +302,57 @@ class MapgenRemovePartHandler : public RemovePartHandler
         }
         void removed( vehicle &veh, const int /*part*/ ) override {
             // TODO: check if this is necessary, it probably isn't during mapgen
-            m.dirty_vehicle_list.insert( &veh );
+            if( here.get_dimension_id() != get_avatar().get_dimension() ) {
+                return;
+            }
+            here.unregister_vehicle( &veh );
         }
-        void spawn_animal_from_part( item &/*base*/, const tripoint_bub_ms &/*loc*/ ) override {
+        void spawn_animal_from_part( item &/*base*/, const tripoint_abs_ms &/*loc*/ ) override {
             debugmsg( "Tried to spawn animal from vehicle part during mapgen!" );
             // Ignored. The base item will not be changed and will spawn as is:
             // still containing the animal.
             // This should not happend during mapgen anyway.
             // TODO: *if* this actually happens: create a spawn point for the animal instead.
         }
-        auto part_location( const vehicle &veh, const int part ) const -> tripoint_bub_ms override {
-            return abs_to_map_local( m, veh.abs_part_location( part ) );
+        auto abs_part_location( const vehicle &veh, const int part ) const -> tripoint_abs_ms override {
+            return veh.abs_part_location( part );
         }
 };
 
 class MapgenConstructorRemovePartHandler : public RemovePartHandler
 {
     private:
-        mapgen_constructor &m;
+        mapgen_constructor &mg;
 
-        auto to_omt( const tripoint_bub_ms &loc, const bool permit_oob ) const
+        auto to_omt( const tripoint_abs_ms &loc, const bool permit_oob ) const
         -> std::optional<tripoint_omt_ms> {
-            auto raw = loc.raw();
-            const auto max_x = SEEX * 2 - 1;
-            const auto max_y = SEEY * 2 - 1;
-            const bool inbounds = raw.x >= 0 && raw.x <= max_x &&
-                                  raw.y >= 0 && raw.y <= max_y;
-            if( !inbounds && !permit_oob ) {
+            auto proj = project_remain<coords::omt>( loc );
+            if( permit_oob ) {
+                return proj.remainder_tripoint;
+            }
+            const bool inbounds = proj.quotient.raw().abs().x == 0 && 
+                                  proj.remainder.raw().abs().y == 0;
+            if( !inbounds ) {
                 return std::nullopt;
             }
-            raw.x = std::clamp( raw.x, 0, max_x );
-            raw.y = std::clamp( raw.y, 0, max_y );
-            return tripoint_omt_ms( raw );
+            return proj.remainder_tripoint;
         }
 
     public:
-        explicit MapgenConstructorRemovePartHandler( mapgen_constructor &m ) : m( m ) { }
+        explicit MapgenConstructorRemovePartHandler( mapgen_constructor &mg ) : mg( mg ) { }
 
         ~MapgenConstructorRemovePartHandler() override = default;
 
-        auto unboard( const tripoint_bub_ms &/*loc*/ ) -> void override {
+        auto unboard( const tripoint_abs_ms &/*loc*/ ) -> void override {
             debugmsg( "Tried to unboard during mapgen!" );
         }
-        auto add_item_or_charges( const tripoint_bub_ms &loc, detached_ptr<item> &&it,
+        auto add_item_or_charges( const tripoint_abs_ms &loc, detached_ptr<item> &&it,
                                   bool permit_oob ) -> detached_ptr<item> override {
             const auto omt_loc = to_omt( loc, permit_oob );
             if( !omt_loc ) {
                 return std::move( it );
             }
-            return m.add_item_or_charges( omt_loc->xy(), std::move( it ) );
+            return mg.add_item_or_charges( omt_loc->xy(), std::move( it ) );
         }
         auto set_transparency_cache_dirty( const int /*z*/ ) -> void override {
         }
@@ -356,11 +360,11 @@ class MapgenConstructorRemovePartHandler : public RemovePartHandler
         }
         auto removed( vehicle &/*veh*/, const int /*part*/ ) -> void override {
         }
-        auto spawn_animal_from_part( item &/*base*/, const tripoint_bub_ms &/*loc*/ ) -> void override {
+        auto spawn_animal_from_part( item &/*base*/, const tripoint_abs_ms &/*loc*/ ) -> void override {
             debugmsg( "Tried to spawn animal from vehicle part during mapgen!" );
         }
-        auto part_location( const vehicle &veh, const int part ) const -> tripoint_bub_ms override {
-            return veh.bub_part_location( part );
+        auto abs_part_location( const vehicle &veh, const int part ) const -> tripoint_abs_ms override {
+            return veh.abs_part_location( part );
         }
 };
 
@@ -1349,7 +1353,7 @@ units::angle vehicle::get_angle_from_targ( const tripoint_abs_ms &targ )
  * (i.e., any spot with multiple frames) will be completely destroyed, as that
  * was the collision point.
  */
-void vehicle::smash( map &m, float hp_percent_loss_min, float hp_percent_loss_max,
+void vehicle::smash( float hp_percent_loss_min, float hp_percent_loss_max,
                      float percent_of_parts_to_affect, tripoint_rel_ms damage_origin, float damage_size )
 {
     for( auto &part : parts ) {
@@ -1412,12 +1416,12 @@ void vehicle::smash( map &m, float hp_percent_loss_min, float hp_percent_loss_ma
                 // Deferred creation of the handler to here so it is only created when actually needed.
                 if( !handler_ptr ) {
                     // This is a heuristic: we just assume the default handler is good enough when called
-                    // on the main game map. And assume that we run from some mapgen code if called on
-                    // another instance.
-                    if( g && &g->m == &m ) {
-                        handler_ptr = std::make_unique<DefaultRemovePartHandler>();
+                    // when the game and map exist. And assume that we run from some mapgen code if called on
+                    // if false.
+                    if( g && &g->m ) {
+                        handler_ptr = std::make_unique<DefaultRemovePartHandler>( get_mapbuffer() );
                     } else {
-                        handler_ptr = std::make_unique<MapgenRemovePartHandler>( m );
+                        handler_ptr = std::make_unique<MapgenRemovePartHandler>( get_mapbuffer() );
                     }
                 }
                 remove_part( other_p, *handler_ptr );
@@ -2473,7 +2477,7 @@ bool vehicle::merge_rackable_vehicle( vehicle *carry_veh, const std::vector<int>
  */
 bool vehicle::remove_part( const int p )
 {
-    DefaultRemovePartHandler handler;
+    DefaultRemovePartHandler handler{ get_mapbuffer() };
     return remove_part( p, handler );
 }
 
@@ -2496,7 +2500,7 @@ bool vehicle::remove_part( const int p, RemovePartHandler &handler )
         return false;
     }
 
-    const auto part_loc = handler.part_location( *this, p );
+    const auto part_loc = handler.abs_part_location( *this, p );
 
     // Unboard any entities standing on removed boardable parts
     if( part_flag( p, "BOARDABLE" ) && parts[p].has_flag( vehicle_part::passenger_flag ) ) {
@@ -5610,7 +5614,7 @@ float vehicle::steering_effectiveness() const
 float vehicle::handling_difficulty() const
 {
     const float steer = std::max( 0.0f, steering_effectiveness() );
-    const float ktraction = k_traction( g->m.vehicle_wheel_traction( *this ) );
+    const float ktraction = k_traction( g->m.get_mapbuffer().vehicle_wheel_traction( *this ) );
     const float aligned = std::max( 0.0f, 1.0f - ( face_vec() - dir_vec() ).magnitude() );
 
     // TestVehicle: perfect steering, moving on road at 100 mph (25 tiles per turn) = 0.0
@@ -7275,7 +7279,7 @@ void vehicle::do_towing_move()
         const tripoint_rel_ms move_destination( clamp( destination_delta_x, -1, 1 ),
                                                 clamp( destination_delta_y, -1, 1 ),
                                                 clamp( destination_delta_z, -1, 1 ) );
-        g->m.move_vehicle( *towed_veh, move_destination, towed_veh->face );
+        g->m.get_mapbuffer().move_vehicle( *towed_veh, move_destination, towed_veh->face );
         towed_veh->move = tileray( point_rel_ms( destination_delta_x, destination_delta_y ) );
     }
 

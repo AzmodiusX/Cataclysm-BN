@@ -153,7 +153,7 @@ auto try_shove_grabbed_vehicle( avatar &you ) -> bool
             veh.vertical_velocity = shove_delta.z() < 0 ? -shove_velocity : shove_velocity;
         }
 
-        vehicle *const moved_vehicle = get_map().move_vehicle( veh, shove_delta, veh.face );
+        vehicle *const moved_vehicle = get_map().get_mapbuffer().move_vehicle( veh, shove_delta, veh.face );
         if( moved_vehicle == nullptr || moved_vehicle->abs_part_location( grabbed_part_index ) ==
             current_part_pos ) {
             break;
@@ -410,12 +410,12 @@ bool avatar_action::move( avatar &you, const tripoint_rel_ms &d )
         item &digging_tool = you.primary_weapon();
         if( digging_tool.has_flag( flag_DIG_TOOL ) ) {
             if( digging_tool.type->can_use( "JACKHAMMER" ) && digging_tool.ammo_sufficient() ) {
-                you.invoke_item( &digging_tool, "JACKHAMMER", abs_to_bub( dest_loc ) );
+                you.invoke_item( &digging_tool, "JACKHAMMER", dest_loc );
                 // don't move into the tile until done mining
                 you.defer_move( dest_loc );
                 return true;
             } else if( digging_tool.type->can_use( "PICKAXE" ) ) {
-                you.invoke_item( &digging_tool, "PICKAXE", abs_to_bub( dest_loc ) );
+                you.invoke_item( &digging_tool, "PICKAXE", dest_loc );
                 // don't move into the tile until done mining
                 you.defer_move( dest_loc );
                 return true;
@@ -423,7 +423,7 @@ bool avatar_action::move( avatar &you, const tripoint_rel_ms &d )
         }
         if( you.has_trait( trait_BURROW ) ) {
             item *burrowing_item = item::spawn_temporary( itype_id( "fake_burrowing" ) );
-            you.invoke_item( burrowing_item, "BURROW", abs_to_bub( dest_loc ) );
+            you.invoke_item( burrowing_item, "BURROW", dest_loc );
             // don't move into the tile until done mining
             you.defer_move( dest_loc );
             return true;

@@ -21,7 +21,8 @@
 static auto get_single_food_item(const tripoint_abs_ms& pos) -> const item& {
     auto& here = get_map().get_mapbuffer();
     const auto items = here.get_items(pos);
-    CHECK(items && items->size() == 1);
+    REQUIRE(items);
+    CHECK(items->size() == 1);
 
     return **items->begin();
 }
@@ -65,7 +66,8 @@ TEST_CASE("auto_consume_priority", "[auto_consume][food][zone]") {
                 if (count == 0) {
                     INFO("expected empty at " << pos);
                     auto it = here.get_items(pos);
-                    CHECK(it && it->empty());
+                    REQUIRE(it);
+                    CHECK(it->empty());
                 } else {
                     INFO("expected " << count << " at " << pos);
                     CHECK(get_single_food_item(pos).count() == count);

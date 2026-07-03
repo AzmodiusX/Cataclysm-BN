@@ -396,7 +396,7 @@ int vehicle_part::ammo_consume( int qty, const tripoint_bub_ms &pos )
         }
         return res;
     }
-    return base->ammo_consume( qty, pos );
+    return base->ammo_consume( qty );
 }
 
 double vehicle_part::consume_energy( const itype_id &ftype, double energy_j )
@@ -484,7 +484,7 @@ void vehicle_part::process_contents( const tripoint_bub_ms &pos, const bool e_he
             flag = temperature_flag::TEMP_FREEZER;
         }
 
-        base = item::process( base.release(), nullptr, pos, false, flag );
+        base = item::process( base.release(), nullptr, false, flag );
     }
 }
 

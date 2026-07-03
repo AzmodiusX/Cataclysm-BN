@@ -167,7 +167,7 @@ void vehicle::thrust( int thd, int z )
     }
 
     // TODO: Pass this as an argument to avoid recalculating
-    float traction = k_traction( get_map().vehicle_wheel_traction( *this ) );
+    float traction = k_traction( get_map().get_mapbuffer().vehicle_wheel_traction( *this ) );
     int accel = current_acceleration() * traction;
     // Somehow accel is not clamped to current_acceleration in the air
     // Everywhere else and there is no need for clamps
@@ -1532,7 +1532,7 @@ vehicle *vehicle::act_on_map()
         return this;
     }
 
-    const float wheel_traction_area = here.vehicle_wheel_traction( *this );
+    const float wheel_traction_area = here.get_mapbuffer().vehicle_wheel_traction( *this );
     const float traction = k_traction( wheel_traction_area );
     if( traction < 0.001f ) {
         of_turn = 0;
@@ -1643,7 +1643,7 @@ vehicle *vehicle::act_on_map()
         }
     }
 
-    return here.move_vehicle( *this, dp, mdir );
+    return here.get_mapbuffer().move_vehicle( *this, dp, mdir );
 }
 
 void vehicle::shift_zlevel()
@@ -1669,7 +1669,7 @@ void vehicle::shift_zlevel()
     }
 
     if( z_shift != 0 ) {
-        here.shift_vehicle_z( *this, z_shift );
+        here.get_mapbuffer().shift_vehicle_z( *this, z_shift );
     }
 }
 
@@ -1795,182 +1795,9 @@ void vehicle::check_falling_or_floating()
     in_water =  2 * water_tiles >= pts.size();
 }
 
-float map::vehicle_wheel_traction( const vehicle &veh,
-                                   const bool ignore_movement_modifiers /*=false*/ ) const
-{
-    if( veh.is_in_water( true ) ) {
-        return veh.can_float() ? 1.0f : -1.0f;
-    }
-    if( veh.is_in_water() && veh.is_watercraft() && veh.can_float() ) {
-        return 1.0f;
-    }
-    if( veh.is_flying_in_air() ) {
-        return ( veh.has_lift() ) ? 1.0f : -1.0f;
-    }
 
-    const auto &wheel_indices = veh.wheelcache;
-    int num_wheels = wheel_indices.size();
-    if( num_wheels == 0 ) {
-        // TODO: Assume it is digging in dirt
-        // TODO: Return something that could be reused for dragging
-        return 0.0f;
-    }
 
-    float traction_wheel_area = 0.0f;
 
-    if( vehicle_movement::is_on_rails( *this, veh ) ) {
-        // Vehicles on rails are considered to have all of their wheels on rails
-        for( int p : veh.rail_wheelcache ) {
-            traction_wheel_area += veh.cpart( p ).wheel_area();
-        }
-        return traction_wheel_area;
-    }
-
-    for( int p : wheel_indices ) {
-        const auto &pp = veh.bub_part_location( p );
-        const int wheel_area = veh.cpart( p ).wheel_area();
-
-        const auto &tr = ter( pp ).obj();
-        // Deep water and air
-        if( tr.has_flag( TFLAG_DEEP_WATER ) || tr.has_flag( TFLAG_NO_FLOOR ) ) {
-            // No traction from wheel in water or air
-            continue;
-        }
-
-        int move_mod = move_cost_ter_furn( pp );
-        if( move_mod == 0 ) {
-            // Vehicle locked in wall
-            // Shouldn't happen, but does
-            return 0.0f;
-        }
-
-        for( const auto &terrain_mod : veh.part_info( p ).wheel_terrain_mod() ) {
-            if( !tr.has_flag( terrain_mod.first ) ) {
-                move_mod += terrain_mod.second;
-                break;
-            }
-        }
-
-        // Ignore the movement modifier if needed.
-        if( ignore_movement_modifiers ) {
-            move_mod = 2;
-        }
-
-        traction_wheel_area += 2.0 * wheel_area / move_mod;
-    }
-
-    return traction_wheel_area;
-}
-
-units::angle map::shake_vehicle( vehicle &veh, const int velocity_before,
-                                 const units::angle direction )
-{
-    const int d_vel = std::abs( cmps_to_mps( veh.velocity - velocity_before ) ) * 2.23694;
-
-    std::vector<rider_data> riders = veh.get_riders();
-
-    units::angle coll_turn = 0_degrees;
-    for( const rider_data &r : riders ) {
-        const int ps = r.prt;
-        Creature *rider = r.psg;
-        if( rider == nullptr ) {
-            debugmsg( "throw passenger: empty passenger at part %d", ps );
-            continue;
-        }
-
-        const auto part_pos = veh.abs_part_location( ps );
-        if( rider->abs_pos() != part_pos ) {
-            debugmsg( "throw passenger: passenger at %d,%d,%d, part at %d,%d,%d",
-                      rider->abs_pos().x(), rider->abs_pos().y(), rider->abs_pos().z(),
-                      part_pos.x(), part_pos.y(), part_pos.z() );
-            veh.part( ps ).remove_flag( vehicle_part::passenger_flag );
-            continue;
-        }
-
-        player *psg = dynamic_cast<player *>( rider );
-        monster *pet = dynamic_cast<monster *>( rider );
-
-        bool throw_from_seat = false;
-        int move_resist = 1;
-        if( psg ) {
-            ///\EFFECT_STR reduces chance of being thrown from your seat when not wearing a seatbelt
-            move_resist = psg->str_cur * 150 + 500;
-            if( veh.part( ps ).info().has_flag( "SEAT_REQUIRES_BALANCE" ) ) {
-                // Much harder to resist being thrown on a skateboard-like vehicle.
-                // Penalty mitigated by Deft and Skater.
-                int resist_penalty = 500;
-                if( psg->has_trait( trait_PROF_SKATER ) ) {
-                    resist_penalty -= 150;
-                }
-                if( psg->has_trait( trait_DEFT ) ) {
-                    resist_penalty -= 150;
-                }
-                move_resist -= resist_penalty;
-            }
-        } else {
-            int pet_resist = 0;
-            if( pet != nullptr ) {
-                pet_resist = static_cast<int>( to_kilogram( pet->get_weight() ) * 200 );
-            }
-            move_resist = std::max( 100, pet_resist );
-        }
-        if( veh.part_with_feature( ps, VPFLAG_SEATBELT, true ) == -1 ) {
-            ///\EFFECT_STR reduces chance of being thrown from your seat when not wearing a seatbelt
-            throw_from_seat = d_vel * rng( 80, 120 ) > move_resist;
-        }
-
-        // Damage passengers if d_vel is too high
-        if( !throw_from_seat && ( 10 * d_vel ) > 6 * rng( 50, 100 ) ) {
-            const int dmg = d_vel * rng( 70, 100 ) / 400;
-            if( psg ) {
-                psg->hurtall( dmg, nullptr );
-                psg->add_msg_player_or_npc( m_bad,
-                                            _( "You take %d damage by the power of the impact!" ),
-                                            _( "<npcname> takes %d damage by the power of the "
-                                               "impact!" ),  dmg );
-            } else {
-                pet->apply_damage( nullptr, bodypart_id( "torso" ), dmg );
-            }
-        }
-
-        if( psg && veh.player_in_control( *psg ) ) {
-            const int lose_ctrl_roll = rng( 0, d_vel );
-            ///\EFFECT_DEX reduces chance of losing control of vehicle when shaken
-
-            ///\EFFECT_DRIVING reduces chance of losing control of vehicle when shaken
-            if( lose_ctrl_roll > psg->dex_cur * 2 + psg->get_skill_level( skill_driving ) * 3 ) {
-                psg->add_msg_player_or_npc( m_warning,
-                                            _( "You lose control of the %s." ),
-                                            _( "<npcname> loses control of the %s." ), veh.name );
-                int turn_amount = rng( 1, 3 ) * std::sqrt( std::abs( veh.velocity ) ) / 20;
-                if( turn_amount < 1 ) {
-                    turn_amount = 1;
-                }
-                units::angle turn_angle = std::min( turn_amount * 15_degrees, 120_degrees );
-                coll_turn = one_in( 2 ) ? turn_angle : -turn_angle;
-            }
-        }
-
-        if( throw_from_seat ) {
-            if( psg ) {
-                psg->add_msg_player_or_npc( m_bad,
-                                            _( "You are hurled from the %s's seat by "
-                                               "the power of the impact!" ),
-                                            _( "<npcname> is hurled from the %s's seat by "
-                                               "the power of the impact!" ), veh.name );
-                unboard_vehicle( abs_to_bub( part_pos ) );
-            } else if( get_player_character().sees( part_pos ) ) {
-                add_msg( m_bad, _( "%s is hurled from %s's by the power of the impact!" ),
-                         pet->disp_name( false, true ), veh.name );
-            }
-            ///\EFFECT_STR reduces distance thrown from seat in a vehicle impact
-            g->fling_creature( rider, direction + rng_float( -30_degrees, 30_degrees ),
-                               std::max( 10, d_vel - move_resist / 100 ) );
-        }
-    }
-
-    return coll_turn;
-}
 
 namespace vehicle_movement
 {

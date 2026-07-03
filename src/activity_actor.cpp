@@ -37,6 +37,7 @@
 #include "line.h"
 #include "locations.h"
 #include "map.h"
+#include "mapbuffer.h"
 #include "map_iterator.h"
 #include "map_selector.h"
 #include "mapdata.h"
@@ -480,10 +481,15 @@ std::unique_ptr<activity_actor> autodrive_activity_actor::deserialize( JsonIn & 
     return std::make_unique<autodrive_activity_actor>();
 }
 
-void dig_activity_actor::start( player_activity &/*act*/, Character & )
+void dig_activity_actor::start( player_activity &act, Character &who )
 {
-    map &here = get_map();
-    ter_id ter_here = here.ter( location );
+    auto &here = who.get_mapbuffer();
+    auto handle = abs_tile_handle::fetch( here, location );
+    if( !handle ) {
+        act.set_to_null();
+        return;
+    }
+    ter_id ter_here = handle->ter();
     const bool grave = ter_here == t_grave;
     const std::string name = grave
                              ? "grave"
@@ -497,11 +503,11 @@ void dig_activity_actor::do_turn( player_activity &/*act*/, Character &who )
         progress.pop();
         return;
     }
-    sfx::play_activity_sound( "tool", "shovel", sfx::get_heard_volume( location, 60 ) );
+    sfx::play_activity_sound( "tool", "shovel", sfx::get_heard_volume( abs_to_bub( location ), 60 ) );
     if( action_time_scale::once_every_this_tick( 1_minutes ) ) {
         //~ Sound of a shovel digging a pit at work!
         sound_event se;
-        se.origin = bub_to_abs( location );
+        se.origin = location;
         se.volume = 60;
         se.category = sounds::sound_t::activity;
         se.description = _( "hsh!" );
@@ -517,8 +523,13 @@ void dig_activity_actor::do_turn( player_activity &/*act*/, Character &who )
 
 void dig_activity_actor::finish( player_activity &act, Character &who )
 {
-    map &here = get_map();
-    const bool grave = here.ter( location ) == t_grave;
+    auto &here = who.get_mapbuffer();
+    auto handle = abs_tile_handle::fetch( here, location );
+    if( !handle ) {
+        act.set_to_null();
+        return;
+    }
+    const bool grave = handle->ter() == t_grave;
 
     if( grave ) {
         if( one_in( 10 ) ) {
@@ -529,18 +540,18 @@ void dig_activity_actor::finish( player_activity &act, Character &who )
                 }
             };
 
-            g->place_critter_at( random_entry( monids ), byproducts_location );
-            here.furn_set( location, f_coffin_o );
+            here.place_critter_at( random_entry( monids ), byproducts_location );
+            here.set_furn( location, f_coffin_o );
             who.add_msg_if_player( m_warning, _( "Something crawls out of the coffin!" ) );
         } else {
             here.spawn_item( location, itype_bone_human, rng( 5, 15 ) );
-            here.furn_set( location, f_coffin_c );
+            here.set_furn( location, f_coffin_c );
         }
-        std::vector<item *> dropped = get_map().place_items( item_group_id( "allclothes" ), 50, location,
+        std::vector<item *> dropped = here.place_items( item_group_id( "allclothes" ), 50, location,
                                       location, false,
                                       calendar::turn );
-        get_map().place_items( item_group_id( "grave" ), 25, location, location, false, calendar::turn );
-        get_map().place_items( item_group_id( "jewelry_front" ), 20, location, location, false,
+        here.place_items( item_group_id( "grave" ), 25, location, location, false, calendar::turn );
+        here.place_items( item_group_id( "jewelry_front" ), 20, location, location, false,
                                calendar::turn );
         for( item * const &it : dropped ) {
             if( it->is_armor() ) {
@@ -550,7 +561,7 @@ void dig_activity_actor::finish( player_activity &act, Character &who )
         g->events().send<event_type::exhumes_grave>( who.getID() );
     }
 
-    here.ter_set( location, ter_id( result_terrain ) );
+    here.set_ter( location, ter_id( result_terrain ) );
 
     here.spawn_items( byproducts_location,
                       item_group::items_from( item_group_id( byproducts_item_group ),
@@ -565,7 +576,7 @@ void dig_activity_actor::finish( player_activity &act, Character &who )
         who.add_msg_if_player( m_good, _( "You finish exhuming a grave." ) );
     } else {
         who.add_msg_if_player( m_good, _( "You finish digging the %s." ),
-                               here.ter( location )->name() );
+                               handle->tername() );
     }
 
     act.set_to_null();
@@ -587,8 +598,8 @@ void dig_activity_actor::serialize( JsonOut &jsout ) const
 
 std::unique_ptr<activity_actor> dig_activity_actor::deserialize( JsonIn &jsin )
 {
-    std::unique_ptr<dig_activity_actor> actor( new dig_activity_actor( 0, tripoint_bub_ms::zero(),
-            {}, tripoint_bub_ms::zero(), {} ) );
+    std::unique_ptr<dig_activity_actor> actor( new dig_activity_actor( 0, tripoint_abs_ms::zero(),
+            {}, tripoint_abs_ms::zero(), {} ) );
 
     JsonObject data = jsin.get_object();
 
@@ -602,10 +613,15 @@ std::unique_ptr<activity_actor> dig_activity_actor::deserialize( JsonIn &jsin )
     return actor;
 }
 
-void dig_channel_activity_actor::start( player_activity &/*act*/, Character & )
+void dig_channel_activity_actor::start( player_activity &act, Character &who )
 {
-    map &here = get_map();
-    progress.emplace( here.ter( location )->name(), moves_total );
+    auto &here = who.get_mapbuffer();
+    auto handle = abs_tile_handle::fetch( here, location );
+    if( !handle ) {
+        act.set_to_null();
+        return;
+    }
+    progress.emplace( handle->tername(), moves_total );
 }
 
 void dig_channel_activity_actor::do_turn( player_activity &/*act*/, Character &who )
@@ -614,11 +630,11 @@ void dig_channel_activity_actor::do_turn( player_activity &/*act*/, Character &w
         progress.pop();
         return;
     }
-    sfx::play_activity_sound( "tool", "shovel", sfx::get_heard_volume( location, 70 ) );
+    sfx::play_activity_sound( "tool", "shovel", sfx::get_heard_volume( abs_to_bub( location ), 70 ) );
     if( action_time_scale::once_every_this_tick( 1_minutes ) ) {
         //~ Sound of a shovel digging a pit at work!
         sound_event se;
-        se.origin = bub_to_abs( location );
+        se.origin = location;
         se.volume = 70;
         se.category = sounds::sound_t::activity;
         se.description = _( "hsh!" );
@@ -634,8 +650,13 @@ void dig_channel_activity_actor::do_turn( player_activity &/*act*/, Character &w
 
 void dig_channel_activity_actor::finish( player_activity &act, Character &who )
 {
-    map &here = get_map();
-    here.ter_set( location, ter_id( result_terrain ) );
+    auto &here = who.get_mapbuffer();
+    auto handle = abs_tile_handle::fetch( here, location );
+    if( !handle ) {
+        act.set_to_null();
+        return;
+    }
+    here.set_ter( location, ter_id( result_terrain ) );
 
     here.spawn_items( byproducts_location,
                       item_group::items_from( item_group_id( byproducts_item_group ),
@@ -647,7 +668,7 @@ void dig_channel_activity_actor::finish( player_activity &act, Character &who )
     who.mod_thirst( std::max( 1, act_exertion / to_moves<int>( 12_minutes ) ) );
     who.mod_fatigue( std::max( 1, act_exertion / to_moves<int>( 6_minutes ) ) );
     who.add_msg_if_player( m_good, _( "You finish digging up %s." ),
-                           here.ter( location )->name() );
+                           here.ter( location )->obj().name() );
 
     act.set_to_null();
 }
@@ -669,8 +690,8 @@ void dig_channel_activity_actor::serialize( JsonOut &jsout ) const
 std::unique_ptr<activity_actor> dig_channel_activity_actor::deserialize( JsonIn &jsin )
 {
     std::unique_ptr<dig_channel_activity_actor> actor( new dig_channel_activity_actor( 0,
-            tripoint_bub_ms::zero(),
-            {}, tripoint_bub_ms::zero(), {} ) );
+            tripoint_abs_ms::zero(),
+            {}, tripoint_abs_ms::zero(), {} ) );
 
     JsonObject data = jsin.get_object();
 
@@ -1137,7 +1158,7 @@ void pickup_activity_actor::do_turn( player_activity &act, Character &who )
 
     // If the player moves while picking up (i.e.: in a moving vehicle) cancel
     // the activity, only populate starting_pos when grabbing from the ground
-    if( starting_pos && *starting_pos != who.bub_pos() ) {
+    if( starting_pos && *starting_pos != who.abs_pos() ) {
         who.cancel_activity();
         who.add_msg_if_player( _( "Moving canceled auto-pickup." ) );
         return;
@@ -1152,9 +1173,9 @@ void pickup_activity_actor::do_turn( player_activity &act, Character &who )
     // Check thievey witness
     npc *witness = nullptr;
     if( !act.str_values.empty() && act.str_values[0] == has_thievery_witness ) {
-        for( npc &guy : g->all_npcs() ) {
-            if( guy.get_attitude() == NPCATT_RECOVER_GOODS ) {
-                witness = &guy;
+        for( auto &guy : who.get_mapbuffer().all_npcs() ) {
+            if( guy->get_attitude() == NPCATT_RECOVER_GOODS ) {
+                witness = guy.get();
                 break;
             }
         }
@@ -1208,12 +1229,17 @@ std::unique_ptr<activity_actor> pickup_activity_actor::deserialize( JsonIn &jsin
     return actor;
 }
 
-void hacksaw_activity_actor::start( player_activity &act, Character &/*who*/ )
+void hacksaw_activity_actor::start( player_activity &act, Character &who )
 {
-    const map &here = get_map();
+    auto &here = who.get_mapbuffer();
+    auto handle = abs_tile_handle::fetch( here, target );
+    if( !handle ) {
+        act.set_to_null();
+        return;
+    }
 
-    if( here.has_furn( target ) ) {
-        const furn_id furn_type = here.furn( target );
+    if( handle->furn() != f_null ) {
+        const furn_id furn_type = handle->furn();
         if( !furn_type->hacksaw->valid() ) {
             if( !testing ) {
                 debugmsg( "%s hacksaw is invalid", furn_type.id().str() );
@@ -1222,8 +1248,8 @@ void hacksaw_activity_actor::start( player_activity &act, Character &/*who*/ )
             return;
         }
         progress.emplace( furn_type->name(), to_moves<int>( furn_type->hacksaw->duration() ) );
-    } else if( !here.ter( target )->is_null() ) {
-        const ter_id ter_type = here.ter( target );
+    } else if( !handle->ter()->is_null() ) {
+        const ter_id ter_type = handle->ter();
         if( !ter_type->hacksaw->valid() ) {
             if( !testing ) {
                 debugmsg( "%s hacksaw is invalid", ter_type.id().str() );
@@ -1248,12 +1274,12 @@ void hacksaw_activity_actor::do_turn( player_activity &/* act */, Character &who
         return;
     }
     if( tool->ammo_sufficient() ) {
-        tool->ammo_consume( tool->ammo_required(), tool->bub_pos() );
-        sfx::play_activity_sound( "tool", "hacksaw", sfx::get_heard_volume( target, 80 ) );
+        tool->ammo_consume( tool->ammo_required() );
+        sfx::play_activity_sound( "tool", "hacksaw", sfx::get_heard_volume( abs_to_bub( target ), 80 ) );
         if( action_time_scale::once_every_this_tick( 1_minutes ) ) {
             //~ Sound of a metal sawing tool at work!
             sound_event se;
-            se.origin = bub_to_abs( target );
+            se.origin = target;
             se.volume = 80;
             se.category = sounds::sound_t::destructive_activity;
             se.description = _( "grnd grnd grnd" );
@@ -1280,11 +1306,16 @@ void hacksaw_activity_actor::do_turn( player_activity &/* act */, Character &who
 
 void hacksaw_activity_actor::finish( player_activity &act, Character &who )
 {
-    map &here = get_map();
+    auto &here = who.get_mapbuffer();
+    auto handle = abs_tile_handle::fetch( here, target );
+    if( !handle ) {
+        act.set_to_null();
+        return;
+    }
     const activity_data_common *data;
 
-    if( here.has_furn( target ) ) {
-        const furn_id furn_type = here.furn( target );
+    if( handle->furn() != f_null ) {
+        const furn_id furn_type = handle->furn();
         if( !furn_type->hacksaw->valid() ) {
             if( !testing ) {
                 debugmsg( "%s hacksaw is invalid", furn_type.id().str() );
@@ -1303,9 +1334,9 @@ void hacksaw_activity_actor::finish( player_activity &act, Character &who )
         }
 
         data = static_cast<const activity_data_common *>( &*furn_type->hacksaw );
-        here.furn_set( target, new_furn );
-    } else if( !here.ter( target )->is_null() ) {
-        const ter_id ter_type = here.ter( target );
+        here.set_furn( target, new_furn );
+    } else if( !here.ter( target )->obj().is_null() ) {
+        const ter_id ter_type = *here.ter( target );
         if( !ter_type->hacksaw->valid() ) {
             if( !testing ) {
                 debugmsg( "%s hacksaw is invalid", ter_type.id().str() );
@@ -1324,7 +1355,7 @@ void hacksaw_activity_actor::finish( player_activity &act, Character &who )
         }
 
         data = static_cast<const activity_data_common *>( &*ter_type->hacksaw );
-        here.ter_set( target, new_ter );
+        here.set_ter( target, new_ter );
     } else {
         if( !testing ) {
             debugmsg( "hacksaw activity finished on invalid terrain" );
@@ -1365,7 +1396,7 @@ void hacksaw_activity_actor::serialize( JsonOut &jsout ) const
 std::unique_ptr<activity_actor> hacksaw_activity_actor::deserialize( JsonIn &jsin )
 {
     std::unique_ptr<hacksaw_activity_actor> actor( new hacksaw_activity_actor(
-                tripoint_bub_ms::zero(), safe_reference<item>() ) );
+                tripoint_abs_ms::zero(), safe_reference<item>() ) );
     JsonObject data = jsin.get_object();
     data.read( "progress", actor->progress );
     data.read( "target", actor->target );
@@ -1373,12 +1404,16 @@ std::unique_ptr<activity_actor> hacksaw_activity_actor::deserialize( JsonIn &jsi
     return actor;
 }
 
-void boltcutting_activity_actor::start( player_activity &act, Character &/*who*/ )
+void boltcutting_activity_actor::start( player_activity &act, Character &who )
 {
-    const map &here = get_map();
-
-    if( here.has_furn( target ) ) {
-        const furn_id furn_type = here.furn( target );
+    auto &here = who.get_mapbuffer();
+    auto handle = abs_tile_handle::fetch( here, target );
+    if( !handle ) {
+        act.set_to_null();
+        return;
+    }
+    if( handle->furn() != f_null ) {
+        const furn_id furn_type = handle->furn();
         if( !furn_type->boltcut->valid() ) {
             if( !testing ) {
                 debugmsg( "%s boltcut is invalid", furn_type.id().str() );
@@ -1387,8 +1422,8 @@ void boltcutting_activity_actor::start( player_activity &act, Character &/*who*/
             return;
         }
         progress.emplace( furn_type->name(), to_moves<int>( furn_type->boltcut->duration() ) );
-    } else if( !here.ter( target )->is_null() ) {
-        const ter_id ter_type = here.ter( target );
+    } else if( !handle->ter()->is_null() ) {
+        const ter_id ter_type = handle->ter();
         if( !ter_type->boltcut->valid() ) {
             if( !testing ) {
                 debugmsg( "%s boltcut is invalid", ter_type.id().str() );
@@ -1413,7 +1448,7 @@ void boltcutting_activity_actor::do_turn( player_activity &/* act */, Character 
         return;
     }
     if( tool->ammo_sufficient() ) {
-        tool->ammo_consume( tool->ammo_required(), tool->bub_pos() );
+        tool->ammo_consume( tool->ammo_required() );
     } else {
         if( who.is_avatar() ) {
             who.add_msg_if_player( m_bad, _( "Your %1$s ran out of charges." ), tool->tname() );
@@ -1429,11 +1464,16 @@ void boltcutting_activity_actor::do_turn( player_activity &/* act */, Character 
 
 void boltcutting_activity_actor::finish( player_activity &act, Character &who )
 {
-    map &here = get_map();
+    auto &here = who.get_mapbuffer();
+    auto handle = abs_tile_handle::fetch( here, target );
+    if( !handle ) {
+        act.set_to_null();
+        return;
+    }
     const activity_data_common *data;
-
-    if( here.has_furn( target ) ) {
-        const furn_id furn_type = here.furn( target );
+    
+    if( handle->furn() != f_null ) {
+        const furn_id furn_type = handle->furn();
         if( !furn_type->boltcut->valid() ) {
             if( !testing ) {
                 debugmsg( "%s boltcut is invalid", furn_type.id().str() );
@@ -1452,9 +1492,9 @@ void boltcutting_activity_actor::finish( player_activity &act, Character &who )
         }
 
         data = static_cast<const activity_data_common *>( &*furn_type->boltcut );
-        here.furn_set( target, new_furn );
-    } else if( !here.ter( target )->is_null() ) {
-        const ter_id ter_type = here.ter( target );
+        here.set_furn( target, new_furn );
+    } else if( !handle->ter()->is_null() ) {
+        const ter_id ter_type = handle->ter();
         if( !ter_type->boltcut->valid() ) {
             if( !testing ) {
                 debugmsg( "%s boltcut is invalid", ter_type.id().str() );
@@ -1473,7 +1513,7 @@ void boltcutting_activity_actor::finish( player_activity &act, Character &who )
         }
 
         data = static_cast<const activity_data_common *>( &*ter_type->boltcut );
-        here.ter_set( target, new_ter );
+        here.set_ter( target, new_ter );
     } else {
         if( !testing ) {
             debugmsg( "boltcut activity finished on invalid terrain" );
@@ -1482,7 +1522,7 @@ void boltcutting_activity_actor::finish( player_activity &act, Character &who )
         return;
     }
     sound_event se;
-    se.origin = bub_to_abs( target );
+    se.origin = target;
     se.volume = 60;
     se.category = sounds::sound_t::combat;
     se.id = "tool";
@@ -1532,7 +1572,7 @@ void boltcutting_activity_actor::serialize( JsonOut &jsout ) const
 std::unique_ptr<activity_actor> boltcutting_activity_actor::deserialize( JsonIn &jsin )
 {
     std::unique_ptr<boltcutting_activity_actor> actor( new boltcutting_activity_actor(
-                tripoint_bub_ms::zero(), safe_reference<item>() ) );
+                tripoint_abs_ms::zero(), safe_reference<item>() ) );
 
     JsonObject data = jsin.get_object();
     data.read( "progress", actor->progress );
@@ -1568,7 +1608,7 @@ std::unique_ptr<lockpick_activity_actor> lockpick_activity_actor::use_bionic(
             ) );
 }
 
-void lockpick_activity_actor::start( player_activity &/*act*/, Character & )
+void lockpick_activity_actor::start( player_activity &/*act*/, Character &who )
 {
     const auto target = abs_to_bub( this->target );
     const ter_id ter_type = get_map().ter( target );
@@ -1720,11 +1760,15 @@ void lockpick_activity_actor::finish( player_activity &act, Character &who )
     }
 }
 
-bool lockpick_activity_actor::is_pickable( const tripoint_bub_ms &p )
+bool lockpick_activity_actor::is_pickable( mapbuffer &here, const tripoint_abs_ms &p )
 {
-    const ter_id ter_type = get_map().ter( p );
-    const furn_id furn_type = get_map().furn( p );
-    const optional_vpart_position veh = get_map().veh_at( p );
+    auto handle = abs_tile_handle::fetch( here, p );
+    if( !handle ) {
+        return false;
+    }
+    const ter_id ter_type = handle->ter();
+    const furn_id furn_type = handle->furn();
+    const optional_vpart_position veh = handle->vehicle_part();
     const auto door_lock = veh.part_with_feature( "DOOR_LOCKING", true );
 
     bool result;
@@ -1739,27 +1783,30 @@ bool lockpick_activity_actor::is_pickable( const tripoint_bub_ms &p )
     return result;
 }
 
-std::optional<tripoint_bub_ms> lockpick_activity_actor::select_location( avatar &you )
+std::optional<tripoint_abs_ms> lockpick_activity_actor::select_location( avatar &you )
 {
     if( you.is_mounted() ) {
         you.add_msg_if_player( m_info, _( "You cannot do that while mounted." ) );
         return std::nullopt;
     }
+    auto &here = you.get_mapbuffer();
 
-    const std::optional<tripoint_bub_ms> target = choose_adjacent_highlight(
-                _( "Use your lockpick where?" ), _( "There is nothing to lockpick nearby." ), is_pickable, false );
-    if( !target ) {
+    const std::optional<tripoint_bub_ms> target_ = choose_adjacent_highlight(
+                _( "Use your lockpick where?" ), _( "There is nothing to lockpick nearby." ), [&here]
+                ( const tripoint_bub_ms &p ) { return is_pickable( here, bub_to_abs( p ) ); }, false );
+    if( !target_ ) {
         return std::nullopt;
     }
+    auto target = bub_to_abs( *target_ );
 
-    if( is_pickable( *target ) ) {
-        return *target;
+    if( is_pickable( here, target ) ) {
+        return target;
     }
 
-    const ter_id terr_type = get_map().ter( *target );
-    if( *target == you.bub_pos() ) {
+    const ter_id terr_type = *here.ter( target );
+    if( target == you.abs_pos() ) {
         you.add_msg_if_player( m_info, _( "You pick your nose and your sinuses swing open." ) );
-    } else if( g->critter_at<npc>( *target ) ) {
+    } else if( here.creature_at( target ) && here.creature_at( target )->is_npc() ) {
         you.add_msg_if_player( m_info,
                                _( "You can pick your friends, and you can pick your nose, but you can't pick your friend's nose." ) );
     } else if( !terr_type->open.is_null() ) {
@@ -1799,12 +1846,17 @@ std::unique_ptr<activity_actor> lockpick_activity_actor::deserialize( JsonIn &js
     return actor;
 }
 
-void oxytorch_activity_actor::start( player_activity &act, Character &/*who*/ )
+void oxytorch_activity_actor::start( player_activity &act, Character &who )
 {
-    const map &here = get_map();
-
-    if( here.has_furn( target ) ) {
-        const furn_id furn_type = here.furn( target );
+    auto &here = who.get_mapbuffer();
+    auto handle = abs_tile_handle::fetch( here, target );
+    if( !handle ) {
+        act.set_to_null();
+        return;
+    }
+    
+    if( handle->furn() != f_null ) {
+        const furn_id furn_type = handle->furn();
         if( !furn_type->oxytorch->valid() ) {
             if( !testing ) {
                 debugmsg( "%s oxytorch is invalid", furn_type.id().str() );
@@ -1813,8 +1865,8 @@ void oxytorch_activity_actor::start( player_activity &act, Character &/*who*/ )
             return;
         }
         progress.emplace( furn_type->name(), to_moves<int>( furn_type->oxytorch->duration() ) );
-    } else if( !here.ter( target )->is_null() ) {
-        const ter_id ter_type = here.ter( target );
+    } else if( !handle->ter()->is_null() ) {
+        const ter_id ter_type = handle->ter();
         if( !ter_type->oxytorch->valid() ) {
             if( !testing ) {
                 debugmsg( "%s oxytorch is invalid", ter_type.id().str() );
@@ -1836,11 +1888,11 @@ void oxytorch_activity_actor::do_turn( player_activity &/*act*/, Character &who 
 {
     // We check available charges when first starting the cut, but this prevents abnormal behavior if torch status changes mid-activity.
     if( tool->ammo_sufficient() ) {
-        tool->ammo_consume( tool->ammo_required(), tool->bub_pos() );
-        sfx::play_activity_sound( "tool", "oxytorch", sfx::get_heard_volume( target, 65 ) );
+        tool->ammo_consume( tool->ammo_required() );
+        sfx::play_activity_sound( "tool", "oxytorch", sfx::get_heard_volume( abs_to_bub( target ), 65 ) );
         if( action_time_scale::once_every_this_tick( 2_turns ) ) {
             sound_event se;
-            se.origin = bub_to_abs( target );
+            se.origin = target;
             se.volume = 65;
             se.category = sounds::sound_t::destructive_activity;
             se.description = _( "hissssssssss!" );
@@ -1870,11 +1922,16 @@ void oxytorch_activity_actor::do_turn( player_activity &/*act*/, Character &who 
 
 void oxytorch_activity_actor::finish( player_activity &act, Character &who )
 {
-    map &here = get_map();
+    auto &here = who.get_mapbuffer();
+    auto handle = abs_tile_handle::fetch( here, target );
+    if( !handle ) {
+        act.set_to_null();
+        return;
+    }
     const activity_data_common *data;
-
-    if( here.has_furn( target ) ) {
-        const furn_id furn_type = here.furn( target );
+    
+    if( handle->furn() != f_null ) {
+        const furn_id furn_type = handle->furn();
         if( !furn_type->oxytorch->valid() ) {
             if( !testing ) {
                 debugmsg( "%s oxytorch is invalid", furn_type.id().str() );
@@ -1893,9 +1950,9 @@ void oxytorch_activity_actor::finish( player_activity &act, Character &who )
         }
 
         data = static_cast<const activity_data_common *>( &*furn_type->oxytorch );
-        here.furn_set( target, new_furn );
-    } else if( !here.ter( target )->is_null() ) {
-        const ter_id ter_type = here.ter( target );
+        here.set_furn( target, new_furn );
+    } else if( !handle->ter()->is_null() ) {
+        const ter_id ter_type = handle->ter();
         if( !ter_type->oxytorch->valid() ) {
             if( !testing ) {
                 debugmsg( "%s oxytorch is invalid", ter_type.id().str() );
@@ -1914,7 +1971,7 @@ void oxytorch_activity_actor::finish( player_activity &act, Character &who )
         }
 
         data = static_cast<const activity_data_common *>( &*ter_type->oxytorch );
-        here.ter_set( target, new_ter );
+        here.set_ter( target, new_ter );
     } else {
         if( !testing ) {
             debugmsg( "oxytorch activity finished on invalid terrain" );
@@ -1936,7 +1993,7 @@ void oxytorch_activity_actor::finish( player_activity &act, Character &who )
 
     // 50% chance of starting a fire.
     if( one_in( 2 ) && here.flammable_items_at( target ) ) {
-        here.add_field( target, fd_fire, 1, 10_minutes );
+        here.add_field( target, {fd_fire, 1, 10_minutes} );
     }
 
     if( !data->message().empty() ) {
@@ -1958,7 +2015,7 @@ void oxytorch_activity_actor::serialize( JsonOut &jsout ) const
 std::unique_ptr<activity_actor> oxytorch_activity_actor::deserialize( JsonIn &jsin )
 {
     std::unique_ptr<oxytorch_activity_actor> actor( new oxytorch_activity_actor(
-                tripoint_bub_ms::zero(), safe_reference<item>() ) );
+                tripoint_abs_ms::zero(), safe_reference<item>() ) );
     JsonObject data = jsin.get_object();
     data.read( "progress", actor->progress );
     data.read( "target", actor->target );
@@ -2007,9 +2064,9 @@ void toggle_gate_activity_actor::do_turn( player_activity &, Character & )
     }
 }
 
-void toggle_gate_activity_actor::finish( player_activity &act, Character & )
+void toggle_gate_activity_actor::finish( player_activity &act, Character &who )
 {
-    gates::toggle_gate( placement );
+    gates::toggle_gate( who.get_mapbuffer(), placement );
     act.set_to_null();
 }
 
@@ -2027,7 +2084,7 @@ void toggle_gate_activity_actor::serialize( JsonOut &jsout ) const
 std::unique_ptr<activity_actor> toggle_gate_activity_actor::deserialize( JsonIn &jsin )
 {
     std::unique_ptr<toggle_gate_activity_actor> actor( new toggle_gate_activity_actor( 0,
-            tripoint_bub_ms::zero() ) );
+            tripoint_abs_ms::zero() ) );
 
     JsonObject data = jsin.get_object();
 

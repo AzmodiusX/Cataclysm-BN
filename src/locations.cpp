@@ -530,7 +530,7 @@ detached_ptr<item> vehicle_item_location::detach( item *it )
     detached_ptr<item> ret = part_index >= 0 ? veh->remove_item( part_index, it ) :
                              veh->get_part_hack( hack_id ).remove_item( *it );
     if( ret ) {
-        ret = item::actualize_rot( std::move( ret ), item_pos, temperature, get_weather() );
+        ret = item::actualize_rot( std::move( ret ), temperature, get_weather() );
     }
     veh->invalidate_mass();
     return ret;

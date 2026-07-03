@@ -27,6 +27,7 @@
 #include "cata_utility.h"
 #include "creature.h"
 #include "debug.h"
+#include "emit.h"
 #include "detached_ptr.h"
 #include "distribution_grid.h"
 #include "filesystem.h"
@@ -34,6 +35,7 @@
 #include "fluid_grid.h"
 #include "flag.h"
 #include "fstream_utils.h"
+#include "fungal_effects.h"
 #include "game.h"
 #include "game_constants.h"
 #include "harvest.h"
@@ -43,9 +45,13 @@
 #include "json.h"
 #include "map.h"
 #include "mapdata.h"
+#include "map_functions.h"
 #include "mapgen_constructor.h"
 #include "map_iterator.h"
 #include "map_mutation_hooks.h"
+#include "omdata.h"
+#include "item_category.h"
+#include "item_group.h"
 #include "monster.h"
 #include "npc.h"
 #include "messages.h"
@@ -58,17 +64,22 @@
 #include "profile.h"
 #include "rng.h"
 #include "rot.h"
+#include "shadowcasting.h"
 #include "skill.h"
 #include "string_formatter.h"
 #include "submap.h"
 #include "submap_load_manager.h"
 #include "thread_pool.h"
+#include "timed_event.h"
 #include "translations.h"
 #include "trap.h"
 #include "ui_manager.h"
 #include "units_mass.h"
+#include "units_utility.h"
 #include "veh_type.h"
 #include "vehicle.h"
+#include "vehicle_move.h"
+#include "vehicle_group.h"
 #include "vehicle_part.h"
 #include "vpart_range.h"
 #include "weather.h"
@@ -2904,6 +2915,1426 @@ auto mapbuffer::refresh_vehicle_registry_for_submap( const tripoint_abs_sm &p,
     register_submap_vehicles( p, *sm );
 }
 
+// ----- Vehicle movement / collision functions -----
+
+static const trait_id trait_PROF_SKATER( "PROF_SKATER" );
+static const trait_id trait_DEFT( "DEFT" );
+static const skill_id skill_driving( "driving" );
+
+// -- Rail detection helpers (absolute-coordinate versions) --
+
+static int get_num_cw_rots_of_ray_delta( point v )
+{
+    if( v == point_north_east ) {
+        return 0;
+    } else if( v == point_south_east ) {
+        return 1;
+    } else if( v == point_south_west ) {
+        return 2;
+    } else {
+        return 3;
+    }
+}
+
+static bool has_rail_at_abs( const mapbuffer &buf, const tripoint_abs_ms &p )
+{
+    auto tile = abs_tile_handle::fetch( const_cast<mapbuffer &>( buf ), p );
+    if( !tile ) {
+        return false;
+    }
+    if( tile->has_flag_ter_or_furn( "RAIL" ) ) {
+        return true;
+    }
+    if( !tile->has_flag_ter_or_furn( "NO_FLOOR" ) ) {
+        return false;
+    }
+    // Check vertical neighbors for rails through open floor
+    const auto neighbors = std::array<tripoint_abs_ms, 2> {
+        p + tripoint_rel_ms( 0, 0, 1 ),
+        p + tripoint_rel_ms( 0, 0, -1 ),
+    };
+    return std::ranges::any_of( neighbors, [&]( const tripoint_abs_ms &candidate ) {
+        auto ct = abs_tile_handle::fetch( const_cast<mapbuffer &>( buf ), candidate );
+        return ct && ct->has_flag_ter_or_furn( "RAIL" );
+    } );
+}
+
+static bool scan_rails_from_veh_abs( const mapbuffer &buf, const vehicle &veh,
+                                     tripoint_abs_ms scan_initial_pos,
+                                     point veh_plus_y_vec, point scan_vec )
+{
+    for( size_t rail_id = 0; rail_id < veh.rail_profile.size(); rail_id++ ) {
+        int rail_y_rel_to_pivot = veh.rail_profile[rail_id] - veh.pivot_point().y();
+        tripoint_abs_ms scan_pos = scan_initial_pos + rail_y_rel_to_pivot * veh_plus_y_vec;
+        for( int step = 0; step < 3; step++ ) {
+            tripoint_abs_ms p = scan_pos + scan_vec * step;
+            if( !has_rail_at_abs( buf, p ) ) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+static bool scan_rails_at_shift_abs( const mapbuffer &buf, const vehicle &veh,
+                                     int velocity_sign, units::angle dir,
+                                     int shift_sign )
+{
+    point ray_delta;
+    {
+        tileray ray( dir );
+        ray.advance( 1 );
+        ray_delta.x = ray.dx();
+        ray_delta.y = ray.dy();
+    }
+    if( ray_delta.x != 0 && ray_delta.y != 0 ) {
+        int num_cw_rots = get_num_cw_rots_of_ray_delta( ray_delta );
+        point rd_l = point_north.rotate( num_cw_rots );
+        point rd_r = point_east.rotate( num_cw_rots );
+        point vyp_l = point_east.rotate( num_cw_rots );
+        point vyp_r = point_south.rotate( num_cw_rots );
+
+        tripoint_abs_ms scan_start = veh.abs_ms_location();
+        if( shift_sign > 0 ) {
+            scan_start += rd_r * velocity_sign;
+        } else if( shift_sign < 0 ) {
+            scan_start += rd_l * velocity_sign;
+        }
+
+        point scan_vec = ray_delta * velocity_sign;
+
+        bool scan_res_l = scan_rails_from_veh_abs( buf, veh, scan_start, vyp_l, scan_vec );
+        bool scan_res_r = scan_rails_from_veh_abs( buf, veh, scan_start, vyp_r, scan_vec );
+        return scan_res_l || scan_res_r;
+    } else {
+        point veh_plus_y_vec = ray_delta.rotate( 1 );
+        point scan_vec = ray_delta * velocity_sign;
+        tripoint_abs_ms scan_start = veh.abs_ms_location();
+        if( shift_sign != 0 ) {
+            scan_start += scan_vec + veh_plus_y_vec * shift_sign;
+        }
+        return scan_rails_from_veh_abs( buf, veh, scan_start, veh_plus_y_vec, scan_vec );
+    }
+}
+
+static bool vehicle_on_rails_abs( const mapbuffer &buf, const vehicle &veh )
+{
+    if( !veh.can_use_rails() ) {
+        return false;
+    }
+
+    int face_dir_degrees = std::round( units::to_degrees( veh.face.dir() ) );
+    int face_dir_snapped = ( face_dir_degrees / 45 ) * 45;
+
+    if( face_dir_degrees != face_dir_snapped ) {
+        return false;
+    }
+
+    units::angle dir_straight = normalize( units::from_degrees( face_dir_snapped ) );
+    return scan_rails_at_shift_abs( buf, veh, 1, dir_straight, 0 ) ||
+           scan_rails_at_shift_abs( buf, veh, -1, dir_straight, 0 );
+}
+
+auto mapbuffer::obstructed_by_vehicle_rotation( const tripoint_abs_ms &from,
+        const tripoint_abs_ms &to ) const -> bool
+{
+    if( from.xy() == to.xy() && from.z() == to.z() ) {
+        return false;
+    }
+
+    if( from.z() != to.z() ) {
+        // Split into two checks, one for each z level
+        const tripoint_abs_ms flattened( from.xy(), to.z() );
+        if( obstructed_by_vehicle_rotation( flattened, to ) ) {
+            return true;
+        }
+    }
+
+    // Fast path: active reality bubble — use the level_cache
+    if( const auto local_from = active_reality_bubble_local( from ) ) {
+        const auto local_to = abs_to_map_local( get_map(), to );
+        map &here = get_map();
+        const level_cache &lc = here.get_cache_ref( local_from->z() );
+        const auto &cache = lc.vehicle_obstructed_cache;
+        const auto delta = local_to.xy() - local_from->xy();
+
+        if( delta == point_rel_ms::north_west() ) {
+            return cache[lc.idx( local_from->x(), local_from->y() )].nw;
+        }
+        if( delta == point_rel_ms::north_east() ) {
+            return cache[lc.idx( local_from->x(), local_from->y() )].ne;
+        }
+        if( delta == point_rel_ms::south_west() ) {
+            return cache[lc.idx( local_to.x(), local_to.y() )].ne;
+        }
+        if( delta == point_rel_ms::south_east() ) {
+            return cache[lc.idx( local_to.x(), local_to.y() )].nw;
+        }
+
+        return false;
+    }
+
+    // Slow path: out of bubble — check loaded vehicle parts directly
+    // Use const_cast since veh_at() is non-const but the operation is read-only.
+    const auto check_vehicle_block = [this]( const tripoint_abs_ms &part_tile,
+    const tripoint_abs_ms &neighbor ) -> bool {
+        const auto vp = const_cast<mapbuffer &>( *this ).veh_at( part_tile );
+        if( !vp ) {
+            return false;
+        }
+        const vehicle *v = &vp->vehicle();
+        const tripoint_mnt_veh neighbor_mount = v->abs_to_mount( neighbor );
+        return !v->allowed_move( neighbor_mount, vp->mount() );
+    };
+
+    const auto delta = to - from;
+
+    if( delta == tripoint_rel_ms::north_west() ) {
+        return check_vehicle_block( from, to );
+    }
+    if( delta == tripoint_rel_ms::north_east() ) {
+        return check_vehicle_block( from, to );
+    }
+
+    // For SW and SE, we check the TO tile (as the cache does)
+    const auto neg_delta = from - to;
+    if( neg_delta == tripoint_rel_ms::north_west() ) {
+        return check_vehicle_block( to, from );
+    }
+    if( neg_delta == tripoint_rel_ms::north_east() ) {
+        return check_vehicle_block( to, from );
+    }
+
+    return false;
+}
+
+auto mapbuffer::vehicle_wheel_traction( const vehicle &veh,
+                                        const bool ignore_movement_modifiers ) const -> float
+{
+    if( veh.is_in_water( true ) ) {
+        return veh.can_float() ? 1.0f : -1.0f;
+    }
+    if( veh.is_in_water() && veh.is_watercraft() && veh.can_float() ) {
+        return 1.0f;
+    }
+    if( veh.is_flying_in_air() ) {
+        return ( veh.has_lift() ) ? 1.0f : -1.0f;
+    }
+
+    const auto &wheel_indices = veh.wheelcache;
+    const int num_wheels = wheel_indices.size();
+    if( num_wheels == 0 ) {
+        return 0.0f;
+    }
+
+    // Check rails — use fast path when in bubble, absolute-coordinate slow path otherwise
+    bool on_rails = false;
+    if( const auto local = active_reality_bubble_local( veh.abs_ms_location() ) ) {
+        map &here = get_map();
+        on_rails = vehicle_movement::is_on_rails( here, veh );
+    } else {
+        on_rails = vehicle_on_rails_abs( *this, veh );
+    }
+
+    if( on_rails ) {
+        float traction_wheel_area = 0.0f;
+        for( const int p : veh.rail_wheelcache ) {
+            traction_wheel_area += veh.cpart( p ).wheel_area();
+        }
+        return traction_wheel_area;
+    }
+
+    float traction_wheel_area = 0.0f;
+    for( const int p : wheel_indices ) {
+        const auto &pp = veh.abs_part_location( p );
+        const int wheel_area = veh.cpart( p ).wheel_area();
+
+        auto tile = abs_tile_handle::fetch( const_cast<mapbuffer &>( *this ), pp );
+        if( !tile ) {
+            continue;
+        }
+        const auto &tr = tile->ter_obj();
+        // Deep water and air
+        if( tr.has_flag( TFLAG_DEEP_WATER ) || tr.has_flag( TFLAG_NO_FLOOR ) ) {
+            continue;
+        }
+
+        int move_mod = tile->move_cost_ter_furn();
+        if( move_mod == 0 ) {
+            return 0.0f;
+        }
+
+        // Use const terrain_mod lookup from vehicle part info
+        for( const auto &terrain_mod : veh.part_info( p ).wheel_terrain_mod() ) {
+            if( !tr.has_flag( terrain_mod.first ) ) {
+                move_mod += terrain_mod.second;
+                break;
+            }
+        }
+
+        if( ignore_movement_modifiers ) {
+            move_mod = 2;
+        }
+
+        traction_wheel_area += 2.0 * wheel_area / move_mod;
+    }
+
+    return traction_wheel_area;
+}
+
+auto mapbuffer::vehicle_vehicle_collision( vehicle &veh, vehicle &veh2,
+        const std::vector<veh_collision> &collisions ) -> float
+{
+    if( &veh == &veh2 ) {
+        debugmsg( "Vehicle %s collided with itself", veh.name );
+        return 0.0f;
+    }
+
+    const veh_collision &c = collisions[0];
+    add_msg( m_bad, _( "The %1$s's %2$s collides with %3$s's %4$s." ),
+             veh.name, veh.part_info( c.part ).name(),
+             veh2.name, veh2.part_info( c.target_part ).name() );
+
+    const bool vertical = veh.abs_sm_pos.z() != veh2.abs_sm_pos.z();
+
+    tripoint_rel_veh epicenter1;
+    tripoint_rel_veh epicenter2;
+
+    float veh1_impulse = 0;
+    float veh2_impulse = 0;
+    float delta_vel = 0;
+    const float dmg_adjust = impulse_to_damage( 1 );
+    float dmg_veh1 = 0;
+    float dmg_veh2 = 0;
+
+    if( !vertical ) {
+        rl_vec2d velo_veh1 = veh.velo_vec();
+        rl_vec2d velo_veh2 = veh2.velo_vec();
+        const float m1 = to_kilogram( veh.total_mass() );
+        const float m2 = to_kilogram( veh2.total_mass() );
+
+        tripoint_mnt_veh cof1 = veh.rotated_center_of_mass();
+        tripoint_mnt_veh cof2 = veh2.rotated_center_of_mass();
+        int &x_cof1 = cof1.x();
+        int &y_cof1 = cof1.y();
+        int &x_cof2 = cof2.x();
+        int &y_cof2 = cof2.y();
+
+        // Collision axis is based on absolute positions
+        rl_vec2d collision_axis_y;
+        collision_axis_y.x = ( veh.abs_ms_location().x() + x_cof1 ) -
+                             ( veh2.abs_ms_location().x() + x_cof2 );
+        collision_axis_y.y = ( veh.abs_ms_location().y() + y_cof1 ) -
+                             ( veh2.abs_ms_location().y() + y_cof2 );
+        collision_axis_y = collision_axis_y.normalized();
+        rl_vec2d collision_axis_x = collision_axis_y.rotated( M_PI / 2 );
+
+        float vel1_y = cmps_to_mps( collision_axis_y.dot_product( velo_veh1 ) );
+        float vel1_x = cmps_to_mps( collision_axis_x.dot_product( velo_veh1 ) );
+        float vel2_y = cmps_to_mps( collision_axis_y.dot_product( velo_veh2 ) );
+        float vel2_x = cmps_to_mps( collision_axis_x.dot_product( velo_veh2 ) );
+        delta_vel = std::abs( vel1_y - vel2_y );
+        float e = get_collision_factor( vel1_y - vel2_y );
+        add_msg( m_debug, "Requested collision factor, received %.2f", e );
+
+        float vel1_x_a = vel1_x;
+        float vel2_x_a = vel2_x;
+        float vel1_y_a = ( ( m2 * vel2_y * ( 1 + e ) + vel1_y * ( m1 - m2 * e ) ) / ( m1 + m2 ) );
+        float vel2_y_a = ( ( m1 * vel1_y * ( 1 + e ) + vel2_y * ( m2 - m1 * e ) ) / ( m1 + m2 ) );
+
+        rl_vec2d final1 = ( collision_axis_y * vel1_y_a + collision_axis_x * vel1_x_a ) * 100.0;
+        rl_vec2d final2 = ( collision_axis_y * vel2_y_a + collision_axis_x * vel2_x_a ) * 100.0;
+
+        veh.move.init( point_rel_ms( final1.as_point() ) );
+        if( final1.dot_product( veh.face_vec() ) < 0 ) {
+            veh.velocity = -final1.magnitude();
+        } else {
+            veh.velocity = final1.magnitude();
+        }
+
+        veh2.move.init( point_rel_ms( final2.as_point() ) );
+        if( final2.dot_product( veh2.face_vec() ) < 0 ) {
+            veh2.velocity = -final2.magnitude();
+        } else {
+            veh2.velocity = final2.magnitude();
+        }
+
+        float avg_of_turn = ( veh2.of_turn + veh.of_turn ) / 2;
+        if( avg_of_turn < .1f ) {
+            avg_of_turn = .1f;
+        }
+
+        veh.of_turn = avg_of_turn * .9;
+        veh2.of_turn = std::max( 1.0f, avg_of_turn * 1.1f );
+
+        veh1_impulse = std::abs( m1 * ( vel1_y_a - vel1_y ) );
+        veh2_impulse = std::abs( m2 * ( vel2_y_a - vel2_y ) );
+    } else {
+        const float m1 = to_kilogram( veh.total_mass() );
+        dmg_veh1 = ( std::abs( cmps_to_mps( veh.vertical_velocity ) ) * ( m1 / 10 ) ) / 2;
+        dmg_veh2 = dmg_veh1;
+        veh.vertical_velocity = 0;
+    }
+
+    if( delta_vel >= 6.0f ) {
+        dmg_veh1 = veh1_impulse * dmg_adjust;
+        dmg_veh2 = veh2_impulse * dmg_adjust;
+    } else {
+        dmg_veh1 = 0;
+        dmg_veh2 = 0;
+    }
+
+    int coll_parts_cnt = 0;
+    for( const auto &veh_veh_coll : collisions ) {
+        if( &veh2 == static_cast<vehicle *>( veh_veh_coll.target ) ) {
+            coll_parts_cnt++;
+        }
+    }
+
+    const float dmg1_part = dmg_veh1 / coll_parts_cnt;
+    const float dmg2_part = dmg_veh2 / coll_parts_cnt;
+
+    for( const auto &veh_veh_coll : collisions ) {
+        if( &veh2 != static_cast<vehicle *>( veh_veh_coll.target ) ) {
+            continue;
+        }
+
+        int parm1 = veh.part_with_feature( veh_veh_coll.part, VPFLAG_ARMOR, true );
+        if( parm1 < 0 ) {
+            parm1 = veh_veh_coll.part;
+        }
+        int parm2 = veh2.part_with_feature( veh_veh_coll.target_part, VPFLAG_ARMOR, true );
+        if( parm2 < 0 ) {
+            parm2 = veh_veh_coll.target_part;
+        }
+
+        epicenter1 += veh.part( parm1 ).mount.raw();
+        veh.damage( parm1, dmg1_part, DT_BASH );
+
+        epicenter2 += veh2.part( parm2 ).mount.raw();
+        veh2.damage( parm2, dmg2_part, DT_BASH );
+    }
+
+    epicenter2.x() /= coll_parts_cnt;
+    epicenter2.y() /= coll_parts_cnt;
+
+    if( dmg2_part > 100 ) {
+        veh2.damage_all( dmg2_part / 2, dmg2_part, DT_BASH, tripoint_mnt_veh( epicenter2.raw() ) );
+    }
+
+    if( dmg_veh1 > 800 ) {
+        veh.skidding = true;
+    }
+    if( dmg_veh2 > 800 ) {
+        veh2.skidding = true;
+    }
+
+    return dmg_veh1;
+}
+
+auto mapbuffer::shake_vehicle( vehicle &veh, const int velocity_before,
+                               const units::angle direction ) -> units::angle
+{
+    const int d_vel = std::abs( cmps_to_mps( veh.velocity - velocity_before ) ) * 2.23694;
+
+    std::vector<rider_data> riders = veh.get_riders();
+
+    units::angle coll_turn = 0_degrees;
+    for( const rider_data &r : riders ) {
+        const int ps = r.prt;
+        Creature *rider = r.psg;
+        if( rider == nullptr ) {
+            debugmsg( "throw passenger: empty passenger at part %d", ps );
+            continue;
+        }
+
+        const auto part_pos = veh.abs_part_location( ps );
+        if( rider->abs_pos() != part_pos ) {
+            debugmsg( "throw passenger: passenger at %d,%d,%d, part at %d,%d,%d",
+                      rider->abs_pos().x(), rider->abs_pos().y(), rider->abs_pos().z(),
+                      part_pos.x(), part_pos.y(), part_pos.z() );
+            veh.part( ps ).remove_flag( vehicle_part::passenger_flag );
+            continue;
+        }
+
+        player *psg = dynamic_cast<player *>( rider );
+        monster *pet = dynamic_cast<monster *>( rider );
+
+        bool throw_from_seat = false;
+        int move_resist = 1;
+        if( psg ) {
+            move_resist = psg->str_cur * 150 + 500;
+            if( veh.part( ps ).info().has_flag( "SEAT_REQUIRES_BALANCE" ) ) {
+                int resist_penalty = 500;
+                if( psg->has_trait( trait_PROF_SKATER ) ) {
+                    resist_penalty -= 150;
+                }
+                if( psg->has_trait( trait_DEFT ) ) {
+                    resist_penalty -= 150;
+                }
+                move_resist -= resist_penalty;
+            }
+        } else {
+            int pet_resist = 0;
+            if( pet != nullptr ) {
+                pet_resist = static_cast<int>( to_kilogram( pet->get_weight() ) * 200 );
+            }
+            move_resist = std::max( 100, pet_resist );
+        }
+
+        if( veh.part_with_feature( ps, VPFLAG_SEATBELT, true ) == -1 ) {
+            throw_from_seat = d_vel * rng( 80, 120 ) > move_resist;
+        }
+
+        if( !throw_from_seat && ( 10 * d_vel ) > 6 * rng( 50, 100 ) ) {
+            const int dmg = d_vel * rng( 70, 100 ) / 400;
+            if( psg ) {
+                psg->hurtall( dmg, nullptr );
+                psg->add_msg_player_or_npc( m_bad,
+                                            _( "You take %d damage by the power of the impact!" ),
+                                            _( "<npcname> takes %d damage by the power of the impact!" ),
+                                            dmg );
+            } else {
+                pet->apply_damage( nullptr, bodypart_id( "torso" ), dmg );
+            }
+        }
+
+        if( psg && veh.player_in_control( *psg ) ) {
+            const int lose_ctrl_roll = rng( 0, d_vel );
+            if( lose_ctrl_roll > psg->dex_cur * 2 + psg->get_skill_level( skill_driving ) * 3 ) {
+                psg->add_msg_player_or_npc( m_warning,
+                                            _( "You lose control of the %s." ),
+                                            _( "<npcname> loses control of the %s." ), veh.name );
+                int turn_amount = rng( 1, 3 ) * std::sqrt( std::abs( veh.velocity ) ) / 20;
+                if( turn_amount < 1 ) {
+                    turn_amount = 1;
+                }
+                units::angle turn_angle = std::min( turn_amount * 15_degrees, 120_degrees );
+                coll_turn = one_in( 2 ) ? turn_angle : -turn_angle;
+            }
+        }
+
+        if( throw_from_seat ) {
+            if( psg ) {
+                psg->add_msg_player_or_npc( m_bad,
+                                            _( "You are hurled from the %s's seat by the power of the impact!" ),
+                                            _( "<npcname> is hurled from the %s's seat by the power of the impact!" ),
+                                            veh.name );
+            } else if( get_player_character().sees( part_pos ) ) {
+                add_msg( m_bad, _( "%s is hurled from %s's by the power of the impact!" ),
+                         pet->disp_name( false, true ), veh.name );
+            }
+
+            // Gate map-level operations behind the reality bubble
+            if( const auto local = active_reality_bubble_local( part_pos ) ) {
+                get_map().unboard_vehicle( *local );
+            }
+            if( g != nullptr ) {
+                g->fling_creature( rider, direction + rng_float( -30_degrees, 30_degrees ),
+                                   std::max( 10, d_vel - move_resist / 100 ) );
+            }
+        }
+    }
+
+    return coll_turn;
+}
+
+auto mapbuffer::shift_vehicle_z( vehicle &veh, int z_shift ) -> void
+{
+    auto src = veh.abs_sm_pos;
+    auto dst = src + tripoint_rel_sm( 0, 0, z_shift );
+
+    // Gate map cache invalidation behind the reality bubble
+    if( const auto local_src = active_reality_bubble_local( veh.abs_ms_location() ) ) {
+        map &here = get_map();
+        here.invalidate_lightmap_caches();
+        auto dirty_vertical_vehicle_caches = [&here]( const int zlev ) {
+            if( !here.inbounds_z( zlev ) ) {
+                return;
+            }
+            here.invalidate_map_cache( zlev );
+        };
+        dirty_vertical_vehicle_caches( src.z() );
+        dirty_vertical_vehicle_caches( src.z() + 1 );
+        dirty_vertical_vehicle_caches( dst.z() );
+        dirty_vertical_vehicle_caches( dst.z() + 1 );
+    }
+
+    submap *src_submap = lookup_submap_in_memory( src );
+    submap *dst_submap = lookup_submap_in_memory( dst );
+
+    int our_i = -1;
+    for( size_t i = 0; i < src_submap->vehicles.size(); i++ ) {
+        if( src_submap->vehicles[i].get() == &veh ) {
+            our_i = i;
+            break;
+        }
+    }
+
+    if( our_i == -1 ) {
+        debugmsg( "shift_vehicle [%s] failed could not find vehicle", veh.name );
+        return;
+    }
+
+    for( auto &prt : veh.get_all_parts() ) {
+        prt.part().z_terrain[0] -= z_shift;
+        prt.part().z_terrain[1] -= z_shift;
+    }
+
+    auto src_submap_veh_it = src_submap->vehicles.begin() + our_i;
+    dst_submap->vehicles.push_back( std::move( *src_submap_veh_it ) );
+    src_submap->vehicles.erase( src_submap_veh_it );
+    dst_submap->is_uniform = false;
+
+    // Update vehicle list in map cache if in bubble
+    if( const auto local_dst = active_reality_bubble_local(
+            tripoint_abs_ms( point_abs_ms( dst.x() * SEEX, dst.y() * SEEY ), dst.z() ) ) ) {
+        map &here = get_map();
+        here.invalidate_max_populated_zlev( dst.z() );
+        here.update_vehicle_list( dst_submap, dst.z() );
+    }
+
+    // Clean up from src z-level cache
+    if( const auto local_src_z = active_reality_bubble_local(
+            tripoint_abs_ms( point_abs_ms( src.x() * SEEX, src.y() * SEEY ), src.z() ) ) ) {
+        map &here = get_map();
+        level_cache &ch = here.get_cache( src.z() );
+        for( const vehicle *elem : ch.vehicle_list ) {
+            if( elem == &veh ) {
+                ch.vehicle_list.erase( &veh );
+                ch.zone_vehicles.erase( &veh );
+                break;
+            }
+        }
+    }
+
+    veh.abs_sm_pos = dst;
+    refresh_vehicle_footprint( &veh );
+    veh.update_overmap( src );
+}
+
+auto mapbuffer::move_vehicle( vehicle &veh, const tripoint_rel_ms &dp,
+                              const tileray &facing ) -> vehicle *
+{
+    if( dp == tripoint_rel_ms::zero() ) {
+        debugmsg( "Empty displacement vector" );
+        return &veh;
+    } else if( std::abs( dp.x() ) > 1 || std::abs( dp.y() ) > 1 || std::abs( dp.z() ) > 1 ) {
+        debugmsg( "Invalid displacement vector: %d, %d, %d", dp.x(), dp.y(), dp.z() );
+        return &veh;
+    }
+
+    // Split the movement into horizontal and vertical for easier processing
+    if( dp.xy() != point_rel_ms::zero() && dp.z() != 0 ) {
+        vehicle *const new_pointer = move_vehicle( veh, tripoint_rel_ms( dp.xy(), 0 ), facing );
+        if( !new_pointer ) {
+            return nullptr;
+        }
+
+        vehicle *const result = move_vehicle( *new_pointer, tripoint_rel_ms( 0, 0, dp.z() ), facing );
+        if( !result ) {
+            return nullptr;
+        }
+
+        result->is_falling = false;
+        return result;
+    }
+
+    const bool vertical = dp.z() != 0;
+    assert( vertical == ( dp.xy() == point_rel_ms::zero() ) );
+
+    const int target_z = dp.z() + veh.abs_sm_pos.z();
+    if( target_z < -OVERMAP_DEPTH || target_z > OVERMAP_HEIGHT ) {
+        return &veh;
+    }
+
+    veh.precalc_mounts( 1, veh.skidding ? veh.turn_dir : facing.dir(), veh.pivot_point() );
+
+    tripoint_rel_ms dp1 = tripoint_rel_ms( dp - veh.pivot_displacement() );
+
+    if( !vertical ) {
+        veh.adjust_zlevel( 1, dp1 );
+    }
+
+    int impulse = 0;
+
+    std::vector<veh_collision> collisions;
+    std::vector<vehicle *> passthrough;
+
+    const int &coll_velocity = vertical ? veh.vertical_velocity : veh.velocity;
+    const int velocity_before = coll_velocity;
+    if( velocity_before == 0 && !veh.is_aircraft() && !veh.is_flying_in_air() ) {
+        debugmsg( "%s tried to move %s with no velocity",
+                  veh.name, vertical ? "vertically" : "horizontally" );
+        return &veh;
+    }
+
+    bool veh_veh_coll_flag = false;
+    size_t collision_attempts = 10;
+    do {
+        collisions.clear();
+        veh.collision( vehicle_collision_options{
+            .colls = collisions,
+            .dp = dp1,
+        } );
+
+        std::map<vehicle *, std::vector<veh_collision>> veh_collisions;
+        for( auto &coll : collisions ) {
+            if( coll.type != veh_coll_veh ) {
+                continue;
+            }
+
+            veh_veh_coll_flag = true;
+            veh_collisions[static_cast<vehicle *>( coll.target )].push_back( coll );
+        }
+
+        for( auto &pair : veh_collisions ) {
+            impulse += vehicle_vehicle_collision( veh, *pair.first, pair.second );
+        }
+
+        for( const auto &coll : collisions ) {
+            if( coll.type == veh_coll_veh ) {
+                continue;
+            }
+            if( coll.type == veh_coll_veh_nocollide ) {
+                passthrough.push_back( static_cast<vehicle *>( coll.target ) );
+                continue;
+            }
+            if( coll.part > veh.part_count() ||
+                veh.part( coll.part ).removed ) {
+                continue;
+            }
+
+            tripoint_mnt_veh collision_point = veh.part( coll.part ).mount;
+            const int coll_dmg = coll.imp;
+            if( veh.part_info( coll.part ).rotor_diameter() > 0 ) {
+                veh.damage( coll.part, coll_dmg, DT_BASH, true );
+            } else {
+                impulse += coll_dmg;
+                veh.damage( coll.part, coll_dmg, DT_BASH );
+                int shock_max = coll_dmg;
+                int shock_min = coll_dmg / 2;
+                float coll_part_bash_resist =
+                    veh.part_info( coll.part ).damage_reduction.type_resist( DT_BASH );
+                shock_min = std::max<int>( 0, shock_min - coll_part_bash_resist );
+                shock_max = std::max<int>( 0, shock_max - coll_part_bash_resist );
+                if( shock_min >= 20 ) {
+                    veh.damage_all( shock_min, shock_max, DT_BASH, collision_point );
+                }
+            }
+        }
+
+        if( vertical && velocity_before < 0 && coll_velocity > 0 ) {
+            veh.vertical_velocity = 0;
+        }
+
+    } while( collision_attempts-- > 0 && coll_velocity != 0 &&
+             sgn( coll_velocity ) == sgn( velocity_before ) &&
+             !collisions.empty() && !veh_veh_coll_flag );
+
+    const int velocity_after = coll_velocity;
+    bool can_move = velocity_after != 0 && sgn( velocity_after ) == sgn( velocity_before );
+    if( dp.z() != 0 && veh.is_aircraft() ) {
+        can_move = true;
+    }
+
+    units::angle coll_turn = 0_degrees;
+    if( impulse > 0 ) {
+        coll_turn = shake_vehicle( veh, velocity_before, facing.dir() );
+        veh.stop_autodriving();
+        const int volume = std::min<int>( 120, std::sqrt( impulse ) );
+        sound_event se;
+        se.origin = veh.abs_ms_location();
+        se.volume = volume;
+        se.category = sounds::sound_t::combat;
+        se.description = _( "crash!" );
+        se.id = "smash_success";
+        se.variant = "hit_vehicle";
+        sounds::sound( se );
+    }
+
+    if( veh_veh_coll_flag ) {
+        return nullptr;
+    }
+
+    // If not enough wheels, mess up the ground — use mapbuffer's set_ter
+    if( !vertical && !veh.valid_wheel_config() && !veh.is_in_water() && !veh.is_flying_in_air() &&
+        !veh.has_sufficient_lift( true ) &&
+        dp.z() == 0 ) {
+        veh.velocity += veh.velocity < 0 ? 2000 : -2000;
+        for( const auto &p : veh.get_points() ) {
+            const auto tile = abs_tile_handle::fetch( *this, p );
+            if( tile ) {
+                const ter_id &pter = tile->ter();
+                if( pter == t_dirt || pter == t_grass ) {
+                    set_ter( p, t_dirtmound );
+                }
+            }
+        }
+    }
+
+    const units::angle last_turn_dec = 1_degrees;
+    if( veh.last_turn < 0_degrees ) {
+        veh.last_turn += last_turn_dec;
+        if( veh.last_turn > -last_turn_dec ) {
+            veh.last_turn = 0_degrees;
+        }
+    } else if( veh.last_turn > 0_degrees ) {
+        veh.last_turn -= last_turn_dec;
+        if( veh.last_turn < last_turn_dec ) {
+            veh.last_turn = 0_degrees;
+        }
+    }
+
+    Character &player_character = get_player_character();
+
+    // Determine if the vehicle is seen — only relevant in the bubble
+    auto sees_veh = []( const Creature &c, vehicle &veh, bool force_recalc ) -> bool {
+        const auto &veh_points = veh.get_points( force_recalc );
+        return std::ranges::any_of( veh_points, [&c]( const tripoint_abs_ms &pt ) {
+            return c.sees( pt );
+        } );
+    };
+    bool seen = false;
+    if( const auto local = active_reality_bubble_local( veh.abs_ms_location() ) ) {
+        seen = sees_veh( player_character, veh, false );
+    }
+
+    if( can_move || ( vertical && veh.is_falling ) ) {
+        if( veh.skidding ) {
+            veh.face.init( veh.turn_dir );
+        } else {
+            veh.face = facing;
+        }
+
+        veh.move = facing;
+        if( coll_turn != 0_degrees ) {
+            veh.skidding = true;
+            veh.turn( coll_turn );
+        }
+        veh.on_move();
+
+        // displace_vehicle requires the local map — gate behind bubble
+        if( const auto local = active_reality_bubble_local( veh.abs_ms_location() ) ) {
+            get_map().displace_vehicle( veh, tripoint_rel_ms( dp1 ) );
+        }
+        veh.shift_zlevel();
+    } else if( !vertical ) {
+        veh.stop();
+    }
+
+    veh.check_falling_or_floating();
+
+    // If the PC is in the currently moved vehicle, adjust view offset
+    if( const auto local = active_reality_bubble_local( veh.abs_ms_location() ) ) {
+        map &here = get_map();
+        if( g->u.controlling_vehicle && veh_pointer_or_null( veh_at( g->u.abs_pos() ) ) == &veh ) {
+            g->calc_driving_offset( &veh );
+            if( veh.skidding && can_move ) {
+                veh.possibly_recover_from_skid();
+            }
+        }
+    }
+
+    // Handle traps under wheels
+    if( !vertical && can_move ) {
+        const auto wheel_indices = veh.wheelcache;
+
+        float vehicle_grounded_wheel_area = static_cast<int>( vehicle_wheel_traction( veh, true ) );
+        const float weight_to_damage_factor = 0.05f;
+        const float vehicle_mass_kg = to_kilogram( veh.total_mass() );
+
+        for( auto &w : wheel_indices ) {
+            const auto wheel_abs = veh.abs_part_location( w );
+            const auto wheel_bub = veh.bub_part_location( w );
+
+            // displace_water and sound — gate behind bubble
+            if( const auto local = active_reality_bubble_local( wheel_abs ) ) {
+                map &here = get_map();
+                if( one_in( 2 ) && here.displace_water( wheel_bub ) ) {
+                    sound_event se;
+                    se.origin = wheel_abs;
+                    se.volume = 50;
+                    se.category = sounds::sound_t::movement;
+                    se.movement_noise = true;
+                    se.description = _( "splash!" );
+                    se.id = "environment";
+                    se.variant = "splash";
+                    sounds::sound( se );
+                }
+            }
+
+            veh.handle_trap( wheel_abs, w );
+
+            // Check SEALED flag via abs_tile_handle
+            auto tile = abs_tile_handle::fetch( *this, wheel_abs );
+            if( tile && !tile->has_flag( "SEALED" ) ) {
+                const float wheel_area = veh.part( w ).wheel_area();
+
+                const int wheel_damage = static_cast<int>( ( ( wheel_area / vehicle_grounded_wheel_area ) *
+                                         vehicle_mass_kg ) * weight_to_damage_factor );
+
+                // smash_items requires the local map — gate behind bubble
+                if( const auto smash_local = active_reality_bubble_local( wheel_abs ) ) {
+                    get_map().smash_items( *smash_local, wheel_damage,
+                                           string_format( _( "weight of %1$s" ), veh.disp_name() ),
+                                           false );
+                }
+            }
+        }
+    }
+
+    if( veh.is_towing() ) {
+        veh.do_towing_move();
+        if( veh.is_towing() && veh.tow_data.get_towed()->tow_cable_too_far() ) {
+            add_msg( m_info, _( "A towing cable snaps off of %s." ),
+                     veh.tow_data.get_towed()->disp_name() );
+            veh.tow_data.get_towed()->invalidate_towing( true );
+        }
+    }
+
+    // add_vehicle_to_cache for passthrough vehicles — gate behind bubble
+    for( vehicle *colveh : passthrough ) {
+        if( const auto local = active_reality_bubble_local( colveh->abs_ms_location() ) ) {
+            get_map().add_vehicle_to_cache( colveh );
+        }
+    }
+
+    // Redraw scene — only in the bubble
+    if( const auto local = active_reality_bubble_local( veh.abs_ms_location() ) ) {
+        map &here = get_map();
+        if( !player_character.activity && ( seen || sees_veh( player_character, veh, true ) ) ) {
+            g->invalidate_main_ui_adaptor();
+            inp_mngr.pump_events();
+            ui_manager::redraw_invalidated();
+            refresh_display();
+        }
+    }
+    return &veh;
+}
+
+namespace
+{
+
+static const trait_id trait_NPC_STATIC_NPC( "NPC_STATIC_NPC" );
+
+static bool can_place_monster_at( const monster &mon, const tripoint_abs_ms &p,
+                                  mapbuffer &buf )
+{
+    if( const auto existing = buf.creature_at( p ) ) {
+        const auto *mon_ptr = dynamic_cast<const monster *>( existing );
+        if( mon_ptr && !mon_ptr->is_hallucination() ) {
+            return false;
+        }
+        if( !mon_ptr ) {
+            // NPC or player
+            return false;
+        }
+    }
+    return mon.will_move_to( p );
+}
+
+} // namespace
+
+auto mapbuffer::place_critter_at( const mtype_id &id, const tripoint_abs_ms &p ) -> monster *
+{
+    return place_critter_around( id, p, 0 );
+}
+
+auto mapbuffer::place_critter_at( const shared_ptr_fast<monster> &mon,
+                                  const tripoint_abs_ms &p ) -> monster *
+{
+    return place_critter_around( mon, p, 0 );
+}
+
+auto mapbuffer::place_critter_around( const mtype_id &id, const tripoint_abs_ms &center,
+                                      const int radius ) -> monster *
+{
+    if( id.is_null() ) {
+        return nullptr;
+    }
+    const auto temp = make_shared_fast<monster>( id );
+    return place_critter_around( temp, center, radius );
+}
+
+auto mapbuffer::place_critter_around( const shared_ptr_fast<monster> &mon,
+                                      const tripoint_abs_ms &center,
+                                      const int radius, const bool forced ) -> monster *
+{
+    std::optional<tripoint_abs_ms> where;
+
+    if( forced || can_place_monster_at( *mon, center, *this ) ) {
+        where = center;
+    }
+
+    // This loop ensures the monster is placed as close to the center as possible,
+    // but all places that equally far from the center have the same probability.
+    for( int r = 1; r <= radius && !where; ++r ) {
+        std::vector<tripoint_abs_ms> candidates;
+        for( const auto &pt : simulated_tiles_in_radius( *this, center, r ) ) {
+            if( can_place_monster_at( *mon, pt.abs_pos(), *this ) ) {
+                candidates.push_back( pt.abs_pos() );
+            }
+        }
+        if( !candidates.empty() ) {
+            where = random_entry( candidates );
+        }
+    }
+
+    if( !where ) {
+        return nullptr;
+    }
+    mon->set_dimension( dimension_id_ );
+    mon->spawn( *where );
+    return creature_tracker().add( mon ) ? mon.get() : nullptr;
+}
+
+auto mapbuffer::place_npc( const tripoint_abs_ms &p, const string_id<npc_template> &type,
+                           const bool force ) -> character_id
+{
+    if( !force && !get_option<bool>( "STATIC_NPC" ) ) {
+        return character_id();
+    }
+    shared_ptr_fast<npc> temp = make_shared_fast<npc>();
+    const auto proj = project_remain<coords::sm>( p );
+    temp->load_npc_template( type );
+    temp->spawn_at_precise( proj.quotient, proj.remainder_tripoint );
+    temp->set_dimension( dimension_id_ );
+    temp->toggle_trait( trait_NPC_STATIC_NPC );
+    get_overmapbuffer( dimension_id_ ).insert_npc( temp );
+    return temp->getID();
+}
+
+auto mapbuffer::is_sheltered( const tripoint_abs_ms &p,
+                              const mapbuffer_lookup_options options ) -> bool
+{
+    if( const auto local = active_reality_bubble_local( p ) ) {
+        return g->m.is_sheltered( *local );
+    }
+
+    const auto sm_pos = project_to<coords::sm>( p );
+    const auto sm = get_submap( sm_pos, options );
+    if( !sm ) {
+        return true; // outside loaded area — treat as sheltered
+    }
+    const auto split = project_remain<coords::sm>( p );
+    return sm->sheltered_cache[split.remainder.x()][split.remainder.y()];
+}
+
+// ----- Collapse / suspension helpers -----
+
+auto mapbuffer::is_suspension_valid( const tripoint_abs_ms &point,
+                                     const mapbuffer_lookup_options options ) -> bool
+{
+    auto ter_at = [&]( const tripoint_abs_ms &p ) -> std::optional<ter_id> {
+        return ter( p, options );
+    };
+
+    // Check: if both east and west are not open air — supported
+    {
+        const auto te = ter_at( point + tripoint_east );
+        const auto tw = ter_at( point + tripoint_west );
+        if( te && tw && *te != t_open_air && *tw != t_open_air ) {
+            return true;
+        }
+    }
+    // Check: if both southeast and northwest are not open air — supported
+    {
+        const auto tse = ter_at( point + tripoint_south_east );
+        const auto tnw = ter_at( point + tripoint_north_west );
+        if( tse && tnw && *tse != t_open_air && *tnw != t_open_air ) {
+            return true;
+        }
+    }
+    // Check: if both south and north are not open air — supported
+    {
+        const auto ts = ter_at( point + tripoint_south );
+        const auto tn = ter_at( point + tripoint_north );
+        if( ts && tn && *ts != t_open_air && *tn != t_open_air ) {
+            return true;
+        }
+    }
+    // Check: if both northeast and southwest are not open air — supported
+    {
+        const auto tne = ter_at( point + tripoint_north_east );
+        const auto tsw = ter_at( point + tripoint_south_west );
+        if( tne && tsw && *tne != t_open_air && *tsw != t_open_air ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+auto mapbuffer::collapse_invalid_suspension( const tripoint_abs_ms &point,
+        const mapbuffer_lookup_options options ) -> void
+{
+    if( !is_suspension_valid( point, options ) ) {
+        set_ter( point, t_open_air, options );
+        set_furn( point, f_null, options );
+
+        propagate_suspension_check( point, options );
+    }
+}
+
+auto mapbuffer::propagate_suspension_check( const tripoint_abs_ms &point,
+        const mapbuffer_lookup_options options ) -> void
+{
+    for( const auto &neighbor : simulated_tiles_in_radius( *this, point, 1 ) ) {
+        if( neighbor.abs_pos() != point &&
+            has_flag( TFLAG_SUSPENDED, neighbor.abs_pos(), options ) ) {
+            collapse_invalid_suspension( neighbor.abs_pos(), options );
+        }
+    }
+}
+
+auto mapbuffer::collapse_check( const tripoint_abs_ms &p,
+                                const mapbuffer_lookup_options options ) -> int
+{
+    const bool collapses = has_flag( TFLAG_COLLAPSES, p, options );
+    const bool supports_roof = has_flag( TFLAG_SUPPORTS_ROOF, p, options );
+
+    int num_supports = p.z() == -OVERMAP_DEPTH ? 0 : -5;
+    // If there's support below, things are less likely to collapse
+    if( p.z() > -OVERMAP_DEPTH ) {
+        const auto pbelow = tripoint_abs_ms( p.xy(), p.z() - 1 );
+        for( const auto &tbelow : points_in_radius( pbelow, 1 ) ) {
+            if( has_flag( TFLAG_SUPPORTS_ROOF, tbelow, options ) ) {
+                num_supports += 1;
+                if( has_flag( TFLAG_WALL, tbelow, options ) ) {
+                    num_supports += 2;
+                }
+                if( tbelow == pbelow ) {
+                    num_supports += 2;
+                }
+            }
+        }
+    }
+
+    for( const auto &t : points_in_radius( p, 1 ) ) {
+        if( p == t ) {
+            continue;
+        }
+
+        if( collapses ) {
+            if( has_flag( TFLAG_COLLAPSES, t, options ) ) {
+                num_supports++;
+            } else if( has_flag( TFLAG_SUPPORTS_ROOF, t, options ) ) {
+                num_supports += 2;
+            }
+        } else if( supports_roof ) {
+            if( has_flag( TFLAG_SUPPORTS_ROOF, t, options ) ) {
+                if( has_flag( TFLAG_WALL, t, options ) ) {
+                    num_supports += 4;
+                } else if( !has_flag( TFLAG_COLLAPSES, t, options ) ) {
+                    num_supports += 3;
+                }
+            }
+        }
+    }
+
+    return 1.7 * num_supports;
+}
+
+static const efftype_id effect_crushed( "crushed" );
+
+auto mapbuffer::crush( const tripoint_abs_ms &p,
+                       const mapbuffer_lookup_options options ) -> void
+{
+    auto crushed_creature = creature_at( p );
+    if( !crushed_creature ) {
+        return;
+    }
+
+    if( auto crushed_player = crushed_creature->as_player() ) {
+        bool player_inside = false;
+        if( crushed_player->in_vehicle ) {
+            const optional_vpart_position vp = veh_at( p );
+            player_inside = vp && vp->is_inside();
+        }
+        if( !player_inside ) { //If there's a player at p and he's not in a covered vehicle...
+            //This is the roof coming down on top of us, no chance to dodge
+            crushed_player->add_msg_player_or_npc( m_bad, _( "You are crushed by the falling debris!" ),
+                                                   _( "<npcname> is crushed by the falling debris!" ) );
+            // TODO: Make this depend on the ceiling material
+            const int dam = rng( 0, 40 );
+            // Torso and head take the brunt of the blow
+            crushed_player->deal_damage( nullptr, bodypart_id( "head" ), damage_instance( DT_BASH,
+                                         dam * .25 ) );
+            crushed_player->deal_damage( nullptr, bodypart_id( "torso" ), damage_instance( DT_BASH,
+                                         dam * .45 ) );
+            // Legs take the next most through transferred force
+            crushed_player->deal_damage( nullptr, bodypart_id( "leg_l" ), damage_instance( DT_BASH,
+                                         dam * .10 ) );
+            crushed_player->deal_damage( nullptr, bodypart_id( "leg_r" ), damage_instance( DT_BASH,
+                                         dam * .10 ) );
+            // Arms take the least
+            crushed_player->deal_damage( nullptr, bodypart_id( "arm_l" ), damage_instance( DT_BASH,
+                                         dam * .05 ) );
+            crushed_player->deal_damage( nullptr, bodypart_id( "arm_r" ), damage_instance( DT_BASH,
+                                         dam * .05 ) );
+
+            // Pin whoever got hit
+            crushed_player->add_effect( effect_crushed, 1_turns, bodypart_str_id::NULL_ID() );
+            crushed_player->check_dead_state();
+        }
+    }
+
+    if( auto monhit = crushed_creature->as_monster() ) {
+        // 25 ~= 60 * .45 (torso)
+        monhit->deal_damage( nullptr, bodypart_id( "torso" ), damage_instance( DT_BASH, rng( 0, 25 ) ) );
+
+        // Pin whoever got hit
+        monhit->add_effect( effect_crushed, 1_turns, bodypart_str_id::NULL_ID() );
+        monhit->check_dead_state();
+    }
+
+    if( const optional_vpart_position vp = veh_at( p ) ) {
+        // Arbitrary number is better than collapsing house roof crushing APCs
+        vp->vehicle().damage( vp->part_index(), rng( 100, 1000 ), DT_BASH, false );
+    }
+}
+
+// there is still some odd behavior here and there and you can get floating chunks of
+// unsupported floor, but this is much better than it used to be
+auto mapbuffer::collapse_at( const tripoint_abs_ms &p, const bool silent,
+                             const bool was_supporting, const bool destroy_pos,
+                             const mapbuffer_lookup_options options ) -> void
+{
+    const bool supports = was_supporting || has_flag( TFLAG_SUPPORTS_ROOF, p, options );
+    const bool wall = was_supporting || has_flag( TFLAG_WALL, p, options );
+    // don't bash again if the caller already bashed here
+    if( destroy_pos ) {
+        destroy( p, silent, options );
+        crush( p, options );
+        make_rubble( p, f_rubble, t_dirt, false, options );
+    }
+    const bool still_supports = has_flag( TFLAG_SUPPORTS_ROOF, p, options );
+
+    // If something supporting the roof collapsed, see what else collapses
+    if( supports && !still_supports ) {
+        for( const auto &t : points_in_radius( p, 1 ) ) {
+            // If z-levels are off, tz == t, so we end up skipping a lot of stuff to avoid bugs.
+            const auto tz = tripoint_abs_ms( t.xy(), t.z() + 1 );
+            // if nothing above us had the chance of collapsing, move on
+            if( !one_in( collapse_check( tz, options ) ) ) {
+                continue;
+            }
+            // if a wall collapses, walls without support from below risk collapsing and
+            // propagate the collapse upwards
+            if( wall && p == t && has_flag( TFLAG_WALL, tz, options ) ) {
+                collapse_at( tz, silent, false, true, options );
+            }
+            // floors without support from below risk collapsing into open air and can propagate
+            // the collapse horizontally but not vertically
+            if( p != t && ( has_flag( TFLAG_SUPPORTS_ROOF, t, options ) &&
+                            has_flag( TFLAG_COLLAPSES, t, options ) ) ) {
+                collapse_at( t, silent, false, true, options );
+            }
+        }
+        // this tile used to support a roof, now it doesn't, which means there is only
+        // open air above us
+        const tripoint_abs_ms tabove( p.xy(), p.z() + 1 );
+        set_ter( tabove, t_open_air, options );
+        set_furn( tabove, f_null, options );
+        propagate_suspension_check( tabove, options );
+    }
+    // it would be great to check if collapsing ceilings smashed through the floor, but
+    // that's not handled for now
+}
+
+auto mapbuffer::revive_corpse( item &it ) -> bool
+{
+    const tripoint_abs_ms p = it.abs_pos();
+    if( !it.is_corpse() ) {
+        debugmsg( "Tried to revive a non-corpse." );
+        return false;
+    }
+
+    shared_ptr_fast<monster> newmon_ptr = make_shared_fast<monster>
+                                          ( it.get_mtype()->id );
+    monster &critter = *newmon_ptr;
+    critter.init_from_item( it );
+    if( critter.get_hp() < 1 ) {
+        // Failed reanimation due to corpse being too burned
+        return false;
+    }
+    if( it.has_flag( flag_FIELD_DRESS ) || it.has_flag( flag_FIELD_DRESS_FAILED ) ||
+        it.has_flag( flag_QUARTERED ) ) {
+        // Failed reanimation due to corpse being butchered
+        return false;
+    }
+
+    critter.no_extra_death_drops = true;
+    for( detached_ptr<item> &component : it.remove_components() ) {
+        critter.add_corpse_component( std::move( component ) );
+    }
+
+    return place_critter_at( newmon_ptr, p ) != nullptr;
+}
+
+auto mapbuffer::emit_field( const tripoint_abs_ms &pos, const emit_id &src, const float mul,
+                            const mapbuffer_lookup_options options ) -> void
+{
+    if( !src.is_valid() ) {
+        return;
+    }
+
+    const float chance = src->chance() * mul;
+    if( x_in_y( chance, 100 ) ) {
+        const int qty = chance > 100.0f ? roll_remainder( src->qty() * chance / 100.0f ) : src->qty();
+        propagate_field( pos, src->field(), qty, src->intensity(), options );
+    }
+}
+
+auto mapbuffer::get_fishable_locations( const int radius, const tripoint_abs_ms &fish_pos,
+                                        const mapbuffer_lookup_options options )
+-> std::unordered_set<tripoint_abs_ms>
+{
+    std::unordered_set<tripoint_abs_ms> visited;
+
+    const tripoint_abs_ms fishing_boundary_min(
+        fish_pos + point_rel_ms( -radius, -radius ) );
+    const tripoint_abs_ms fishing_boundary_max(
+        fish_pos + point_rel_ms( radius, radius ) );
+
+    const inclusive_cuboid<tripoint_abs_ms> fishing_boundaries(
+        fishing_boundary_min, fishing_boundary_max );
+
+    std::unordered_set<tripoint_abs_ms> fishable_points;
+    std::queue<tripoint_abs_ms> to_check;
+    to_check.push( fish_pos );
+
+    while( !to_check.empty() ) {
+        const auto current_point = to_check.front();
+        to_check.pop();
+
+        if( visited.contains( current_point ) ) {
+            continue;
+        }
+
+        if( !fishing_boundaries.contains( current_point ) ) {
+            continue;
+        }
+
+        visited.emplace( current_point );
+
+        if( has_flag( "FISHABLE", current_point, options ) ) {
+            fishable_points.emplace( current_point );
+            to_check.push( current_point + tripoint_south );
+            to_check.push( current_point + tripoint_north );
+            to_check.push( current_point + tripoint_east );
+            to_check.push( current_point + tripoint_west );
+        }
+    }
+
+    return fishable_points;
+}
+
+auto mapbuffer::is_cornerfloor( const tripoint_abs_ms &p,
+                                const mapbuffer_lookup_options options ) -> bool
+{
+    // Check if the tile itself is passable
+    const auto passable_opt = passable( p, options );
+    if( !passable_opt.value_or( false ) ) {
+        return false;
+    }
+
+    // Collect impassable adjacent tiles
+    std::set<tripoint_abs_ms> impassable_adjacent;
+    for( const auto &pt : simulated_tiles_in_radius( *this, p, 1 ) ) {
+        const auto pt_passable = passable( pt.abs_pos(), options );
+        if( !pt_passable.value_or( false ) ) {
+            impassable_adjacent.insert( pt.abs_pos() );
+        }
+    }
+
+    if( impassable_adjacent.empty() ) {
+        return false;
+    }
+
+    // Check diagonal tiles
+    const std::array<tripoint_abs_ms, 4> diagonals = {{
+            p + tripoint_north_east, p + tripoint_north_west,
+            p + tripoint_south_east, p + tripoint_south_west
+        }};
+
+    for( const auto &impassable_diagonal : diagonals ) {
+        if( impassable_adjacent.contains( impassable_diagonal ) ) {
+            int f = 0;
+            for( const auto &l : simulated_tiles_in_radius( *this, impassable_diagonal, 1 ) ) {
+                if( impassable_adjacent.contains( l.abs_pos() ) ) {
+                    f++;
+                }
+                if( f > 2 ) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+auto mapbuffer::mop_spills( const tripoint_abs_ms &p,
+                            const mapbuffer_lookup_options options ) -> bool
+{
+    bool retval = false;
+
+    if( !has_flag( "LIQUIDCONT", p, options ) && !has_flag( "SEALED", p, options ) ) {
+        auto items = get_items( p, options );
+        if( items ) {
+            items->remove_with( [&retval]( detached_ptr<item> &&e ) {
+                if( e->made_of( LIQUID ) ) {
+                    retval = true;
+                    return detached_ptr<item>();
+                }
+                return std::move( e );
+            } );
+        }
+    }
+
+    auto *fld = get_field( p, options );
+    if( fld ) {
+        static const std::vector<field_type_id> to_check = {
+            fd_blood,
+            fd_blood_veggy,
+            fd_blood_insect,
+            fd_blood_invertebrate,
+            fd_gibs_flesh,
+            fd_gibs_veggy,
+            fd_gibs_insect,
+            fd_gibs_invertebrate,
+            fd_bile,
+            fd_slime,
+            fd_sludge
+        };
+        for( const field_type_id &fid : to_check ) {
+            retval |= fld->remove_field( fid );
+        }
+    }
+
+    if( const auto vp = veh_at( p, options ) ) {
+        vehicle *const veh = &vp->vehicle();
+        std::vector<int> parts_here = veh->parts_at_relative( vp->mount(), true );
+        for( auto &elem : parts_here ) {
+            if( veh->part( elem ).blood > 0 ) {
+                veh->part( elem ).blood = 0;
+                retval = true;
+            }
+            vehicle_stack here_items = veh->get_items( elem );
+            here_items.remove_top_items_with( [&retval]( detached_ptr<item> &&e ) {
+                if( e->made_of( LIQUID ) ) {
+                    retval = true;
+                    return detached_ptr<item>();
+                }
+                return std::move( e );
+            } );
+        }
+    }
+
+    return retval;
+}
+
 auto mapbuffer::set_ter( const tripoint_abs_ms &p, const ter_id terrain,
                          const mapbuffer_lookup_options options ) -> bool
 {
@@ -2962,10 +4393,6 @@ auto mapbuffer::set_furn( const tripoint_abs_ms &p,
 auto mapbuffer::veh_at( const tripoint_abs_ms &p,
                         const mapbuffer_lookup_options options ) -> optional_vpart_position
 {
-    if( const auto local = active_reality_bubble_local( p ) ) {
-        return g->m.veh_at( *local );
-    }
-
     const auto target_sm = project_to<coords::sm>( p );
     if( get_submap( target_sm, options ) == nullptr ) {
         return optional_vpart_position( std::nullopt );
@@ -2976,10 +4403,6 @@ auto mapbuffer::veh_at( const tripoint_abs_ms &p,
 
 auto mapbuffer::vehicle_part_at_loaded_tile( const tripoint_abs_ms &p ) -> optional_vpart_position
 {
-    if( const auto local = active_reality_bubble_local( p ) ) {
-        return g->m.veh_at( *local );
-    }
-
     std::lock_guard<std::recursive_mutex> lk( submaps_mutex_ );
     return indexed_vehicle_part_at_unlocked( p );
 }
@@ -3685,34 +5108,19 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
     };
 
     auto call_active_drop_hook = [&]( const tripoint_abs_ms & target ) {
-        const auto local = active_reality_bubble_local( target );
-        if( !local ) {
-            if( new_item->made_of( LIQUID ) && !new_item->has_own_flag( flag_DIRTY ) ) {
-                new_item->set_flag( flag_DIRTY );
-            }
-            return false;
-        }
         if( new_item->made_of( LIQUID ) || !new_item->has_flag( flag_DROP_ACTION_ONLY_IF_LIQUID ) ) {
-            return new_item->on_drop( *local, g->m );
+            return new_item->on_drop();
         }
         return false;
     };
 
     auto route_allows_overflow = [&]( const tripoint_abs_ms & target ) {
-        const auto source_local = active_reality_bubble_local( p );
-        const auto target_local = active_reality_bubble_local( target );
-        if( !source_local || !target_local ) {
-            return false;
-        }
         PathfindingSettings pf_settings;
         pf_settings.bash_strength_val = 0;
         RouteSettings rt_settings;
         rt_settings.max_dist = 2;
         rt_settings.max_s_coeff = 4.0f;
-        auto &pf_buffer = MAPBUFFER_REGISTRY.get( g->m.get_bound_dimension() );
-        auto abs_route = Pathfinding::route( pf_buffer,
-                                             bub_to_abs( *source_local ),
-                                             bub_to_abs( *target_local ),
+        auto abs_route = Pathfinding::route( *this, p, target,
                                              pf_settings, rt_settings );
         return !abs_route.empty();
     };
@@ -4244,6 +5652,369 @@ auto mapbuffer::delete_computer( const tripoint_abs_ms &p,
 
     tile->sm->delete_computer( tile->local );
     return true;
+}
+
+void mapbuffer::add_spawn( const mtype_id &type, int count, const tripoint_abs_ms &p, bool friendly,
+                     int faction_id, int mission_id, const std::string &name,
+                     mapbuffer_lookup_options options ) const
+{
+    add_spawn( type, count, p, spawn_point::friendly_to_spawn_disposition( friendly ), faction_id,
+               mission_id, name );
+}
+
+void mapbuffer::add_spawn( const mtype_id &type, int count, const tripoint_abs_ms &p,
+                     spawn_disposition disposition, int faction_id, int mission_id,
+                     const std::string &name, mapbuffer_lookup_options options ) const
+{
+    auto proj = project_remain<coords::sm>( p );
+    auto place_on_submap = MAPBUFFER_REGISTRY.get(dimension_id_).lookup_submap_in_memory( proj.quotient_tripoint );
+
+    if( !place_on_submap ) {
+        debugmsg( "centadodecamonant doesn't exist in grid; within add_spawn(%s, %d, %d, %d, %d)",
+                  type.c_str(), count, p.x(), p.y(), p.z() );
+        return;
+    }
+    if( MonsterGroupManager::monster_is_blacklisted( type ) ) {
+        return;
+    }
+    spawn_point tmp( type, count, proj.remainder, faction_id, mission_id, disposition, name );
+    place_on_submap->spawns.push_back( tmp );
+}
+
+vehicle *mapbuffer::add_vehicle( const std::variant<vgroup_id, vproto_id> &type_,
+                           const tripoint_abs_ms &p,
+                           const units::angle dir, const int veh_fuel,
+                           const int veh_status, const bool merge_wrecks,
+                           std::optional<bool> locked,
+                           std::optional<bool> has_keys,
+                           mapbuffer_lookup_options options )
+{
+    constexpr auto pos_selector = []<typename T>( const T & v, int z ) -> tripoint_bub_ms {
+        if constexpr( std::is_same_v<T, point_bub_ms> )
+        {
+            return tripoint_bub_ms( v, z );
+        } else
+        {
+            return v;
+        }
+    };
+
+    constexpr auto type_selector = []<typename T>( const T & v ) -> vproto_id {
+        if constexpr( std::is_same_v<T, vgroup_id> )
+        {
+            return v.obj().pick();
+        } else
+        {
+            return v;
+        }
+    };
+
+    const auto type = std::visit( type_selector, type_ );
+
+    if( !type.is_valid() ) {
+        debugmsg( "Nonexistent vehicle type: \"%s\"", type.c_str() );
+        return nullptr;
+    }
+    auto proj = project_remain<coords::sm>( p );
+    auto place_on_submap = MAPBUFFER_REGISTRY.get(dimension_id_).lookup_submap_in_memory( proj.quotient_tripoint );
+
+    if( !place_on_submap ) {
+        debugmsg( "add_vehicle triggered for nonexistent submap t=%s d=%d p=%s",
+                  type, to_degrees( dir ), p.to_string() );
+        return nullptr;
+    }
+
+    // debugmsg("n=%d x=%d y=%d MAPSIZE=%d ^2=%d", nonant, x, y, MAPSIZE, MAPSIZE*MAPSIZE);
+    auto veh = std::make_unique<vehicle>( type, veh_fuel, veh_status, locked, has_keys );
+    veh->abs_sm_pos = proj.quotient_tripoint;
+    veh->sm_ms_pos = proj.remainder;
+    veh->place_spawn_items();
+    // for backwards compatibility, we always spawn with a pivot point of (0,0) so
+    // that the mount at (0,0) is located at the spawn position.
+    veh->set_facing_and_pivot( dir, tripoint_mnt_veh::zero(), false );
+    //debugmsg("adding veh: %d, sm: %d,%d,%d, pos: %d, %d", veh, veh->smx, veh->smy, veh->smz, veh->posx, veh->posy);
+    std::unique_ptr<vehicle> placed_vehicle_up =
+        add_vehicle_to_mapbuffer( std::move( veh ), merge_wrecks );
+    vehicle *placed_vehicle = placed_vehicle_up.get();
+
+    if( placed_vehicle != nullptr ) {
+        const auto placed_vehicle_sm = placed_vehicle->abs_sm_pos;
+        place_on_submap->vehicles.push_back( std::move( placed_vehicle_up ) );
+        place_on_submap->is_uniform = false;
+        if( active_reality_bubble_local( p ) ) {
+            auto &map = get_map();
+            map.invalidate_max_populated_zlev( placed_vehicle_sm.z() );
+            auto &ch = map.get_cache( placed_vehicle_sm.z() );
+            ch.vehicle_list.insert( placed_vehicle );
+            map.add_vehicle_to_cache( placed_vehicle );
+        }
+        register_vehicle( placed_vehicle );
+
+        //debugmsg ("grid[%d]->vehicles.size=%d veh.parts.size=%d", nonant, grid[nonant]->vehicles.size(),veh.parts.size());
+    }
+    return placed_vehicle;
+}
+
+/**
+ * Takes a vehicle already created with new and attempts to place it on the map,
+ * checking for collisions. If the vehicle can't be placed, returns NULL,
+ * otherwise returns a pointer to the placed vehicle, which may not necessarily
+ * be the one passed in (if wreckage is created by fusing cars).
+ * @param veh The vehicle to place on the map.
+ * @param merge_wrecks Whether crashed vehicles become part of each other
+ * @return The vehicle that was finally placed.
+ */
+std::unique_ptr<vehicle> mapbuffer::add_vehicle_to_mapbuffer(
+    std::unique_ptr<vehicle> veh, const bool merge_wrecks,
+    mapbuffer_lookup_options options )
+{
+    //We only want to check once per square, so loop over all structural parts
+    std::vector<int> frame_indices = veh->all_standalone_parts();
+
+    //Check for boat type vehicles that should be placeable in deep water
+    //WARNING: CURSED CODE
+    //If changed to veh->can_float mass calculations are messed up
+    const bool can_float = !veh->get_avail_parts( "FLOATS" ).empty();
+
+    //When hitting a wall, only smash the vehicle once (but walls many times)
+    bool needs_smashing = false;
+
+    veh->attach();
+    veh->refresh_position();
+
+    for( std::vector<int>::const_iterator part = frame_indices.begin();
+         part != frame_indices.end(); part++ ) {
+        // Use abs_part_location + explicit map-local conversion so that during mapgen
+        // (where get_map() is the player map, not this mapgen constructor) the position
+        // checks reference the correct submap grid.
+        const auto abs_pos = veh->abs_part_location( *part );
+
+        //Don't spawn anything in water
+        if( has_flag( TFLAG_DEEP_WATER, abs_pos ) && !can_float ) {
+            return nullptr;
+        }
+
+        // Don't spawn shopping carts on top of another vehicle or other obstacle.
+        if( veh->type == vproto_id( "shopping_cart" ) ) {
+            if( veh_at( abs_pos ) || !passable( abs_pos ) ) {
+                return nullptr;
+            }
+        }
+
+        //For other vehicles, simulate collisions with (non-shopping cart) stuff
+        vehicle *const other_veh = veh_pointer_or_null( veh_at( abs_pos ) );
+        if( other_veh != nullptr && other_veh->type != vproto_id( "shopping_cart" ) ) {
+            if( !merge_wrecks ) {
+                return nullptr;
+            }
+
+            // Hard wreck-merging limit: 250 tiles
+            // Merging is slow for big vehicles which lags the mapgen
+            if( frame_indices.size() + other_veh->all_standalone_parts().size() > 250 ) {
+                return nullptr;
+            }
+
+            // We must remove the vehicle from the map before we move away its parts
+            std::unique_ptr<vehicle> old_veh = detach_vehicle( other_veh );
+            if( old_veh == nullptr ) {
+                return nullptr;
+            }
+
+            for( const vpart_reference &vpr : old_veh->get_all_parts() ) {
+                const auto part_pos = veh->abs_to_mount( old_veh->abs_part_location( vpr.part() ) );
+                auto transferred_part = vehicle_part{ vpr.part(), & *veh };
+                transferred_part.direction = normalize( old_veh->face.dir() + transferred_part.direction -
+                                                        veh->face.dir() );
+                veh->install_part( part_pos, std::move( transferred_part ) );
+            }
+
+            veh->name = _( "Wreckage" );
+
+
+            // Try again with the wreckage
+            std::unique_ptr<vehicle> new_veh = add_vehicle_to_mapbuffer( std::move( veh ), true );
+            if( new_veh != nullptr ) {
+                new_veh->smash();
+                return new_veh;
+            }
+
+            // If adding the wreck failed, we want to restore the vehicle we tried to merge with
+            add_vehicle_to_mapbuffer( std::move( old_veh ), false );
+            return nullptr;
+
+        } else if( !passable( abs_pos ) ) {
+            if( !merge_wrecks ) {
+                return nullptr;
+            }
+
+            // There's a wall or other obstacle here; destroy it
+            destroy( abs_pos, true );
+
+            // Some weird terrain, don't place the vehicle
+            if( !passable( abs_pos ) ) {
+                return nullptr;
+            }
+
+            needs_smashing = true;
+        }
+    }
+
+    if( needs_smashing ) {
+        veh->smash();
+    }
+
+    return veh;
+}
+
+std::set<vehicle *> mapbuffer::get_vehicles( const tripoint_abs_sm &start, const tripoint_abs_sm &end,
+                                             mapbuffer_lookup_options options )
+{
+    auto vehs = std::set<vehicle *>{};
+
+    if( start.x() > end.x() || start.y() > end.y() ||
+        start.z() > end.z() ) {
+        return vehs;
+    }
+    for( const auto sm_pos : tripoint_range<tripoint_abs_sm>( start, end ) ) {
+        auto sm = lookup_submap_in_memory( sm_pos );
+        if( !sm ) {
+            continue;
+        }
+        const submap *current_submap = sm;
+        for( const auto &elem : current_submap->vehicles ) {
+            vehs.emplace( elem.get() );
+        }
+    }
+
+    return vehs;
+}
+
+std::set<vehicle *> mapbuffer::get_vehicles( mapbuffer_lookup_options options )
+{
+    return loaded_vehicles_;
+}
+
+std::unique_ptr<vehicle> mapbuffer::detach_vehicle( vehicle *veh,
+                                                    mapbuffer_lookup_options options )
+{
+    if( veh == nullptr ) {
+        debugmsg( "mapbuffer::detach_vehicle was passed nullptr" );
+        return std::unique_ptr<vehicle>();
+    }
+
+    int z = veh->abs_sm_pos.z();
+    if( z < -OVERMAP_DEPTH || z > OVERMAP_HEIGHT ) {
+        debugmsg( "detach_vehicle got a vehicle outside allowed z-level range!  name=%s, submap:%d,%d,%d",
+                  veh->name, veh->abs_sm_pos.x(), veh->abs_sm_pos.y(), veh->abs_sm_pos.z() );
+        // Try to fix by moving the vehicle here
+        z = veh->abs_sm_pos.z() = z > OVERMAP_HEIGHT ? OVERMAP_HEIGHT : -OVERMAP_DEPTH;
+    }
+
+    struct detached_vehicle_footprint {
+        tripoint_abs_sm min;
+        tripoint_abs_sm max;
+    };
+
+    auto footprints = std::array<std::optional<detached_vehicle_footprint>, OVERMAP_LAYERS> {};
+    for( const vpart_reference &vp : veh->get_all_parts() ) {
+        if( vp.part().removed ) {
+            continue;
+        }
+        const auto part_sm = project_to<coords::sm>( veh->abs_part_location( vp.part() ) );
+        if( part_sm.z() > OVERMAP_HEIGHT || part_sm.z() < -OVERMAP_DEPTH ) {
+            continue;
+        }
+        auto &footprint = footprints[part_sm.z() + OVERMAP_DEPTH];
+        if( !footprint ) {
+            footprint = detached_vehicle_footprint{ .min = part_sm, .max = part_sm };
+            continue;
+        }
+        footprint->min.x() = std::min( footprint->min.x(), part_sm.x() );
+        footprint->min.y() = std::min( footprint->min.y(), part_sm.y() );
+        footprint->max.x() = std::max( footprint->max.x(), part_sm.x() );
+        footprint->max.y() = std::max( footprint->max.y(), part_sm.y() );
+    }
+    bool inbubble = false;
+
+    const auto mark_detached_vehicle_footprint_dirty = [&]() {
+        for( const auto &footprint : footprints ) {
+            if( !footprint || g->m.get_bound_dimension() != dimension_id_ ) {
+                continue;
+            }
+
+            const auto local = abs_to_map_local( g->m, footprint->min );
+            if( !g->m.inbounds( abs_to_map_local( g->m, footprint->min ) ) ||
+                !g->m.inbounds( abs_to_map_local( g->m, footprint->max ) ) ) {
+                continue;
+            }
+            inbubble = true;
+            g->m.on_vehicle_moved( abs_to_bub( footprint->min ), abs_to_bub( footprint->max ),
+                              footprint->min.z() );
+        }
+    };
+
+    // Unboard all passengers before detaching
+    for( auto const &part : veh->get_avail_parts( VPFLAG_BOARDABLE ) ) {
+        player *passenger = part.get_passenger();
+        if( passenger ) {
+            unboard_vehicle( part.abs_pos() );
+        }
+    }
+    veh->invalidate_towing( true );
+    auto& here = MAPBUFFER_REGISTRY.get(dimension_id_);
+    submap *current_submap = here.lookup_submap_in_memory( veh->abs_sm_pos );
+    if( current_submap == nullptr ) {
+        debugmsg( "detach_vehicle can't find submap!  name=%s, submap:%d,%d,%d",
+                  veh->name, veh->abs_sm_pos.x(), veh->abs_sm_pos.y(), veh->abs_sm_pos.z() );
+        here.unregister_vehicle( veh );
+        if( g->m.dirty_vehicle_list.contains( veh) ) g->m.dirty_vehicle_list.erase( veh );
+        mark_detached_vehicle_footprint_dirty();
+        return std::unique_ptr<vehicle>();
+    }
+    // Fairly ugly, could be better
+    if( inbubble ) {
+        level_cache &ch = g->m.get_cache( z );
+        for( size_t i = 0; i < current_submap->vehicles.size(); i++ ) {
+            if( current_submap->vehicles[i].get() == veh ) {
+                ch.vehicle_list.erase( veh );
+                ch.zone_vehicles.erase( veh );
+                g->m.reset_vehicle_cache( );
+                std::unique_ptr<vehicle> result = std::move( current_submap->vehicles[i] );
+                current_submap->vehicles.erase( current_submap->vehicles.begin() + i );
+                unregister_vehicle( veh );
+                if( veh->tracking_on ) {
+                    get_overmapbuffer( dimension_id_ ).remove_vehicle( veh );
+                }
+                g->m.dirty_vehicle_list.erase( veh );
+                mark_detached_vehicle_footprint_dirty();
+                veh->detach();
+                veh->refresh_position();
+                return result;
+            }
+        }
+    } else {
+        for( size_t i = 0; i < current_submap->vehicles.size(); i++ ) {
+            if( current_submap->vehicles[i].get() == veh ) {
+                std::unique_ptr<vehicle> result = std::move( current_submap->vehicles[i] );
+                current_submap->vehicles.erase( current_submap->vehicles.begin() + i );
+                unregister_vehicle( veh );
+                if( veh->tracking_on ) { get_overmapbuffer( dimension_id_ ).remove_vehicle( veh );
+                }
+                veh->detach();
+                veh->refresh_position();
+                return result;
+            }
+        }
+    }
+    debugmsg( "detach_vehicle can't find it!  name=%s, submap:%d,%d,%d", veh->name, veh->abs_sm_pos.x(),
+              veh->abs_sm_pos.y(), veh->abs_sm_pos.z() );
+    return std::unique_ptr<vehicle>();
+}
+
+void mapbuffer::destroy_vehicle( vehicle *veh,
+                                 mapbuffer_lookup_options options )
+{
+    detach_vehicle( veh );
 }
 
 auto mapbuffer::partial_con_at( const tripoint_abs_ms &p,
@@ -5366,19 +7137,6 @@ auto mapbuffer::move_cost( const tripoint_abs_ms &p, const vehicle *ignored_vehi
     return tile->move_cost( ignored_vehicle );
 }
 
-auto mapbuffer::obstructed_by_vehicle_rotation( const tripoint_abs_ms &from,
-        const tripoint_abs_ms &to,
-        const mapbuffer_lookup_options options ) -> bool
-{
-    // Only meaningful in the player bubble where vehicles actually move each turn
-    if( const auto local_from = active_reality_bubble_local( from ) ) {
-        if( const auto local_to = active_reality_bubble_local( to ) ) {
-            return g->m.obstructed_by_vehicle_rotation( *local_from, *local_to );
-        }
-    }
-    return false;
-}
-
 auto mapbuffer::hit_with_acid( const tripoint_abs_ms &p,
                                const mapbuffer_lookup_options options ) -> bool
 {
@@ -5492,86 +7250,1030 @@ auto mapbuffer::open_door( const tripoint_abs_ms &p, bool inside,
     return false;
 }
 
-auto mapbuffer::bash( const tripoint_abs_ms &p, int str, bool silent,
-                      const mapbuffer_lookup_options options ) -> int
+auto mapbuffer::close_door( const tripoint_abs_ms &p, bool inside, bool check_only,
+                            const mapbuffer_lookup_options options ) -> bool
 {
-    // Dimension bounds cannot be bashed
-    if( is_outside_pocket_dimension_bounds( p ) ) {
-        return 0;
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    if( !tile ) {
+        return false;
     }
 
-    // Bash field (mostly fire/acid-based field removal)
-    const auto field_p = get_field( p, options );
-    if( field_p ) {
-        for( auto &field_entry_it : *field_p ) {
-            field_entry &cur = field_entry_it.second;
-            if( cur.is_field_alive() ) {
-                // Reduce field intensity based on bash strength
-                const int reduction = str / 10;
-                if( reduction > 0 ) {
-                    cur.set_field_intensity( std::max( 0, cur.get_field_intensity() - reduction ) );
+    if( has_flag( str_OPENCLOSE_INSIDE, p, options ) && !inside ) {
+        return false;
+    }
+
+    const auto &ter = tile->ter_obj();
+    const auto &furn = tile->furn_obj();
+
+    if( ter.close && !furn.id ) {
+        if( !check_only ) {
+            sound_event se;
+            se.origin = p;
+            se.volume = 60;
+            se.category = sounds::sound_t::movement;
+            se.movement_noise = true;
+            se.id = "close_door";
+            se.variant = ter.id.str();
+            sounds::sound( se );
+            return set_ter( p, ter.close, options );
+        }
+        return true;
+    } else if( furn.close ) {
+        if( !check_only ) {
+            sound_event se;
+            se.origin = p;
+            se.volume = 60;
+            se.category = sounds::sound_t::movement;
+            se.movement_noise = true;
+            se.id = "close_door";
+            se.variant = ter.id.str();
+            sounds::sound( se );
+            return set_furn( p, furn.close, options );
+        }
+        return true;
+    }
+    return false;
+}
+
+auto mapbuffer::forced_door_closing( const tripoint_abs_ms &p, const ter_id &door_type,
+                                     int bash_dmg,
+                                     const mapbuffer_lookup_options options ) -> bool
+{
+    const auto valid_location = [&]( const tripoint_abs_ms &p ) {
+        return ( passable( p, options ).value_or( false ) ||
+                 has_flag( "LIQUID", p, options ) ) &&
+               g->critter_at( p ) == nullptr;
+    };
+    const auto get_random_point = [&]() -> tripoint_abs_ms {
+        tripoint_abs_ms center;
+        // Use radius iteration over simulated tiles to find a valid push point
+        for( const auto &neighbor : simulated_tiles_in_radius( *this, p, 2 ) ) {
+            if( neighbor.abs_pos() != p && valid_location( neighbor.abs_pos() ) ) {
+                return tripoint_abs_ms( p.raw() * 2 - neighbor.abs_pos().raw() );
+            }
+        }
+        return p;
+    };
+
+    const std::string &door_name = door_type.obj().name();
+    const auto kbp = get_random_point();
+
+    // can't pushback any creatures/items anywhere, that means the door can't close.
+    const bool cannot_push = kbp == p;
+    const bool can_see = g->u.sees( p );
+    
+    auto creature = creature_at( p, false );
+    auto *npc_or_player = creature ? creature->as_character() : nullptr;
+    if( npc_or_player != nullptr ) {
+        if( bash_dmg <= 0 ) {
+            return false;
+        }
+        if( npc_or_player->is_npc() && can_see ) {
+            add_msg( _( "The %1$s hits the %2$s." ), door_name, npc_or_player->name );
+        } else if( npc_or_player->is_player() ) {
+            add_msg( m_bad, _( "The %s hits you." ), door_name );
+        }
+        if( npc_or_player->activity ) {
+            npc_or_player->cancel_activity();
+        }
+        npc_or_player->hitall( bash_dmg, 0, nullptr );
+        if( cannot_push ) {
+            return false;
+        }
+        g->knockback( kbp, p, std::max( 1, bash_dmg / 10 ), -1, 1, nullptr );
+    }
+    if( monster *const mon_ptr = creature ? creature->as_monster() : nullptr ) {
+        monster &critter = *mon_ptr;
+        if( bash_dmg <= 0 ) {
+            return false;
+        }
+        if( can_see ) {
+            add_msg( _( "The %1$s hits the %2$s." ), door_name, critter.name() );
+        }
+        if( critter.type->size <= creature_size::small ) {
+            critter.die_in_explosion( nullptr );
+        } else {
+            critter.apply_damage( nullptr, bodypart_id( "torso" ), bash_dmg );
+            critter.check_dead_state();
+        }
+        if( !critter.is_dead() && critter.type->size >= creature_size::huge ) {
+            return false;
+        }
+        if( !critter.is_dead() ) {
+            if( cannot_push ) {
+                return false;
+            }
+            g->knockback( kbp, p, std::max( 1, bash_dmg / 10 ), -1, 1, nullptr );
+            if( g->critter_at( p ) ) {
+                return false;
+            }
+        }
+    }
+
+    
+    if( const optional_vpart_position vp = veh_at( p ) ) {
+        if( bash_dmg <= 0 ) {
+            return false;
+        }
+        vp->vehicle().damage( vp->part_index(), bash_dmg );
+        if( veh_at( p ) ) {
+            return false;
+        }
+    }
+
+    // Item checks — use mapbuffer
+    if( bash_dmg < 0 && !has_items( p, options ) ) {
+        return false;
+    }
+    if( bash_dmg == 0 ) {
+        auto *items = get_items( p, options );
+        if( items ) {
+            for( const auto &elem : *items ) {
+                if( elem->made_of( LIQUID ) ) {
+                    continue;
+                } else if( elem->volume() < 250_ml ) {
+                    continue;
+                }
+                return false;
+            }
+        }
+    }
+
+    // Set the door terrain
+    set_ter( p, door_type, options );
+
+    // Clear items if NOITEM flag
+    if( has_flag( "NOITEM", p, options ) ) {
+        auto *items = get_items( p, options );
+        if( items ) {
+            for( auto it = items->begin(); it != items->end(); ) {
+                item *elem = *it;
+                if( elem->made_of( LIQUID ) ) {
+                    it = items->erase( it );
+                    continue;
+                }
+                if( elem->can_shatter() && one_in( 2 ) ) {
+                    if( can_see ) {
+                        add_msg( m_warning, _( "A %s shatters!" ), elem->tname() );
+                    } else {
+                        add_msg( m_warning, _( "Something shatters!" ) );
+                    }
+                    it = items->erase( it );
+                    continue;
+                }
+                if( cannot_push ) {
+                    return false;
+                }
+                detached_ptr<item> det = items->remove( elem );
+                add_item_or_charges( kbp, std::move( det ) );
+                // Re-get iterator since remove invalidated it
+                it = items->begin();
+            }
+        }
+    }
+    return true;
+}
+
+static const ter_str_id t_rock_floor_no_roof( "t_rock_floor_no_roof" );
+
+ter_id mapbuffer::get_roof( const tripoint_abs_ms &p, const bool allow_air,
+                             mapbuffer_lookup_options options )
+{
+    if( p.z() <= -OVERMAP_DEPTH ) {
+        // Could be magma/"void" instead
+        return t_rock_floor;
+    }
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    if( !tile ) {
+        return t_null;
+    }
+    const auto &ter_there = tile->ter().obj();
+    const auto &roof = ter_there.roof;
+    if( !roof ) {
+        // No roof
+        if( !allow_air ) {
+            // TODO: Biomes? By setting? Forbid and treat as bug?
+            if( p.z() < 0 ) {
+                return t_rock_floor_no_roof;
+            }
+
+            return t_dirt;
+        }
+
+        return t_open_air;
+    }
+
+    ter_id new_ter = roof.id();
+    if( new_ter == t_null ) {
+        debugmsg( "map::get_new_floor: %d,%d,%d has invalid roof type %s",
+                  p.x(), p.y(), p.z(), roof.c_str() );
+        return t_dirt;
+    }
+
+    if( p.z() == -1 && new_ter == t_rock_floor ) {
+        // HACK: A hack to work around not having a "solid earth" tile
+        new_ter = t_dirt;
+    }
+
+    return new_ter;
+}
+
+auto mapbuffer::place_items( const item_group_id &loc, int chance,
+                             const tripoint_abs_ms &p1, const tripoint_abs_ms &p2,
+                             bool ongrass, const time_point &turn,
+                             int magazine, int ammo,
+                             const mapbuffer_lookup_options options ) -> std::vector<item *>
+{
+    std::vector<item *> res;
+    itype_id it;
+    bool is_type = false;
+    if( chance > 100 || chance <= 0 ) {
+        debugmsg( "mapbuffer::place_items() called with an invalid chance (%d)", chance );
+        return res;
+    }
+    if( !item_group::group_is_defined( loc ) ) {
+        it = itype_id( loc.str() );
+        if( !it.is_valid() ) {
+            const tripoint_abs_omt omt( project_to<coords::omt>( g->u.abs_pos() ) );
+            const oter_id &oid = get_overmapbuffer( dimension_id_ ).ter( omt );
+            debugmsg( "place_items: invalid item group / item '%s', om_terrain = '%s' (%s)",
+                      loc.c_str(), oid.id().c_str(), oid->get_mapgen_id().c_str() );
+            return res;
+        }
+        is_type = true;
+    }
+
+    const float spawn_rate = get_option<float>( "ITEM_SPAWNRATE" );
+    const int spawn_count = roll_remainder( chance * spawn_rate / 100.0f );
+
+    for( int i = 0; i < spawn_count; i++ ) {
+        int tries = 0;
+        auto is_valid_terrain = [this, ongrass, &options]( const tripoint_abs_ms & p ) {
+            const auto ter_opt = ter( p, options );
+            if( !ter_opt ) {
+                return false;
+            }
+            const ter_t &terrain = ter_opt->obj();
+            return terrain.movecost == 0 &&
+                   !terrain.has_flag( "PLACE_ITEM" ) &&
+                   !ongrass &&
+                   !terrain.has_flag( "FLAT" );
+        };
+
+        tripoint_abs_ms p;
+        do {
+            p.x() = rng( p1.x(), p2.x() );
+            p.y() = rng( p1.y(), p2.y() );
+            p.z() = p1.z();
+            tries++;
+        } while( is_valid_terrain( p ) && tries < 20 );
+
+        if( tries < 20 ) {
+            if( is_type ) {
+                detached_ptr<item> placed = add_item_or_charges( p, item::spawn( it ) );
+                if( placed ) {
+                    res.push_back( std::move( &*placed ) );
+                }
+                return res;
+            }
+            std::vector<detached_ptr<item>> initial = item_group::items_from( loc, turn );
+
+            for( detached_ptr<item> &itm : initial ) {
+                const std::string &cat = itm->get_category().id.c_str();
+                float cat_rate = get_option<float>( "SPAWN_RATE_" + cat );
+                if( itm->goes_bad_after_opening( true ) ) {
+                    float spawn_rate_mod = get_option<float>( "SPAWN_RATE_perishables_canned" );
+                    cat_rate *= spawn_rate_mod;
+                } else if( itm->goes_bad() ) {
+                    float spawn_rate_mod = get_option<float>( "SPAWN_RATE_perishables" );
+                    cat_rate *= spawn_rate_mod;
+                }
+                cat_rate = cat_rate > 1.0f ? roll_remainder( cat_rate ) : cat_rate;
+
+                if( cat_rate <= 1.0f ) {
+                    if( rng_float( 0.1f, 1.0f ) <= cat_rate ) {
+                        detached_ptr<item> placed = add_item_or_charges( p, std::move( itm ) );
+                        if( placed ) {
+                            res.push_back( std::move( &*placed ) );
+                        }
+                    }
+                } else {
+                    const item &real_item = *itm;
+
+                    detached_ptr<item> placed = add_item_or_charges( p, std::move( itm ) );
+                    if( placed ) {
+                        res.push_back( std::move( &*placed ) );
+                    }
+
+                    std::vector<detached_ptr<item>> extra = item_group::items_from( loc, turn );
+                    extra.erase(
+                        std::remove_if(
+                            extra.begin(), extra.end(),
+                    [&real_item]( const detached_ptr<item> &it ) {
+                        return item_category_id( it->get_category_id() )
+                               != item_category_id( real_item.get_category_id() );
+                    }
+                        ),
+                    extra.end()
+                    );
+
+                    int base_count = static_cast<int>( cat_rate );
+                    for( int i = 0; i < base_count; i++ ) {
+                        if( extra.empty() ) {
+                            break;
+                        }
+                        int idx = rng( 0, static_cast<int>( extra.size() ) - 1 );
+                        detached_ptr<item> spawned = add_item_or_charges( p, std::move( extra[idx] ) );
+                        if( spawned ) {
+                            res.push_back( std::move( &*spawned ) );
+                        }
+                    }
+
+                    if( rng_float( 0.0f, 1.0f ) < ( cat_rate - static_cast<float>( base_count ) ) ) {
+                        if( !extra.empty() ) {
+                            int idx = rng( 0, static_cast<int>( extra.size() ) - 1 );
+                            detached_ptr<item> spawned = add_item_or_charges( p, std::move( extra[idx] ) );
+                            if( spawned ) {
+                                res.push_back( std::move( &*spawned ) );
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
-    // Bash items
-    auto *items = get_items( p, options );
-    if( items ) {
-        for( auto it = items->begin(); it != items->end(); ) {
-            if( ( *it )->can_shatter() && one_in( 2 ) ) {
-                it = items->erase( it );
-            } else {
-                ++it;
+    for( auto e : res ) {
+        if( e->is_tool() || e->is_gun() || e->is_magazine() ) {
+            if( rng( 0, 99 ) < magazine && !e->magazine_current() &&
+                e->magazine_default() != itype_id::NULL_ID() ) {
+                e->put_in( item::spawn( e->magazine_default(), e->birthday() ) );
+            }
+            if( rng( 0, 99 ) < ammo && e->ammo_remaining() == 0 ) {
+                e->ammo_set( e->ammo_default(), e->ammo_capacity() );
             }
         }
     }
+    return res;
+}
 
-    // Bash terrain/furniture
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+static bool furn_is_supported( mapbuffer &m, const tripoint_abs_ms &p )
+{
+    const signed char cx[4] = { 0, -1, 0, 1};
+    const signed char cy[4] = { -1,  0, 1, 0};
+
+    for( int i = 0; i < 4; i++ ) {
+        const auto adj =  p.xy() + point_rel_ms( cx[i], cy[i] );
+        auto furn = m.furn( tripoint_abs_ms( adj, p.z() ) );
+        if( furn && furn->obj().has_flag( "BLOCKSDOOR" ) ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static auto get_sound_volume( const map_bash_info &bash, const bash_params &params ) -> int
+{
+    // Just take the minimum/base volume at 20dB.
+    const auto minvol = 20;
+    // Set maxvol to 140dB, which can be deafening for extreme impacts.
+    const auto maxvol = 140;
+    const auto impact_strength = params.destroy ? bash.str_max : params.strength;
+    return bash.sound_vol.value_or( std::clamp( minvol + impact_strength, minvol, maxvol ) );
+}
+
+static void set_bash_sound_source( sound_event &se, const bash_params &params )
+{
+    if( !params.caused_by_player ) {
+        return;
+    }
+
+    auto &player_character = get_avatar();
+    se.from_player = true;
+    se.faction = player_character.get_faction()->id;
+    se.monfaction = player_character.get_faction()->mon_faction;
+}
+
+static auto release_avatar_grabbed_furniture_if_destroyed( const tripoint_abs_ms &p,
+        const furn_t &old_furniture, const furn_id &new_furniture ) -> void
+{
+    avatar &you = get_avatar();
+    if( you.get_grab_type() == OBJECT_FURNITURE &&
+        you.abs_pos() + you.grab_point == p &&
+        !new_furniture.obj().is_movable() ) {
+        add_msg( _( "The %s you were grabbing is destroyed!" ), old_furniture.name() );
+        you.grab( OBJECT_NONE );
+    }
+}
+
+bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_params &params,
+                                           mapbuffer_lookup_options options )
+{
+    bash_results result;
+    const auto maybe_ter = ter( p, options );
+    if( !maybe_ter ) {
+        return result;
+    }
+    result.success = true;
+    const ter_t &ter_before = maybe_ter->obj();
+    const map_bash_info &bash = ter_before.bash;
+    if( has_flag_ter( "FUNGUS", p ) ) {
+        fungal_effects( *g, *this ).create_spores( p );
+    }
+    const std::string soundfxvariant = ter_before.id.str();
+    const bool will_collapse = ter_before.has_flag( TFLAG_SUPPORTS_ROOF );
+    const bool suspended = ter_before.has_flag( TFLAG_SUSPENDED );
+    bool follow_below = false;
+    if( params.bashing_from_above && bash.ter_set_bashed_from_above ) {
+        // If this terrain is being bashed from above and this terrain
+        // has a valid post-destroy bashed-from-above terrain, set it
+        set_ter( p, bash.ter_set_bashed_from_above );
+    } else if( bash.ter_set ) {
+        // If the terrain has a valid post-destroy terrain, set it
+        set_ter( p, bash.ter_set );
+        follow_below |= bash.bash_below;
+    } else if( suspended ) {
+        // Its important that we change the ter value before recursing, otherwise we'll hit an infinite loop.
+        // This could be prevented by assembling a visited list, but in order to avoid that cost, we're going
+        // build our recursion to just be resilient.
+        set_ter( p, t_open_air );
+        propagate_suspension_check( p );
+    } else {
+        tripoint_abs_ms below( p.xy(), p.z() - 1 );
+        const ter_t &ter_below = ter( below )->obj();
+        // Only setting the flag here because we want drops and sounds in correct order
+        follow_below |= bash.bash_below && ter_below.roof;
+
+        set_ter( p, t_open_air );
+    }
+
+    spawn_items( p, item_group::items_from( bash.drop_group, calendar::turn ) );
+
+    if( !bash.sound.empty() && !params.silent ) {
+        static const std::string soundfxid = "smash_success";
+        const auto sound_volume = get_sound_volume( bash, params );
+        sound_event se;
+        se.origin = p;
+        se.volume = sound_volume;
+        se.category = sounds::sound_t::combat;
+        se.description = bash.sound.translated();
+        se.id = soundfxid;
+        se.variant = soundfxvariant;
+        set_bash_sound_source( se, params );
+        sounds::sound( se );
+    }
+
+    if( follow_below || ter( p ) == t_open_air ) {
+        const tripoint_abs_ms below( p.xy(), p.z() - 1 );
+        // We may need multiple bashes in some weird cases
+        // Example:
+        //   W has roof A
+        //   A bashes to B
+        //   B bashes to nothing
+        //   Below our point P, there is a W
+        // If we bash down a B over a W, it might be from earlier A or just constructed over it!
+        //
+        // Current solution: bash roof until you reach same roof type twice, then bash down
+        if( follow_below && params.do_recurse ) {
+            bool blocked_by_roof = false;
+            std::set<ter_id> encountered_types;
+            encountered_types.insert( ter_before.id );
+            encountered_types.insert( t_open_air );
+            // Note: we're bashing the new roof, not the tile supported by it!
+            int down_bash_tries = 10;
+            do {
+                const ter_id &ter_now = ter( p )->id();
+                if( encountered_types.contains( ter_now ) ) {
+                    // We have encountered this type before and destroyed it (didn't block us)
+                    set_ter( p, t_open_air );
+                    bash_params params_below = params;
+                    params_below.bashing_from_above = true;
+                    params_below.bash_floor = false;
+                    params_below.do_recurse = false;
+                    params_below.destroy = true;
+                    int impassable_bash_tries = 10;
+                    // Unconditionally destroy, but don't go deeper
+                    do {
+                        result |= bash_ter_success( below, params_below );
+                    } while( ter( below )->obj().movecost == 0 && impassable_bash_tries-- > 0 );
+                    if( impassable_bash_tries <= 0 ) {
+                        debugmsg( "Loop in terrain bashing for type %s", ter_before.id.str() );
+                    }
+                } else if( ter_now == t_open_air ) {
+                    const ter_id &roof = get_roof( below, params.bash_floor && ter( below )->obj().movecost != 0 );
+                    if( roof != t_open_air ) {
+                        set_ter( p, roof );
+                    }
+                } else {
+                    // This floor/roof tile wasn't destroyed in this loop yet
+                    encountered_types.insert( ter_now );
+                    bash_params params_copy = params;
+                    params_copy.do_recurse = false;
+                    // TODO: Unwrap the calls, don't recurse
+                    // TODO: Don't bash furn
+                    bash_results results_sub = bash_ter_furn( p, params_copy );
+                    result |= results_sub;
+                    if( !results_sub.success ) {
+                        // Blocked, as in "the roof was too strong to bash"
+                        blocked_by_roof = true;
+                    }
+                }
+            } while( down_bash_tries-- > 0 && !blocked_by_roof &&
+                     ( ter( p ) != t_open_air || ter( p )->obj().movecost == 0 || ter( below )->obj().roof ) );
+            if( down_bash_tries <= 0 ) {
+                debugmsg( "Loop in terrain bashing for type %s", ter_before.id.str() );
+            }
+        } else {
+            const ter_id &roof = get_roof( below, params.bash_floor && ter( below )->obj().movecost != 0 );
+
+            set_ter( p, roof );
+        }
+    }
+
+    if( will_collapse && !has_flag( TFLAG_SUPPORTS_ROOF, p ) ) {
+        collapse_at( p, params.silent, true, bash.explosive > 0 );
+    }
+
+    if( bash.explosive > 0 ) {
+        // TODO Implement if the player triggered the explosive terrain
+        auto bub_pos = active_reality_bubble_local( p );
+        if( bub_pos ) {
+            explosion_handler::explosion( *bub_pos, nullptr, bash.explosive, 0.8, false );
+        }
+    }
+
+    return result;
+}
+
+bash_results mapbuffer::bash_furn_success( const tripoint_abs_ms &p, const bash_params &params,
+                                           mapbuffer_lookup_options options )
+{
+    bash_results result;
+    const auto tile = lookup_tile( *this, p, options );
     if( !tile ) {
-        return 0;
+        return result;
     }
+    const auto &furnid = tile->sm->get_furn( tile->local ).obj();
+    const map_bash_info &bash = furnid.bash;
 
-    if( !is_bashable_ter_furn( p, false, options ) ) {
-        return 0;
+    if( has_flag( TFLAG_FUNGUS, p ) ) {
+        fungal_effects( *g, *this ).create_spores( p );
     }
+    if( has_flag( "MIGO_NERVE", p ) ) {
+        map_funcs::migo_nerve_cage_removal( *this, p, true );
+    }
+    std::string soundfxvariant = furnid.id.str();
+    const bool tent = !bash.tent_centers.empty();
 
-    const auto &ter = tile->ter_obj();
-    if( is_bashable_ter( p, false, options ) && ter.bash.str_max >= 0 ) {
-        if( str >= rng( ter.bash.str_min, ter.bash.str_max ) ) {
-            set_ter( p, ter_id( ter.bash.ter_set ), options );
-            if( !ter.bash.furn_set.is_null() ) {
-                set_furn( p, furn_id( ter.bash.furn_set ), options );
+    // Special code to collapse the tent if destroyed
+    if( tent ) {
+        // Get ids of possible centers
+        std::set<furn_id> centers;
+        for( const auto &cur_id : bash.tent_centers ) {
+            if( cur_id.is_valid() ) {
+                centers.insert( cur_id );
             }
-            return str;
+        }
+
+        std::optional<std::pair<tripoint_abs_ms, furn_id>> tentp;
+
+        // Find the center of the tent
+        // First check if we're not currently bashing the center
+        if( centers.contains( *furn( p ) ) ) {
+            tentp.emplace( p, *furn( p ) );
+        } else {
+            for( const auto &pt : simulated_tiles_in_radius( *this, p, bash.collapse_radius ) ) {
+                const furn_id &f_at = pt.furn();
+                // Check if we found the center of the current tent
+                if( centers.contains( f_at ) ) {
+                    tentp.emplace( pt.abs_pos(), f_at );
+                    break;
+                }
+            }
+        }
+        // Didn't find any tent center, wreck the current tile
+        if( !tentp ) {
+            spawn_items( p, item_group::items_from( bash.drop_group, calendar::turn ) );
+            release_avatar_grabbed_furniture_if_destroyed( p, furnid, bash.furn_set );
+            set_furn( p, bash.furn_set );
+        } else {
+            // Take the tent down
+            const int rad = tentp->second.obj().bash.collapse_radius;
+            for( const auto &pt : simulated_tiles_in_radius( *this, tentp->first, rad ) ) {
+                const furn_id frn = pt.furn();
+                if( frn == f_null ) {
+                    continue;
+                }
+
+                const auto &furn_obj = frn.obj();
+                const auto &recur_bash = furn_obj.bash;
+                // Check if we share a center type and thus a "tent type"
+                for( const auto &cur_id : recur_bash.tent_centers ) {
+                    if( centers.contains( cur_id.id() ) ) {
+                        // Found same center, wreck current tile
+                        if( furn_obj.fluid_grid &&
+                            furn_obj.fluid_grid->role == fluid_grid_role::tank ) {
+                            fluid_grid::on_tank_removed( pt.abs_pos() );
+                        }
+                        spawn_items( p, item_group::items_from( recur_bash.drop_group, calendar::turn ) );
+                        release_avatar_grabbed_furniture_if_destroyed( pt.abs_pos(), furn_obj, recur_bash.furn_set );
+                        set_furn( pt.abs_pos(), recur_bash.furn_set );
+                        break;
+                    }
+                }
+            }
+        }
+        soundfxvariant = "smash_cloth";
+    } else {
+        if( furnid.fluid_grid && furnid.fluid_grid->role == fluid_grid_role::tank ) {
+            fluid_grid::on_tank_removed( p );
+        }
+        release_avatar_grabbed_furniture_if_destroyed( p, furnid, bash.furn_set );
+        set_furn( p, bash.furn_set );
+        for( auto it : *get_items( p ) )  {
+            it->on_drop();
+        }
+        // HACK: Hack alert.
+        // Signs have cosmetics associated with them on the submap since
+        // furniture can't store dynamic data to disk. To prevent writing
+        // mysteriously appearing for a sign later built here, remove the
+        // writing from the submap.
+        delete_signage( p );
+    }
+
+    if( !tent ) {
+        spawn_items( p, item_group::items_from( bash.drop_group, calendar::turn ) );
+    }
+
+    if( !bash.sound.empty() && !params.silent ) {
+        static const std::string soundfxid = "smash_success";
+        const auto sound_volume = get_sound_volume( bash, params );
+        sound_event se;
+        se.origin = p;
+        se.volume = sound_volume;
+        se.category = sounds::sound_t::combat;
+        se.description = bash.sound.translated();
+        se.id = soundfxid;
+        se.variant = soundfxvariant;
+        set_bash_sound_source( se, params );
+        sounds::sound( se );
+    }
+
+    if( bash.explosive > 0 ) {
+        // TODO implement if the player triggered the explosive furniture
+        auto bub_pos = active_reality_bubble_local( p );
+        if( bub_pos ) {
+            explosion_handler::explosion( *bub_pos, nullptr, bash.explosive, 0.8, false );
         }
     }
 
-    const auto &furn = tile->furn_obj();
-    if( is_bashable_furn( p, options ) && furn.bash.str_max >= 0 ) {
-        if( str >= rng( furn.bash.str_min, furn.bash.str_max ) ) {
-            set_furn( p, furn_id( furn.bash.furn_set ), options );
-            if( !furn.bash.ter_set.is_null() ) {
-                set_ter( p, ter_id( furn.bash.ter_set ), options );
+    return result;
+}
+
+bash_results mapbuffer::bash_ter_furn( const tripoint_abs_ms &p, const bash_params &params,
+                                       mapbuffer_lookup_options options )
+{
+    bash_results result;
+    std::string soundfxvariant;
+    const auto tile = lookup_tile( *this, p, options );
+    if( !tile ) {
+        return result;
+    }
+    const auto &ter_obj = tile->sm->get_ter( tile->local ).obj();
+    const auto &furn_obj = tile->sm->get_furn( tile->local ).obj();
+    bool smash_ter = false;
+    const map_bash_info *bash = nullptr;
+
+    if( furn_obj.id && furn_obj.bash.str_max != -1 ) {
+        bash = &furn_obj.bash;
+        soundfxvariant = furn_obj.id.str();
+    } else if( ter_obj.bash.str_max != -1 ) {
+        bash = &ter_obj.bash;
+        smash_ter = true;
+        soundfxvariant = ter_obj.id.str();
+    }
+
+    // Floor bashing check
+    // Only allow bashing floors when we want to bash floors and we're in z-level mode
+    // Unless we're destroying, then it gets a little weird
+    if( smash_ter && bash->bash_below && !params.bash_floor ) {
+        if( !params.destroy ) {
+            smash_ter = false;
+            bash = nullptr;
+        } else if( !bash->ter_set ) {
+            // HACK: A hack for destroy && !bash_floor
+            // We have to check what would we create and cancel if it is what we have now
+            auto below = p + tripoint_rel_ms::below();
+            const auto roof = get_roof( below, false );
+            if( roof == ter( p ) ) {
+                smash_ter = false;
+                bash = nullptr;
             }
-            return str;
+        } else if( !bash->ter_set && ter( p ) == t_dirt ) {
+            // As above, except for no-z-levels case
+            smash_ter = false;
+            bash = nullptr;
         }
     }
 
-    return 0;
+    // TODO: what if silent is true?
+    if( has_flag( "ALARMED", p ) && !g->timed_events.queued( TIMED_EVENT_WANTED ) ) {
+        sound_event se;
+        se.origin = p;
+        se.volume = 90;
+        se.category = sounds::sound_t::alarm;
+        se.description = _( "an alarm go off!" );
+        se.id = "environment";
+        se.variant = "alarm";
+        sounds::sound( se );
+        // Blame nearby player
+        if( rl_dist( g->u.abs_pos(), p ) <= 3 ) {
+            g->events().send<event_type::triggers_alarm>( g->u.getID() );
+            const auto abs = project_to<coords::sm>( p.xy() );
+            g->timed_events.add( TIMED_EVENT_WANTED, calendar::turn + 30_minutes, 0,
+                                 tripoint_abs_sm( abs, p.z() ) );
+        }
+    }
+
+    if( bash == nullptr || ( bash->destroy_only && !params.destroy ) ) {
+        // Nothing bashable here
+        if( !passable( p ) ) {
+            if( !params.silent ) {
+                sound_event se;
+                se.origin = p;
+                se.volume = 80;
+                se.category = sounds::sound_t::combat;
+                se.description = _( "thump!" );
+                se.id = "smash_fail";
+                se.variant = "default";
+                set_bash_sound_source( se, params );
+                sounds::sound( se );
+            }
+
+            result.did_bash = true;
+            result.bashed_solid = true;
+        }
+
+        return result;
+    }
+
+    result.did_bash = true;
+    result.bashed_solid = true;
+    result.success = params.destroy;
+
+    int smin = bash->str_min;
+    int smax = bash->str_max;
+    if( !params.destroy ) {
+        if( bash->str_min_blocked != -1 || bash->str_max_blocked != -1 ) {
+            if( furn_is_supported( *this, p ) ) {
+                if( bash->str_min_blocked != -1 ) {
+                    smin = bash->str_min_blocked;
+                }
+                if( bash->str_max_blocked != -1 ) {
+                    smax = bash->str_max_blocked;
+                }
+            }
+        }
+
+        if( bash->str_min_supported != -1 || bash->str_max_supported != -1 ) {
+            auto below = p + tripoint_rel_ms::below();
+            if( has_flag( TFLAG_SUPPORTS_ROOF, below ) ) {
+                if( bash->str_min_supported != -1 ) {
+                    smin = bash->str_min_supported;
+                }
+                if( bash->str_max_supported != -1 ) {
+                    smax = bash->str_max_supported;
+                }
+            }
+        }
+        // Linear interpolation from str_min to str_max
+        const int resistance = smin + ( params.roll * ( smax - smin ) );
+        if( params.strength >= resistance ) {
+            result.success = true;
+        }
+    }
+
+    if( !result.success ) {
+        // Cap out bash volume to 120dB for sanity checking.
+        int sound_volume = std::min( 120, bash->sound_fail_vol.value_or( 70 ) );
+
+        result.did_bash = true;
+        if( !params.silent ) {
+            sound_event se;
+            se.origin = p;
+            se.volume = sound_volume;
+            se.category = sounds::sound_t::combat;
+            se.description = bash->sound_fail.translated();
+            se.id = "smash_fail";
+            se.variant = soundfxvariant;
+            set_bash_sound_source( se, params );
+            sounds::sound( se );
+        }
+
+        if( !smash_ter && smax > 0 ) {
+            const auto flipped_version = get_furn_transforms_into( p );
+            if( flipped_version != furn_str_id::NULL_ID() ) {
+                const int damage_percent = ( params.strength * 100 ) / smax;
+                if( rng( 1, 100 ) <= damage_percent ) {
+                    set_furn( p, flipped_version );
+                }
+            }
+        }
+        // Hard impacts have a chance to dislodge targets perching above
+        if( params.strength >= smin / 2 && one_in( smin / 2 ) ) {
+            auto above = p + tripoint_rel_ms::above();
+            Character *character = g->critter_at<Character>( above );
+            if( has_flag( TFLAG_UNSTABLE, above ) && character != nullptr ) {
+                character->add_msg_if_player( m_warning,
+                                              _( "You feel the ground beneath you shake from the impact!" ) );
+
+                if( character->stability_roll() < rng( 1, params.strength - ( smin / 2 ) ) ) {
+                    character->add_msg_player_or_npc( m_bad, _( "You lose your balance!" ),
+                                                      _( "<npcname> loses their balance!" ) );
+
+                    g->fling_creature( character, rng_float( 0_degrees, 360_degrees ), 10 );
+                }
+
+            }
+        }
+    } else {
+        if( smash_ter ) {
+            result |= bash_ter_success( p, params );
+        } else {
+            result |= bash_furn_success( p, params );
+        }
+    }
+
+    return result;
+}
+
+bash_results mapbuffer::bash( const tripoint_abs_ms &p, const int str,
+                        bool silent, bool destroy, bool bash_floor,
+                        const vehicle *bashing_vehicle,
+                        mapbuffer_lookup_options options )
+{
+    const auto bsh = bash_params{
+        .strength = str,
+        .silent = silent,
+        .destroy = destroy,
+        .bash_floor = bash_floor,
+        .roll = static_cast<float>( rng_float( 0, 1.0f ) ),
+        .bashing_from_above = false,
+        .do_recurse = true
+    };
+    return bash( p, bsh, bashing_vehicle );
+}
+
+bash_results mapbuffer::bash( const tripoint_abs_ms &p, const bash_params &bsh,
+                        const vehicle *bashing_vehicle,
+                        mapbuffer_lookup_options options )
+{
+    bash_results result;
+
+    // Dimension bounds cannot be bashed - show message from boundary terrain
+    if( is_outside_pocket_dimension_bounds( p ) ) {
+        const auto &pocket_info = get_pocket_info();
+        if( !bsh.silent && pocket_info ) {
+            const ter_t &boundary_ter = pocket_info->bounds.boundary_terrain.obj();
+            if( !boundary_ter.bash.sound_fail.empty() ) {
+                add_msg( m_info, boundary_ter.bash.sound_fail.translated() );
+            }
+        }
+        return result;  // Cannot bash dimension boundary
+    }
+
+    bool bashed_sealed = false;
+    if( has_flag( "SEALED", p ) ) {
+        result |= bash_ter_furn( p, bsh );
+        bashed_sealed = true;
+    }
+
+    result |= bash_field( p, bsh );
+
+    // Don't bash items inside terrain/furniture with SEALED flag
+    if( !bashed_sealed ) {
+        result |= bash_items( p, bsh );
+    }
+    // Don't bash the vehicle doing the bashing
+    const vehicle *veh = veh_pointer_or_null( veh_at( p ) );
+    if( veh != nullptr && veh != bashing_vehicle ) {
+        result |= bash_vehicle( p, bsh );
+    }
+
+    // If we still didn't bash anything solid (a vehicle) or a tile with SEALED flag, bash ter/furn
+    if( !result.bashed_solid && !bashed_sealed ) {
+        result |= bash_ter_furn( p, bsh );
+    }
+
+    return result;
+}
+
+bash_results mapbuffer::bash_items( const tripoint_abs_ms &p, const bash_params &params,
+                                    mapbuffer_lookup_options options )
+{
+    bash_results result;
+    if( !has_items( p ) ) {
+        return result;
+    }
+
+    std::vector<detached_ptr<item>> smashed_contents;
+    auto &bashed_items = *get_items( p );
+    bool smashed_glass = false;
+    for( auto bashed_item = bashed_items.begin(); bashed_item != bashed_items.end(); ) {
+        // the check for active suppresses Molotovs smashing themselves with their own explosion
+        if( ( *bashed_item )->can_shatter() && !( *bashed_item )->is_active() &&
+            one_in( 2 ) ) {
+            result.did_bash = true;
+            smashed_glass = true;
+            for( detached_ptr<item> &bashed_content : ( *bashed_item )->contents.clear_items() ) {
+                smashed_contents.push_back( std::move( bashed_content ) );
+            }
+            bashed_item = bashed_items.erase( bashed_item );
+        } else {
+            ++bashed_item;
+        }
+    }
+    // Now plunk in the contents of the smashed items.
+    spawn_items( p, std::move( smashed_contents ) );
+
+    // Add a glass sound even when something else also breaks
+    if( smashed_glass && !params.silent ) {
+        sound_event se;
+        se.origin = p;
+        se.volume = 70;
+        se.category = sounds::sound_t::combat;
+        se.description = _( "glass shattering" );
+        se.id = "smash_success";
+        se.variant = "smash_glass_contents";
+        set_bash_sound_source( se, params );
+        sounds::sound( se );
+    }
+    return result;
+}
+
+bash_results mapbuffer::bash_vehicle( const tripoint_abs_ms &p, const bash_params &params,
+                                      mapbuffer_lookup_options options )
+{
+    bash_results result;
+    // Smash vehicle if present
+    if( const optional_vpart_position vp = veh_at( p ) ) {
+        vp->vehicle().damage( vp->part_index(), params.strength, DT_BASH, true );
+        if( !params.silent ) {
+            sound_event se;
+            se.origin = p;
+            se.volume = 70;
+            se.category = sounds::sound_t::combat;
+            se.description = _( "crash!" );
+            se.id = "smash_success";
+            se.variant = "hit_vehicle";
+            set_bash_sound_source( se, params );
+            sounds::sound( se );
+        }
+
+        result.did_bash = true;
+        result.success = true;
+        result.bashed_solid = true;
+    }
+    return result;
+}
+
+bash_results mapbuffer::bash_field( const tripoint_abs_ms &p, const bash_params &,
+                                    mapbuffer_lookup_options options )
+{
+    bash_results result;
+    if( get_field_entry( p, fd_web ) != nullptr ) {
+        result.did_bash = true;
+        result.bashed_solid = true; // To prevent bashing furniture/vehicles
+        remove_field( p, fd_web );
+    }
+
+    return result;
 }
 
 auto mapbuffer::destroy( const tripoint_abs_ms &p, bool silent,
                          const mapbuffer_lookup_options options ) -> void
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    // Dimension bounds cannot be destroyed
+    if( is_outside_pocket_dimension_bounds( p ) ) {
+        return;
+    }
+
+    const auto tile = abs_tile_handle::fetch( *this, p );
     if( !tile ) {
         return;
     }
+
+    // Break if it takes more than 25 destructions to remove to prevent infinite loops
+    // Example: A bashes to B, B bashes to A leads to A->B->A->...
+
+    // If we were destroying a floor, allow destroying floors
+    // If we were destroying something unpassable, destroy only that
+    bool was_impassable = !passable( p );
     int count = 0;
-    while( count <= 25 && !passable( p, options ) ) {
-        bash( p, 999, true, options );
+    while( count <= 25
+           && bash( p, 999, silent, true ).success
+           && ( !was_impassable || !passable( p ) ) ) {
         count++;
     }
 }
@@ -5900,7 +8602,7 @@ auto mapbuffer::invalidate_active_terrain_set_caches( const tripoint_abs_ms &p,
         return;
     }
 
-    auto &here = g->m;
+    auto &here = get_map();
     const auto &old_terrain = old_id.obj();
     const auto &new_terrain = new_id.obj();
 
@@ -5991,7 +8693,7 @@ auto mapbuffer::invalidate_active_furniture_set_caches( const tripoint_abs_ms &p
         return;
     }
 
-    auto &here = g->m;
+    auto &here = get_map();
     const auto &old_furniture = old_id.obj();
     const auto &new_furniture = new_id.obj();
 

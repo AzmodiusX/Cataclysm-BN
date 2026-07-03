@@ -619,8 +619,7 @@ TEST_CASE("bionic_scanner_inside_worn_container_marks_corpse_stack", "[iuse][bio
     backpack->put_in(std::move(scanner));
     REQUIRE_FALSE(you.wear_item(std::move(backpack), false));
 
-    REQUIRE(
-        scanner_ptr->type->invoke(you, *scanner_ptr, abs_to_map_local(here, you.abs_pos())) == 0);
+    REQUIRE(scanner_ptr->type->invoke(you, *scanner_ptr, you.abs_pos()) == 0);
     REQUIRE(scanner_ptr->typeId() == itype_id("bionic_scanner_on"));
     REQUIRE(scanner_ptr->is_active());
     REQUIRE(scanner_ptr->needs_processing());

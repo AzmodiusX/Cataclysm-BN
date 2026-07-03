@@ -5,6 +5,8 @@
 #include "cata_arena.h"
 #include "item.h"
 #include "locations.h"
+#include "mapbuffer_registry.h"
+#include "game.h"
 
 template<typename T>
 void game_object<T>::destroy()
@@ -169,6 +171,34 @@ tripoint_bub_ms game_object<T>::bub_pos( ) const
         return saved_loc->bub_pos( static_cast<const T *>( this ) );
     }
     return loc->bub_pos( static_cast<const T *>( this ) );
+};
+
+template<typename T>
+dimension_id game_object<T>::get_dimension_id( ) const
+{
+    if( !loc ) {
+        if( !saved_loc ) {
+            debugmsg( "dimension called on [%s] without a dimension", debug_name() );
+            return dimension_id{};
+        }
+        return saved_loc->get_dimension( static_cast<const T *>( this ) );
+    }
+    return loc->get_dimension( static_cast<const T *>( this ) );
+};
+
+template<typename T>
+mapbuffer &game_object<T>::get_mapbuffer( ) const
+{
+    if( !loc ) {
+        if( !saved_loc ) {
+            debugmsg( "dimension called on [%s] without a dimension", debug_name() );
+            return g->m.get_mapbuffer();
+        }
+        auto id = saved_loc->get_dimension( static_cast<const T *>( this ) );
+        return MAPBUFFER_REGISTRY.get( id );
+    }
+    auto id = loc->get_dimension( static_cast<const T *>( this ) );
+    return MAPBUFFER_REGISTRY.get( id );
 };
 
 template<typename T>

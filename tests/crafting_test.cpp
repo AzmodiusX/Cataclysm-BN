@@ -608,7 +608,8 @@ static auto finish_craft_activity(avatar& you) -> void {
 }
 
 static auto resume_and_finish_craft(avatar& you, item& target) -> void {
-    REQUIRE(iuse::craft(&you, &target, false, target.bub_pos()) == 0);
+    const tripoint_abs_ms abs = target.abs_pos();
+    REQUIRE(iuse::craft(&you, &target, false, &abs) == 0);
     REQUIRE(you.activity);
     finish_craft_activity(you);
 }
@@ -638,8 +639,9 @@ TEST_CASE(
         you.i_add(make_woods_soup_craft(woods_soup_recipe, false));
         here.add_item(you.bub_pos(), make_woods_soup_craft(woods_soup_recipe, true));
         auto& target_craft = here.i_at(you.bub_pos()).only_item();
+        const tripoint_abs_ms craft_abs = target_craft.abs_pos();
 
-        REQUIRE(iuse::craft(&you, &target_craft, false, target_craft.bub_pos()) == 0);
+        REQUIRE(iuse::craft(&you, &target_craft, false, &craft_abs) == 0);
 
         REQUIRE(you.activity);
         REQUIRE(you.activity->id() == activity_id("ACT_CRAFT"));

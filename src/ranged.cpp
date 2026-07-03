@@ -1058,7 +1058,7 @@ void npc::pretend_fire( npc *source, int shots, item &gun )
         add_msg( m_info, _( "%s shoots something." ), source->disp_name() );
     }
     while( curshot != shots ) {
-        if( gun.ammo_consume( gun.ammo_required(), bub_pos() ) != gun.ammo_required() ) {
+        if( gun.ammo_consume( gun.ammo_required() ) != gun.ammo_required() ) {
             debugmsg( "Unexpected shortage of ammo whilst firing %s", gun.tname().c_str() );
             break;
         }
@@ -1493,7 +1493,7 @@ int ranged::fire_gun( Character &who, const tripoint_abs_ms &target, int max_sho
             who.rem_morale( MORALE_PYROMANIA_NOFIRE );
         }
 
-        if( gun.ammo_consume( gun.ammo_required(), who.bub_pos() ) != gun.ammo_required() ) {
+        if( gun.ammo_consume( gun.ammo_required() ) != gun.ammo_required() ) {
             debugmsg( "Unexpected shortage of ammo whilst firing %s", gun.tname() );
             break;
         }
@@ -1550,14 +1550,14 @@ int ranged::fire_gun( Character &who, const tripoint_abs_ms &target, int max_sho
 
     // Lua iranged on_fire callback: returns false to zero out hits (force miss)
     if( const auto *iranged_cb = gun.type->iranged_callbacks ) {
-        if( !iranged_cb->call_on_fire( who, gun, abs_to_bub( target ), curshot ) ) {
+        if( !iranged_cb->call_on_fire( who, gun, target, curshot ) ) {
             hits = 0;
         }
     }
 
     cata::run_hooks( "on_shoot", [ & ]( auto & params ) {
         params["shooter"] = &who;
-        params["target_pos"] = cata::detail::lua_coords::to_lua( abs_to_bub( target ) );
+        params["target_pos"] = cata::detail::lua_coords::to_lua( target );
         params["shots"] = curshot;
         params["gun"] = &gun;
         params["ammo"] = ammo;

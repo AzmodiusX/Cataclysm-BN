@@ -2080,7 +2080,8 @@ tripoint_abs_ms monster::scent_move() const
         if( here.valid_move( pos, dest, can_bash, true ) &&
             // Waterbound monsters can only smell you if you're in deep water.
             ( !has_flag( MF_AQUATIC ) || here.is_divable( dest ) ) &&
-            ( ( can_move_to( dest_abs ) && !here.obstructed_by_vehicle_rotation( pos, dest ) ) ||
+            ( ( can_move_to( dest_abs ) && !here.get_mapbuffer().obstructed_by_vehicle_rotation(
+                bub_to_abs( pos ), bub_to_abs( dest ) ) ) ||
               ( dest_abs == g->u.abs_pos() ) ||
               ( can_bash && here.is_bashable( dest ) &&
                 here.bash_rating( bash_estimate( dest_abs ), dest ) > 0 ) ) ) {
@@ -2958,8 +2959,9 @@ void monster::shove_vehicle( const tripoint_abs_ms &remote_destination,
     if( is_hallucination() ) {
         return;
     }
+    auto &here = get_mapbuffer();
     if( this->has_flag( MF_PUSH_VEH ) ) {
-        auto vp = get_mapbuffer().veh_at( nearby_destination );
+        auto vp = here.veh_at( nearby_destination );
         if( vp ) {
             vehicle &veh = vp->vehicle();
             const units::mass veh_mass = veh.total_mass();
@@ -3003,7 +3005,7 @@ void monster::shove_vehicle( const tripoint_abs_ms &remote_destination,
                     break;
             }
             if( shove_velocity > 0 ) {
-                if( g->u.sees( abs_pos() ) ) {
+                if( g->u.get_dimension() == get_dimension() && g->u.sees( abs_pos() ) ) {
                     //~ %1$s - monster name, %2$s - vehicle name
                     g->u.add_msg_if_player( m_bad, _( "%1$s shoves %2$s out of their way!" ),
                                             disp_name( false, true ), veh.disp_name() );
@@ -3021,10 +3023,10 @@ void monster::shove_vehicle( const tripoint_abs_ms &remote_destination,
                     if( shove_delta.z() != 0 ) {
                         veh.vertical_velocity = shove_delta.z() < 0 ? -shove_velocity : +shove_velocity;
                     }
-                    g->m.move_vehicle( veh, shove_delta, veh.face );
+                    here.move_vehicle( veh, shove_delta, veh.face );
                 }
                 veh.move = tileray( shove_delta.xy() );
-                veh.smash( g->m, shove_damage_min, shove_damage_max, 0.10F );
+                veh.smash( shove_damage_min, shove_damage_max, 0.10F );
             }
         }
     }

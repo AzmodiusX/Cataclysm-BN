@@ -23,6 +23,7 @@
 #include <variant>
 #include <vector>
 
+#include "bash.h"
 #include "bodypart.h"
 #include "calendar.h"
 #include "coordinates.h"
@@ -161,55 +162,6 @@ struct visibility_variables {
     float visibility_range = 60.0f;
     float detail_range = 60.0f;
     float visibility_scale_factor = 1.0f;
-};
-
-struct bash_params {
-    // Initial strength
-    int strength;
-    // Make a sound?
-    bool silent;
-    // Essentially infinite bash strength + some
-    bool destroy;
-    // Do we want to bash floor if no furn/wall exists?
-    bool bash_floor;
-    /**
-     * Value from 0.0 to 1.0 that affects interpolation between str_min and str_max
-     * At 0.0, the bash is against str_min of targeted objects
-     * This is required for proper "piercing" bashing, so that one strong hit
-     * can destroy a wall and a floor under it rather than only one at a time.
-     */
-    float roll;
-    /*
-     * Are we bashing this location from above?
-     * Used in determining what sort of terrain the location will turn into,
-     * since if we bashed from above and destroyed it, it probably shouldn't
-     * have a roof either.
-    */
-    bool bashing_from_above;
-    /**
-     * Hack to prevent infinite recursion.
-     * TODO: Remove, properly unwrap the calls instead
-     */
-    bool do_recurse = true;
-    // Was this bash action directly caused by the avatar?
-    bool caused_by_player = false;
-};
-
-struct bash_results {
-    bash_results( bool did_bash, bool success, bool bashed_solid )
-        : did_bash( did_bash ), success( success ), bashed_solid( bashed_solid )
-    {}
-    bash_results() = default;
-    // Was anything hit?
-    bool did_bash = false;
-    // Was anything destroyed?
-    bool success = false;
-    // Did we bash furniture, terrain or vehicle
-    bool bashed_solid = false;
-    // If there was recurrent bashing, it will be here
-    std::vector<bash_results> subresults;
-
-    bash_results &operator|=( const bash_results &other );
 };
 
 /** Draw parameters used by map::drawsq() and similar methods. */
@@ -1044,14 +996,13 @@ class map
                          int cost_min, int cost_max ) const;
 
         /**
-         * Checks if a rotated vehicle is blocking diagonal movement, tripoints must be adjacent
-         */
-        bool obstructed_by_vehicle_rotation( const tripoint_bub_ms &from, const tripoint_bub_ms &to ) const;
-
-        /**
          * Checks if a rotated vehicle is blocking diagonal vision, tripoints must be adjacent
          */
         bool obscured_by_vehicle_rotation( const tripoint_bub_ms &from, const tripoint_bub_ms &to ) const;
+
+        /** Delegates to mapbuffer — converts to absolute coords. */
+        bool obstructed_by_vehicle_rotation( const tripoint_bub_ms &from,
+                                             const tripoint_bub_ms &to ) const;
 
         /**
          * Populates a vector of points that are reachable within a number of steps from a
@@ -1087,7 +1038,6 @@ class map
         std::vector<tripoint_bub_ms> get_dir_circle( const tripoint_bub_ms &f,
                 const tripoint_bub_ms &t ) const;
 
-        // Vehicles: Common to 2D and 3D
         VehicleList get_vehicles();
         void add_vehicle_to_cache( vehicle * );
         void clear_vehicle_point_from_cache( vehicle *veh, const tripoint_bub_ms &pt );
@@ -1132,28 +1082,8 @@ class map
         // WARNING: not checking collisions!
         bool displace_vehicle( vehicle &veh, const tripoint_rel_ms &dp );
 
-        // Shift the vehicle's z-level without moving any parts
-        void shift_vehicle_z( vehicle &veh, int z_shift );
         // move water under wheels. true if moved
         bool displace_water( const tripoint_bub_ms &dp );
-
-        // Returns the wheel area of the vehicle multiplied by traction of the surface
-        // When ignore_movement_modifiers is set to true, it returns the area of the wheels touching the ground
-        // TODO: Remove the ugly sinking vehicle hack
-        float vehicle_wheel_traction( const vehicle &veh, bool ignore_movement_modifiers = false ) const;
-
-        // Executes vehicle-vehicle collision based on vehicle::collision results
-        // Returns impulse of the executed collision
-        // If vector contains collisions with vehicles other than veh2, they will be ignored
-        float vehicle_vehicle_collision( vehicle &veh, vehicle &veh2,
-                                         const std::vector<veh_collision> &collisions );
-        // Throws vehicle passengers about the vehicle, possibly out of it
-        // Returns change in vehicle orientation due to lost control
-        units::angle shake_vehicle( vehicle &veh, int velocity_before, units::angle direction );
-
-        // Actually moves the vehicle
-        // Unlike displace_vehicle, this one handles collisions
-        vehicle *move_vehicle( vehicle &veh, const tripoint_rel_ms &dp, const tileray &facing );
 
         // Furniture
         void set( const tripoint_bub_ms &p, const ter_id &new_terrain, const furn_id &new_furniture );
@@ -2273,7 +2203,6 @@ class map
         auto apply_light_ray( const apply_light_ray_options &opt ) -> void;
         void add_light_from_items( const tripoint_bub_ms &p, const item_stack::iterator &begin,
                                    const item_stack::iterator &end );
-        std::unique_ptr<vehicle> add_vehicle_to_map( std::unique_ptr<vehicle> veh, bool merge_wrecks );
 
         // Internal methods used to bash just the selected features
         // "Externaled" for testing, because the interface to bashing is rng dependent

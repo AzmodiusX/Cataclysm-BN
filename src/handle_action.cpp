@@ -720,7 +720,7 @@ static void close()
     if( const std::optional<tripoint_bub_ms> pnt = choose_adjacent_highlight( _( "Close where?" ),
             pgettext( "no door, gate, etc.", "There is nothing that can be closed nearby." ),
             ACTION_CLOSE, false ) ) {
-        doors::close_door( get_map(), g->u, *pnt );
+        doors::close_door( g->u, bub_to_abs( *pnt ) );
     }
 }
 
@@ -948,7 +948,7 @@ static void smash()
             if( weapon.can_shatter() &&
                 rng( 0, vol + 3 ) < vol ) {
                 add_msg( m_bad, _( "Your %s shatters!" ), weapon.tname() );
-                weapon.spill_contents( u.bub_pos() );
+                weapon.spill_contents();
                 sound_event se;
                 se.origin = u.abs_pos();
                 se.volume = 70;
@@ -1546,7 +1546,7 @@ static void read()
     if( loc ) {
         if( loc->type->can_use( "learn_spell" ) ) {
             item &spell_book = *loc;
-            spell_book.get_use( "learn_spell" )->call( u, spell_book, spell_book.is_active(), u.bub_pos() );
+            spell_book.get_use( "learn_spell" )->call( u, spell_book, spell_book.is_active(), u.abs_pos() );
         } else {
             u.read( loc );
         }
@@ -2345,7 +2345,7 @@ bool game::handle_action()
                         close();
                     }
                 } else if( mouse_target ) {
-                    doors::close_door( m, u, *mouse_target );
+                    doors::close_door( u, bub_to_abs( *mouse_target ) );
                 } else {
                     close();
                 }

@@ -111,7 +111,7 @@ void drop_or_embed_projectile( dealt_projectile_attack &attack )
         }
 
         // copies the drop item to spill the contents
-        drop_item.spill_contents( abs_to_bub( pt ) );
+        drop_item.spill_contents();
 
         // TODO: Non-glass breaking
         // TODO: Wine glass breaking vs. entire sheet of glass breaking
@@ -133,7 +133,7 @@ void drop_or_embed_projectile( dealt_projectile_attack &attack )
         }
 
         // copies the drop item to spill the contents
-        drop_item.spill_contents( abs_to_bub( pt ) );
+        drop_item.spill_contents();
 
         // TODO: Sound
         return;
@@ -179,7 +179,7 @@ void drop_or_embed_projectile( dealt_projectile_attack &attack )
         }
         if( proj.has_effect( ammo_effect_ACT_ON_RANGED_HIT ) ) {
             // Don't drop if it exploded
-            drop = item::process( std::move( drop ), nullptr, abs_to_bub( attack.end_point ), true );
+            drop = item::process( std::move( drop ), nullptr, true );
         }
 
         auto &here = get_map().get_mapbuffer();

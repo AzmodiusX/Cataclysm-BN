@@ -220,7 +220,7 @@ static void pick_up_from_feet(player& p, item& it) {
 
     p.moves = 100;
     p.assign_activity(std::make_unique<player_activity>(std::make_unique<pickup_activity_actor>(
-        std::vector<pickup::pick_drop_selection>{{it, 0, {}}}, p.bub_pos())));
+        std::vector<pickup::pick_drop_selection>{{it, 0, {}}}, p.abs_pos())));
     p.activity->do_turn(p);
 
     REQUIRE(items.size() == size_before - 1);

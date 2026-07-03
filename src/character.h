@@ -1193,9 +1193,9 @@ class Character : public Creature, public location_visitable<Character>
          * Returns true if it destroys the item. Consumes charges from the item.
          * Multi-use items are ONLY supported when all use_methods are iuse_actor!
          */
-        virtual bool invoke_item( item *, const tripoint_bub_ms &pt );
+        virtual bool invoke_item( item *, const tripoint_abs_ms &pt );
         /** As above, but with a pre-selected method. Debugmsg if this item doesn't have this method. */
-        virtual bool invoke_item( item *, const std::string &, const tripoint_bub_ms &pt );
+        virtual bool invoke_item( item *, const std::string &, const tripoint_abs_ms &pt );
         /** As above two, but with position equal to current position */
         virtual bool invoke_item( item * );
         virtual bool invoke_item( item *, const std::string & );
@@ -2270,6 +2270,7 @@ class Character : public Creature, public location_visitable<Character>
         int print_info( const catacurses::window &w, int vStart, int vLines, int column ) const override;
         // Checks whether a player can hear a sound at a given volume and location.
         bool can_hear( const tripoint_bub_ms &source, int volume ) const;
+        bool can_hear( const tripoint_abs_ms &source, int volume ) const;
         // Returns a multiplier indicating the keenness of a player's hearing.
         float hearing_ability() const;
 

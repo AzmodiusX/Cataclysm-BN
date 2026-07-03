@@ -111,7 +111,8 @@ static auto check_avatar_still_grabs_furniture(
     CHECK(player_character.get_grab_type() == OBJECT_FURNITURE);
     const auto grabbed_pos = player_character.abs_pos() + player_character.grab_point;
     CHECK(grabbed_pos == expected_pos);
-    CHECK(here.furn(grabbed_pos) && *here.furn(grabbed_pos) == expected_furniture);
+    REQUIRE(here.furn(grabbed_pos));
+    CHECK(*here.furn(grabbed_pos) == expected_furniture);
 }
 
 TEST_CASE("grabbed_furniture_can_be_pulled_up_ramp", "[furniture][ramp][grab]") {

@@ -1464,7 +1464,7 @@ void iexamine::portable_structure( player &p, const tripoint_bub_ms &examp )
 
     if( tent_item_type.second ) {
         const deploy_tent_actor &actor = *tent_item_type.second;
-        if( !actor.check_intact( examp ) ) {
+        if( !actor.check_intact( p, bub_to_abs( examp ) ) ) {
             if( !actor.broken_type ) {
                 add_msg( _( "The %s is broken and can not be picked up." ), name );
                 none( p, examp );
@@ -1617,7 +1617,7 @@ static auto apply_prying_tool( player &p, item *it, const tripoint_bub_ms &examp
     p.add_msg_if_player( _( "You attempt to pry open the %1$s using your %2$s…" ),
                          here.has_furn( examp ) ? here.furnname( examp ) : here.tername( examp ), it->tname() );
 
-    p.invoke_item( it, "CROWBAR", examp );
+    p.invoke_item( it, "CROWBAR", bub_to_abs( examp ) );
 }
 
 static time_duration safecracking_time( const player &p )
@@ -1761,9 +1761,9 @@ static void apply_lock_picking_tool( player &p, item *it, const tripoint_bub_ms 
     }
     p.add_msg_if_player(
         _( "You attempt to pick lock of %1$s using your %2$s…" ), target, it->tname() );
-    const ret_val<bool> can_use = iuse_fn->can_call( p, *it, false, examp );
+    const ret_val<bool> can_use = iuse_fn->can_call( p, *it, false, bub_to_abs( examp ) );
     if( can_use.success() ) {
-        p.invoke_item( it, "PICK_LOCK", examp );
+        p.invoke_item( it, "PICK_LOCK", bub_to_abs( examp ) );
         return;
     } else {
         p.add_msg_if_player( m_bad, can_use.str() );
@@ -1802,20 +1802,26 @@ static bool pick_lock( player &p, const tripoint_bub_ms &examp )
  */
 void iexamine::locked_object( player &p, const tripoint_bub_ms &examp )
 {
-    map &here = get_map();
+    auto &here = p.get_mapbuffer();
+    auto pos = bub_to_abs( examp );
 
     // if the furniture/terrain is also lockpickable
     // try lockpicking first if we're crouched
-    if( lockpick_activity_actor::is_pickable( examp ) && p.movement_mode_is( CMM_CROUCH ) ) {
+    if( lockpick_activity_actor::is_pickable( here, pos ) && p.movement_mode_is( CMM_CROUCH ) ) {
         if( pick_lock( p, examp ) ) {
             return;
         }
     }
 
     auto *prying_tool = find_best_prying_tool( p );
+    auto handle = abs_tile_handle::fetch( here, pos );
+    if( !handle ) {
+        debugmsg( "Player examining OOB at %d, %d, %d", pos.x(), pos.y(), pos.z() );
+        return;
+    }
     if( prying_tool ) {
-        const int target_diff = here.has_furn( examp ) ? here.furn( examp )->pry.pry_quality : here.ter(
-                                    examp )->pry.pry_quality;
+        const int target_diff = handle->furn() != f_null ?  handle->furn()->pry.pry_quality :
+                                                            handle->ter()->pry.pry_quality;
         // keep going in case we have a prying tool that can't be used against the target, so we can try lockpicking
         if( prying_tool->get_quality( quality_id( "PRY" ) ) >= target_diff ) {
             apply_prying_tool( p, prying_tool, examp );
@@ -1824,15 +1830,15 @@ void iexamine::locked_object( player &p, const tripoint_bub_ms &examp )
     }
 
     std::string target;
-    if( here.has_furn( examp ) ) {
-        target = here.furnname( examp );
-    } else if( here.veh_at( examp ) ) {
-        target = here.veh_at( examp )->vehicle().name;
+    if( handle->furn() != f_null ) {
+        target = handle->furnname();
+    } else if( handle->vehicle_part() ) {
+        target = handle->vehicle_part()->vehicle().name;
     } else {
-        target = here.tername( examp );
+        target = handle->tername();
     }
 
-    if( lockpick_activity_actor::is_pickable( examp ) ) {
+    if( lockpick_activity_actor::is_pickable( here, pos ) ) {
         if( !pick_lock( p, examp ) ) {
             if( prying_tool ) {
                 add_msg( m_info,
@@ -2548,10 +2554,11 @@ void iexamine::egg_sackws( player &p, const tripoint_bub_ms &examp )
  */
 void iexamine::fungus( player &p, const tripoint_bub_ms &examp )
 {
-    map &here = get_map();
-    add_msg( _( "The %s crumbles into spores!" ), here.furnname( examp ) );
-    fungal_effects( *g, here ).create_spores( examp, &p );
-    here.furn_set( examp, f_null );
+    auto &here = p.get_mapbuffer();
+    auto pos = bub_to_abs( examp );
+    add_msg( _( "The %s crumbles into spores!" ), here.furnname( pos ) );
+    fungal_effects( *g, here ).create_spores( pos, &p );
+    here.set_furn( pos, f_null );
     p.moves -= 50;
 }
 
@@ -3269,9 +3276,10 @@ void iexamine::autoclave_full( player &, const tripoint_bub_ms &examp )
 
 void iexamine::fireplace( player &p, const tripoint_bub_ms &examp )
 {
-    map &here = get_map();
-    const bool already_on_fire = here.has_nearby_fire( examp, 0 );
-    const bool furn_is_deployed = !here.furn( examp ).obj().deployed_item.is_empty();
+    auto &here = p.get_mapbuffer();
+    auto pos = bub_to_abs( examp );
+    const bool already_on_fire = here.has_nearby_fire( pos, 0 );
+    const bool furn_is_deployed = !here.furn( pos )->obj().deployed_item.is_empty();
 
     std::multimap<int, item *> firestarters;
     for( item *it : p.items_with( []( const item & it ) {
@@ -3280,7 +3288,7 @@ void iexamine::fireplace( player &p, const tripoint_bub_ms &examp )
         const auto usef = it->type->get_use( "firestarter" );
         if( usef != nullptr && usef->get_actor_ptr() != nullptr ) {
             const auto actor = dynamic_cast<const firestarter_actor *>( usef->get_actor_ptr() );
-            if( actor->can_use( p, *it, false, examp ).success() ) {
+            if( actor->can_use( p, *it, false, pos ).success() ) {
                 firestarters.insert( std::pair<int, item *>( actor->moves_cost_fast, it ) );
             }
         }
@@ -3303,7 +3311,7 @@ void iexamine::fireplace( player &p, const tripoint_bub_ms &examp )
         selection_menu.addentry( 4, true, 'e', _( "Extinguish fire" ) );
     }
     if( furn_is_deployed ) {
-        selection_menu.addentry( 3, true, 't', _( "Take down the %s" ), here.furnname( examp ) );
+        selection_menu.addentry( 3, true, 't', _( "Take down the %s" ), here.furnname( pos ) );
     }
     selection_menu.query();
 
@@ -3318,9 +3326,9 @@ void iexamine::fireplace( player &p, const tripoint_bub_ms &examp )
                 const auto usef = it->type->get_use( "firestarter" );
                 const auto actor = dynamic_cast<const firestarter_actor *>( usef->get_actor_ptr() );
                 p.add_msg_if_player( _( "You attempt to start a fire with your %s…" ), it->tname() );
-                const ret_val<bool> can_use = actor->can_use( p, *it, false, examp );
+                const ret_val<bool> can_use = actor->can_use( p, *it, false, pos );
                 if( can_use.success() ) {
-                    const int charges = actor->use( p, *it, false, examp );
+                    const int charges = actor->use( p, *it, false, pos );
                     p.use_charges( it->typeId(), charges );
                     return;
                 } else {
@@ -3331,7 +3339,7 @@ void iexamine::fireplace( player &p, const tripoint_bub_ms &examp )
             return;
         }
         case 2: {
-            if( !here.get_field( examp, fd_fire ) && here.add_field( examp, fd_fire, 1 ) ) {
+            if( !here.get_field_entry( pos, fd_fire ) && here.add_field( pos, {fd_fire, 1} ) ) {
                 p.mod_power_level( -bio_lighter->power_activate );
                 p.mod_moves( -to_moves<int>( 1_seconds ) );
             } else {
@@ -3341,20 +3349,20 @@ void iexamine::fireplace( player &p, const tripoint_bub_ms &examp )
         }
         case 3: {
             if( already_on_fire ) {
-                if( !query_yn( _( "Really take down the %s while it's on fire?" ), here.furnname( examp ) ) ) {
+                if( !query_yn( _( "Really take down the %s while it's on fire?" ), here.furnname( pos ) ) ) {
                     return;
                 }
             }
             p.add_msg_if_player( m_info, _( "You take down the %s." ),
-                                 here.furnname( examp ) );
+                                 here.furnname( pos ) );
             take_down_deployed_furniture( examp, examp );
             return;
         }
         case 4: {
-            here.remove_field( examp, fd_fire );
+            here.remove_field( pos, fd_fire );
             p.mod_moves( -200 );
             p.add_msg_if_player( m_info, _( "With a few determined moves you put out the fire in the %s." ),
-                                 here.furnname( examp ) );
+                                 here.furnname( pos ) );
             return;
         }
         default:
@@ -4432,7 +4440,7 @@ void iexamine::tree_maple_tapped( player &p, const tripoint_bub_ms &examp )
 
         case REMOVE_CONTAINER: {
             g->u.assign_activity( std::make_unique<player_activity>( std::make_unique<pickup_activity_actor>(
-            std::vector<pickup::pick_drop_selection> { { container, std::nullopt, {} } }, g->u.bub_pos() ) ) );
+            std::vector<pickup::pick_drop_selection> { { container, std::nullopt, {} } }, g->u.abs_pos() ) ) );
             return;
         }
 
@@ -4883,7 +4891,7 @@ void iexamine::reload_furniture( player &p, const tripoint_bub_ms &examp )
             for( auto &itm : items ) {
                 if( itm->type == cur_ammo ) {
                     g->u.assign_activity( std::make_unique<player_activity>( std::make_unique<pickup_activity_actor>(
-                    std::vector<pickup::pick_drop_selection> { { itm, std::nullopt, {} } }, g->u.bub_pos() ) ) );
+                    std::vector<pickup::pick_drop_selection> { { itm, std::nullopt, {} } }, g->u.abs_pos() ) ) );
                     return;
                 }
             }
@@ -5076,7 +5084,7 @@ void iexamine::use_furn_fake_item( player &p, const tripoint_bub_ms &examp )
     }
 
     const int original_charges = fake_item.charges;
-    p.invoke_item( &fake_item, examp );
+    p.invoke_item( &fake_item, bub_to_abs( examp ) );
 
     // HACK: Evil hack incoming
     activity_handlers::repair_activity_hack::patch_activity_for_furniture( *g->u.activity, examp,

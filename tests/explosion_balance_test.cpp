@@ -37,7 +37,7 @@ namespace {
 void set_off_explosion(item& explosive, const tripoint_bub_ms& origin) {
     explosion_handler::get_explosion_queue().clear();
     explosive.charges = 0;
-    explosive.type->invoke(g->u, explosive, origin);
+    explosive.type->invoke(g->u, explosive, bub_to_abs(origin));
     explosion_handler::get_explosion_queue().execute();
 }
 

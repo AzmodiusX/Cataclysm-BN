@@ -1052,7 +1052,7 @@ void avatar::do_read( item *loc )
         add_msg( m_debug, _( "Chance to learn one in: %d" ), difficulty );
 
         if( one_in( difficulty ) ) {
-            m->second.call( *this, book, false, bub_pos() );
+            m->second.call( *this, book, false, abs_pos() );
             continuous = false;
         } else {
             if( activity->index == getID().get_value() ) {
@@ -1492,7 +1492,7 @@ detached_ptr<item> avatar::wield( detached_ptr<item> &&target )
     return detached_ptr<item>();
 }
 
-bool avatar::invoke_item( item *used, const tripoint_bub_ms &pt )
+bool avatar::invoke_item( item *used, const tripoint_abs_ms &pt )
 {
     std::map<std::string, use_function> use_methods;
     use_methods.insert( used->type->use_methods.begin(), used->type->use_methods.end() );
@@ -1539,7 +1539,7 @@ bool avatar::invoke_item( item *used )
     return Character::invoke_item( used );
 }
 
-bool avatar::invoke_item( item *used, const std::string &method, const tripoint_bub_ms &pt )
+bool avatar::invoke_item( item *used, const std::string &method, const tripoint_abs_ms &pt )
 {
     return Character::invoke_item( used, method, pt );
 }

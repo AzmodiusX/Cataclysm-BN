@@ -69,7 +69,7 @@ auto prepare_item_for_placement( const item_placement_options &options ) -> bool
     }
 
     if( options.item_to_place->is_food() ) {
-        options.item_to_place = item::process( std::move( options.item_to_place ), nullptr, local, false );
+        options.item_to_place = item::process( std::move( options.item_to_place ), nullptr, false );
         if( !options.item_to_place ) {
             return false;
         }
@@ -92,7 +92,7 @@ auto prepare_item_for_placement( const item_placement_options &options ) -> bool
         options.item_to_place->activate();
     }
 
-    options.item_to_place->on_map_placement( here, local );
+    options.item_to_place->on_placement();
     return true;
 }
 

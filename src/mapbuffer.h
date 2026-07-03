@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include "bash.h"
 #include "calendar.h"
 #include "coordinates.h"
 #include "creature_tracker.h"
@@ -29,7 +30,10 @@
 #include "memory_fast.h"
 #include "submap_load_manager.h"
 #include "type_id.h"
+#include "tileray.h"
 #include "vpart_position.h"
+
+struct veh_collision;
 
 enum class lit_level : int;
 class submap;
@@ -44,6 +48,7 @@ class npc;
 struct sound_event;
 class vehicle;
 enum ter_bitflags : int;
+enum class spawn_disposition : int;
 enum class special_item_type : int;
 struct partial_con;
 template<typename T>
@@ -753,16 +758,129 @@ class mapbuffer
         auto update_active_npc_pos( const npc &guy, const tripoint_abs_ms &new_pos ) -> bool;
         auto remove_active_npc( const npc &guy ) -> void;
         auto find_active_npc( const tripoint_abs_ms &p ) const -> shared_ptr_fast<npc>;
+        auto all_npcs() const -> std::list<shared_ptr_fast<npc>> {
+            return active_npcs_;
+        }
         auto creature_at( const tripoint_abs_ms &p, bool allow_hallucination = false ) const
         -> Creature *;
         auto has_creature_at( const tripoint_abs_ms &p, bool allow_hallucination = false ) const -> bool;
         auto tile_empty( const tripoint_abs_ms &p ) -> bool;
+        size_t num_creatures() const { return creature_tracker_.size() + active_npcs_.size() + 1; }
+
+        // ----- Creature placement -----
+
+        /**
+         * Place a monster by type id at or around @p center within @p radius.
+         * Returns the placed monster or nullptr.
+         */
+        auto place_critter_around( const mtype_id &id, const tripoint_abs_ms &center,
+                                   int radius ) -> monster *;
+        /**
+         * Place an existing monster at or around @p center within @p radius.
+         * If forced is true, skips the can-place check for the center tile.
+         * Returns the placed monster (same pointer as @p mon, or nullptr on failure).
+         */
+        auto place_critter_around( const shared_ptr_fast<monster> &mon,
+                                   const tripoint_abs_ms &center,
+                                   int radius, bool forced = false ) -> monster *;
+        /** Place a monster exactly at @p p.  Returns the placed monster or nullptr. */
+        auto place_critter_at( const mtype_id &id, const tripoint_abs_ms &p ) -> monster *;
+        /** Place an existing monster exactly at @p p.  Returns the placed monster or nullptr. */
+        auto place_critter_at( const shared_ptr_fast<monster> &mon,
+                               const tripoint_abs_ms &p ) -> monster *;
+
+        /**
+         * Place an NPC from a template at @p p.
+         * If force is false, respects the STATIC_NPC option.
+         * Returns the NPC's character_id.
+         */
+        auto place_npc( const tripoint_abs_ms &p, const string_id<npc_template> &type,
+                        bool force = false ) -> character_id;
+
+        /** Revive a corpse item into a monster at its position.
+         *  If the position is in the active reality bubble, delegates to game::revive_corpse.
+         *  Returns true if the monster was placed successfully. */
+        auto revive_corpse( item &it ) -> bool;
+
+        // ----- Weather / shelter queries -----
+
+        /** True if @p p is indoors, underground, or inside a vehicle. */
+        auto is_sheltered( const tripoint_abs_ms &p,
+        mapbuffer_lookup_options options = {} ) -> bool;
+
+        // ----- Field / emission operations -----
+
+        /**
+         * Emit a field from a source definition at @p pos.
+         * Multiplier scales the chance and quantity of the emission.
+         */
+        auto emit_field( const tripoint_abs_ms &pos, const emit_id &src, float mul = 1.0f,
+        mapbuffer_lookup_options options = {} ) -> void;
+
+        // ----- Fishing / water queries -----
+
+        /**
+         * Get contiguous fishable locations within @p radius of @p fish_pos.
+         * Performs a BFS flood fill over tiles with the FISHABLE flag.
+         */
+        auto get_fishable_locations( int radius, const tripoint_abs_ms &fish_pos,
+        mapbuffer_lookup_options options = {} ) -> std::unordered_set<tripoint_abs_ms>;
+
+        // ----- Tile shape queries -----
+
+        /**
+         * True if @p p is a passable floor tile with at least 2 adjacent
+         * impassable tiles in its diagonal neighborhood that are also
+         * adjacent to at least 2 other impassable tiles neighbourging @p p.
+         */
+        auto is_cornerfloor( const tripoint_abs_ms &p,
+                             mapbuffer_lookup_options options = {} ) -> bool;
+
+        // ----- Cleaning / maintenance -----
+
+        /** Remove liquid spills, blood, and other filth from @p p. */
+        auto mop_spills( const tripoint_abs_ms &p,
+                         mapbuffer_lookup_options options = {} ) -> bool;
         auto has_loaded_vehicle( const vehicle *veh ) const -> bool;
         auto register_vehicle( vehicle *veh ) -> void;
         auto unregister_vehicle( vehicle *veh ) -> void;
         auto refresh_vehicle_footprint( vehicle *veh ) -> void;
         auto refresh_vehicle_registry_for_submap( const tripoint_abs_sm &p,
         mapbuffer_lookup_options options = {} ) -> void;
+
+        // ----- Vehicle movement / collision ---
+
+        /** Actually moves the vehicle. Unlike displace_vehicle, handles collisions. */
+        auto move_vehicle( vehicle &veh, const tripoint_rel_ms &dp,
+                           const tileray &facing ) -> vehicle *;
+
+        /** Throws vehicle passengers about the vehicle, possibly out of it.
+         *  Returns change in vehicle orientation due to lost control. */
+        auto shake_vehicle( vehicle &veh, int velocity_before,
+                            units::angle direction ) -> units::angle;
+
+        /**
+         * Executes vehicle-vehicle collision based on vehicle::collision results.
+         * Returns impulse of the executed collision.
+         * If vector contains collisions with vehicles other than veh2, they will be ignored.
+         */
+        auto vehicle_vehicle_collision( vehicle &veh, vehicle &veh2,
+                                        const std::vector<veh_collision> &collisions ) -> float;
+
+        /**
+         * Wheel area of the vehicle multiplied by traction of the surface.
+         * When ignore_movement_modifiers is set to true, returns the area of the
+         * wheels touching the ground.
+         */
+        auto vehicle_wheel_traction( const vehicle &veh,
+                                     bool ignore_movement_modifiers = false ) const -> float;
+
+        /** Shift the vehicle's z-level without moving any parts. */
+        auto shift_vehicle_z( vehicle &veh, int z_shift ) -> void;
+
+        /** Checks if a rotated vehicle is blocking diagonal movement. */
+        auto obstructed_by_vehicle_rotation( const tripoint_abs_ms &from,
+                                             const tripoint_abs_ms &to ) const -> bool;
 
         auto set_ter( const tripoint_abs_ms &p, ter_id terrain,
         mapbuffer_lookup_options options = {} ) -> bool;
@@ -911,6 +1029,43 @@ class mapbuffer
                            const mapbuffer_add_computer_options &options ) -> computer *;
         auto delete_computer( const tripoint_abs_ms &p,
         mapbuffer_lookup_options options = {} ) -> bool;
+
+        /// Place items from an item group within a rectangle.
+        auto place_items( const item_group_id &loc, int chance,
+                          const tripoint_abs_ms &p1, const tripoint_abs_ms &p2,
+                          bool ongrass, const time_point &turn,
+                          int magazine = 0, int ammo = 0,
+        mapbuffer_lookup_options options = {} ) -> std::vector<item *>;
+
+        auto add_spawn( const mtype_id &type, int count, const tripoint_abs_ms &p, bool friendly,
+                                  int faction_id, int mission_id, const std::string &name,
+                                  mapbuffer_lookup_options options = {} ) const -> void;
+        
+        auto add_spawn( const mtype_id &type, int count, const tripoint_abs_ms &p,
+                             spawn_disposition disposition, int faction_id, int mission_id,
+                             const std::string &name, mapbuffer_lookup_options options = {} ) const -> void;
+
+        auto add_vehicle( const std::variant<vgroup_id, vproto_id> &type_,
+                          const tripoint_abs_ms &p,
+                          units::angle dir, int init_veh_fuel = -1,
+                          int init_veh_status = -1, bool merge_wrecks = true,
+                          std::optional<bool> locked = std::nullopt,
+                          std::optional<bool> has_keys = std::nullopt,
+                          mapbuffer_lookup_options options = {} ) -> vehicle *;
+
+        auto add_vehicle_to_mapbuffer( std::unique_ptr<vehicle> veh, const bool merge_wrecks,
+                                       mapbuffer_lookup_options options = {} ) -> std::unique_ptr<vehicle>;
+
+        auto get_vehicles( const tripoint_abs_sm &start, const tripoint_abs_sm &end,
+                           mapbuffer_lookup_options options = {} ) -> std::set<vehicle *>;
+
+        auto get_vehicles( mapbuffer_lookup_options options = {} ) -> std::set<vehicle *>;
+
+        auto detach_vehicle( vehicle *veh,
+                             mapbuffer_lookup_options options = {} ) -> std::unique_ptr<vehicle>;
+
+        auto destroy_vehicle( vehicle *veh,
+                              mapbuffer_lookup_options options = {} ) -> void;
 
         auto partial_con_at( const tripoint_abs_ms &p,
         mapbuffer_lookup_options options = {} ) -> partial_con *;
@@ -1119,6 +1274,29 @@ class mapbuffer
         auto has_floor( const tripoint_abs_ms &p, bool visible_only = false,
         mapbuffer_lookup_options options = {} ) -> bool;
 
+        // ----- Collapse / suspension helpers -----
+
+        /** Checks surrounding tiles for suspension, and has them check for collapse.
+         *  !!Should only be called after the tile at this point has been destroyed!! */
+        auto propagate_suspension_check( const tripoint_abs_ms &point,
+        mapbuffer_lookup_options options = {} ) -> void;
+        /** Triggers a recursive collapse of suspended tiles based on their support validity. */
+        auto collapse_invalid_suspension( const tripoint_abs_ms &point,
+        mapbuffer_lookup_options options = {} ) -> void;
+        /** Checks the four diagonal orientations in which a suspended tile could be valid. */
+        auto is_suspension_valid( const tripoint_abs_ms &point,
+        mapbuffer_lookup_options options = {} ) -> bool;
+        /** Causes a collapse at @p p, such as from destroying a wall. */
+        auto collapse_at( const tripoint_abs_ms &p, bool silent, bool was_supporting = false,
+                          bool destroy_pos = true,
+        mapbuffer_lookup_options options = {} ) -> void;
+        /** Checks if a square should collapse, returns the X for the one_in(X) collapse chance. */
+        auto collapse_check( const tripoint_abs_ms &p,
+        mapbuffer_lookup_options options = {} ) -> int;
+        /** Crushes creatures/vehicles at @p p (falling debris damage). */
+        auto crush( const tripoint_abs_ms &p,
+        mapbuffer_lookup_options options = {} ) -> void;
+
         /// True if the tile at @p p is transparent (you can see past it).
         auto is_transparent( const tripoint_abs_ms &p,
         mapbuffer_lookup_options options = {} ) -> bool;
@@ -1137,10 +1315,6 @@ class mapbuffer
         auto move_cost( const tripoint_abs_ms &p, const vehicle *ignored_vehicle = nullptr,
         mapbuffer_lookup_options options = {} ) -> int;
 
-        /// True if a vehicle at @p from blocks movement toward @p to via rotation.
-        auto obstructed_by_vehicle_rotation( const tripoint_abs_ms &from,
-                                             const tripoint_abs_ms &to,
-        mapbuffer_lookup_options options = {} ) -> bool;
         auto hit_with_acid( const tripoint_abs_ms &p,
         const mapbuffer_lookup_options options = {} ) -> bool;
         auto hit_with_fire( const tripoint_abs_ms &p,
@@ -1151,10 +1325,44 @@ class mapbuffer
         /// Open a door at @p p (mutates terrain/furniture to its open variant).
         auto open_door( const tripoint_abs_ms &p, bool inside,
         mapbuffer_lookup_options options = {} ) -> bool;
+        /// Close a door at @p p (mutates terrain/furniture to its closed variant).
+        auto close_door( const tripoint_abs_ms &p, bool inside, bool check_only,
+        mapbuffer_lookup_options options = {} ) -> bool;
+
+        /// Force-close a door at @p p, pushing creatures and items out of the way.
+        auto forced_door_closing( const tripoint_abs_ms &p, const ter_id &door_type, int bash_dmg,
+        mapbuffer_lookup_options options = {} ) -> bool;
+
+        auto get_roof( const tripoint_abs_ms &p, const bool allow_air,
+                       mapbuffer_lookup_options options = {} ) -> ter_id;
 
         /// Bash terrain/furniture at @p p with given @p strength.
         auto bash( const tripoint_abs_ms &p, int str, bool silent = false,
-        mapbuffer_lookup_options options = {} ) -> int;
+                   bool destroy = false, bool bash_floor = false,
+                   const vehicle *bashing_vehicle = nullptr,
+                   mapbuffer_lookup_options options = {} ) -> bash_results;
+
+        auto bash( const tripoint_abs_ms &p,
+                   const bash_params &params,
+                   const vehicle *bashing_vehicle = nullptr,
+                   mapbuffer_lookup_options options = {} ) -> bash_results;
+
+        auto bash_vehicle( const tripoint_abs_ms &p, const bash_params &params,
+                           mapbuffer_lookup_options options = {} ) -> bash_results;
+        auto bash_ter_furn( const tripoint_abs_ms &p, const bash_params &params,
+                            mapbuffer_lookup_options options = {} ) -> bash_results;
+        
+        auto bash_items( const tripoint_abs_ms &p, const bash_params &params,
+                               mapbuffer_lookup_options options = {} ) -> bash_results;
+        auto bash_field( const tripoint_abs_ms &p, const bash_params &params,
+                               mapbuffer_lookup_options options = {} ) -> bash_results;
+
+        // Successfully bashing things down
+        auto bash_ter_success( const tripoint_abs_ms &p, const bash_params &params,
+                               mapbuffer_lookup_options options = {} ) -> bash_results;
+        auto bash_furn_success( const tripoint_abs_ms &p, const bash_params &params,
+                                mapbuffer_lookup_options options = {} ) -> bash_results;
+        
 
         auto destroy( const tripoint_abs_ms &p, bool silent = false,
         const mapbuffer_lookup_options options = {} ) -> void;

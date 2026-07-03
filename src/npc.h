@@ -1050,7 +1050,7 @@ class npc : public player
         void advance_job_progress( int n );
 
         using Character::invoke_item;
-        bool invoke_item( item *, const tripoint_bub_ms &pt ) override;
+        bool invoke_item( item *, const tripoint_abs_ms &pt ) override;
         bool invoke_item( item *used, const std::string &method ) override;
         bool invoke_item( item * ) override;
 

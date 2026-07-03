@@ -1236,7 +1236,8 @@ void npc::do_npc_craft( const std::optional<tripoint> & )
                 }
             }
 
-            iuse::craft( this, target, false, target_pos );
+            const tripoint_abs_ms craft_pos = bub_to_abs( target_pos );
+            iuse::craft( this, target, false, &craft_pos );
         }
     }
 }
@@ -3262,7 +3263,7 @@ void npc::advance_job_progress( int n )
     }
 }
 
-bool npc::invoke_item( item *used, const tripoint_bub_ms &pt )
+bool npc::invoke_item( item *used, const tripoint_abs_ms &pt )
 {
     const auto &use_methods = used->type->use_methods;
 

@@ -1816,26 +1816,27 @@ bool mattack::fungus( monster *z )
     se.id = "misc";
     se.variant = "puff";
     sounds::sound( se );
+    auto &here = z->get_mapbuffer();
     if( g->u.sees( *z ) ) {
         add_msg( m_warning, _( "Spores are released from the %s!" ), z->name() );
     }
 
-    bool on_fungus = g->m.has_flag_ter( "FUNGUS", z->bub_pos() );
+    bool on_fungus = here.has_flag_ter( "FUNGUS", z->abs_pos() );
     int radius = one_in( 4 ) ? 2 : 1;
     double spore_chance = ( on_fungus ? 0.5f : 0.2f ) / ( ( radius + 1 ) * ( radius + 1 ) );
-    fungal_effects fe( *g, g->m );
-    for( const tripoint_bub_ms &sporep : g->m.points_in_radius( z->bub_pos(), radius ) ) {
-        if( sporep == z->bub_pos() ) {
+    fungal_effects fe( *g, here );
+    for( const auto &sporep : simulated_tiles_in_radius( here, z->abs_pos(), radius ) ) {
+        if( sporep.abs_pos() == z->abs_pos() ) {
             continue;
         }
-        const int dist = rl_dist( z->bub_pos(), sporep );
+        const int dist = rl_dist( z->abs_pos(), sporep.abs_pos() );
         if( !one_in( dist ) ||
-            g->m.impassable( sporep ) ||
-            ( dist > 1 && !g->m.clear_path( z->bub_pos(), sporep, 2, 1, 10 ) ) ) {
+            sporep.impassable() ||
+            ( dist > 1 && !here.clear_path( z->abs_pos(), sporep.abs_pos(), 2, 1, 10 ) ) ) {
             continue;
         }
 
-        fe.fungalize( sporep, z, spore_chance );
+        fe.fungalize( sporep.abs_pos(), z, spore_chance );
     }
 
     return true;
@@ -1858,6 +1859,7 @@ bool mattack::fungus_advanced( monster *z )
     se.id = "misc";
     se.variant = "puff";
     sounds::sound( se );
+    auto &here = z->get_mapbuffer();
     if( g->u.sees( *z ) ) {
         add_msg( m_warning, _( "Spores are released from the %s!" ), z->name() );
     }
@@ -1891,19 +1893,19 @@ bool mattack::fungus_advanced( monster *z )
     }
 
     // Applying spore launch in certain radius
-    fungal_effects fe( *g, g->m );
-    for( const tripoint_bub_ms &sporep : g->m.points_in_radius( z->bub_pos(), radius ) ) {
-        if( sporep == z->bub_pos() ) {
+    fungal_effects fe( *g, here );
+    for( const auto &sporep : simulated_tiles_in_radius( here, z->abs_pos(), radius ) ) {
+        if( sporep.abs_pos() == z->abs_pos() ) {
             continue;
         }
-        const int dist = rl_dist( z->bub_pos(), sporep );
+        const int dist = rl_dist( z->abs_pos(), sporep.abs_pos() );
         if( !one_in( dist ) ||
-            g->m.impassable( sporep ) ||
-            ( dist > 1 && !g->m.clear_path( z->bub_pos(), sporep, 2, 1, 10 ) ) ) {
+            sporep.impassable() ||
+            ( dist > 1 && !here.clear_path( z->abs_pos(), sporep.abs_pos(), 2, 1, 10 ) ) ) {
             continue;
         }
 
-        fe.fungalize( sporep, z, spore_chance );
+        fe.fungalize( sporep.abs_pos(), z, spore_chance );
     }
 
     return true;
@@ -1927,12 +1929,13 @@ bool mattack::fungus_haze( monster *z )
     se.id = "misc";
     se.variant = "puff";
     sounds::sound( se );
+    auto &here = z->get_mapbuffer();
     if( g->u.sees( *z ) ) {
         add_msg( m_info, _( "The %s pulses, and fresh fungal material bursts forth." ), z->name() );
     }
     z->moves -= 150;
-    for( const tripoint_bub_ms &dest : g->m.points_in_radius( z->bub_pos(), 3 ) ) {
-        g->m.add_field( dest, fd_fungal_haze, rng( 1, 2 ) );
+    for( const auto &dest : simulated_tiles_in_radius( here, z->abs_pos(), 3 ) ) {
+        here.add_field( dest.abs_pos(), {fd_fungal_haze, rng( 1, 2 )} );
     }
 
     return true;
@@ -2458,17 +2461,18 @@ bool mattack::dermatik_growth( monster *z )
 
 bool mattack::fungal_trail( monster *z )
 {
-    fungal_effects fe( *g, g->m );
-    fe.spread_fungus( z->bub_pos() );
+    fungal_effects fe( *g, z->get_mapbuffer() );
+    fe.spread_fungus( z->abs_pos() );
     return false;
 }
 
 bool mattack::plant( monster *z )
 {
-    fungal_effects fe( *g, g->m );
+    auto &here = z->get_mapbuffer();
+    fungal_effects fe( *g, here );
 
     // If terrain already infested there is chance for spore to become fungal stalk
-    const bool is_fungi = g->m.has_flag_ter( ter_bitflags::TFLAG_FUNGUS, z->bub_pos() );
+    const bool is_fungi = here.has_flag( TFLAG_FUNGUS, z->abs_pos() );
     if( fungal_opt.young_allowed && is_fungi ) {
         const int base_chance = fungal_opt.young_spawn_base_rate;
         const int divider = fungal_opt.young_spawn_bubble_creatures_divider;
@@ -2487,8 +2491,8 @@ bool mattack::plant( monster *z )
                  z->name() );
     }
     z->set_hp( 0 );
-    fe.spread_fungus( z->bub_pos() );
-    for( const tripoint_bub_ms &p : closest_points_first( z->bub_pos(), 1 ) ) {
+    fe.spread_fungus( z->abs_pos() );
+    for( const tripoint_abs_ms &p : closest_points_first( z->abs_pos(), 1 ) ) {
         if( !one_in( 3 ) ) {
             fe.fungalize( p, z );
         }
@@ -6074,7 +6078,7 @@ bool mattack::kamikaze( monster *z )
             // Timer is out, detonate
             detached_ptr<item> i_explodes = item::spawn( act_bomb_type, calendar::turn, 0 );
             i_explodes->activate();
-            item::process( std::move( i_explodes ), nullptr, z->bub_pos(), false );
+            item::process( std::move( i_explodes ), nullptr, false );
             return false;
         }
         return false;

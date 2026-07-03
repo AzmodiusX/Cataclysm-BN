@@ -1948,7 +1948,7 @@ void construct::done_grave( const tripoint_bub_ms &p )
         }
     }
     if( g->u.has_quality( qual_CUT ) ) {
-        iuse::handle_ground_graffiti( g->u, nullptr, _( "Inscribe something on the grave?" ), p );
+        iuse::handle_ground_graffiti( g->u, nullptr, _( "Inscribe something on the grave?" ), bub_to_abs( p ) );
     } else {
         add_msg( m_neutral,
                  _( "Unfortunately you don't have anything sharp to place an inscription on the grave." ) );

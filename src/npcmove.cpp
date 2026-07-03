@@ -4076,7 +4076,7 @@ void npc::activate_item( int item_index )
     const int oldmoves = moves;
     item &it = i_at( item_index );
     if( it.is_tool() || it.is_food() ) {
-        it.type->invoke( *this, it, bub_pos() );
+        it.type->invoke( *this, it, abs_pos() );
     }
 
     if( moves == oldmoves ) {
@@ -4110,7 +4110,7 @@ void npc::heal_player( Character &patient )
         return;
     }
     if( !is_hallucination() ) {
-        int charges_used = used.type->invoke( *this, used, patient.bub_pos(), "heal" );
+        int charges_used = used.type->invoke( *this, used, patient.abs_pos(), "heal" );
         consume_charges( used, charges_used );
     } else {
         pretend_heal( patient, used );
@@ -4146,7 +4146,7 @@ void npc::heal_self()
             treatment = &inv.find_item( inv.position_by_type( itype_smoxygen_tank ) );
         }
         if( !treatment->is_null() ) {
-            treatment->type->invoke( *this, *treatment, bub_pos(), iusage );
+            treatment->type->invoke( *this, *treatment, abs_pos(), iusage );
             consume_charges( *treatment, 1 );
             return;
         }
@@ -4163,7 +4163,7 @@ void npc::heal_self()
     }
     warn_about( "heal_self", 1_turns );
 
-    int charges_used = used.type->invoke( *this, used, bub_pos(), "heal" );
+    int charges_used = used.type->invoke( *this, used, abs_pos(), "heal" );
     if( used.is_medication() ) {
         consume_charges( used, charges_used );
     }

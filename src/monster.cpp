@@ -3399,7 +3399,7 @@ bool monster::use_mech_power( int amt )
         return false;
     }
     amt = -amt;
-    battery_item->ammo_consume( amt, bub_pos() );
+    battery_item->ammo_consume( amt );
     return battery_item->ammo_remaining() > 0;
 }
 
@@ -3428,7 +3428,7 @@ static void process_item_valptr( item *ptr, monster &mon )
 {
     if( ptr && ptr->needs_processing() ) {
         ptr->attempt_detach( [&mon]( detached_ptr<item> &&it ) {
-            return item::process( std::move( it ), nullptr, mon.bub_pos(), false );
+            return item::process( std::move( it ), nullptr, false );
         } );
     }
 }
@@ -3439,7 +3439,7 @@ void monster::process_items()
     if( !inv.empty() ) {
         inv.remove_with( [this]( detached_ptr<item> &&it ) {
             if( it->needs_processing() ) {
-                return item::process( std::move( it ), nullptr, bub_pos(), false );
+                return item::process( std::move( it ), nullptr, false );
             }
             return std::move( it );
         } );

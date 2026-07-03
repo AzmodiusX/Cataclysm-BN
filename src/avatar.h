@@ -259,9 +259,9 @@ class avatar : public player
         bool add_faction_warning( const faction_id &id );
 
         using Character::invoke_item;
-        bool invoke_item( item *, const tripoint_bub_ms &pt ) override;
+        bool invoke_item( item *, const tripoint_abs_ms &pt ) override;
         bool invoke_item( item * ) override;
-        bool invoke_item( item *, const std::string &, const tripoint_bub_ms &pt ) override;
+        bool invoke_item( item *, const std::string &, const tripoint_abs_ms &pt ) override;
         bool invoke_item( item *, const std::string & ) override;
 
         monster_visible_info &get_mon_visible() {

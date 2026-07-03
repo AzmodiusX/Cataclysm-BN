@@ -25,11 +25,12 @@ auto for_tile( const tile_flags &flags ) -> temperature_flag
     return temperature_flag::TEMP_NORMAL;
 }
 
-auto for_location( const map &m, const item &loc ) -> temperature_flag
+auto for_location( const item &loc ) -> temperature_flag
 {
     if( !loc.has_position() ) {
         return temperature_flag::TEMP_NORMAL;
     }
+    auto &here = loc.get_mapbuffer();
 
     switch( loc.where() ) {
         case item_location_type::character:
@@ -37,16 +38,16 @@ auto for_location( const map &m, const item &loc ) -> temperature_flag
         case item_location_type::monster:
             return temperature_flag::TEMP_NORMAL;
         case item_location_type::map: {
-            const auto pos = loc.bub_pos();
+            const auto pos = loc.abs_pos();
             return for_tile( {
-                .root_cellar = m.ter( pos ) == t_rootcellar,
-                .fridge = m.has_flag_furn( TFLAG_FRIDGE, pos ),
-                .freezer = m.has_flag_furn( TFLAG_FREEZER, pos ),
+                .root_cellar = here.ter( pos ) == t_rootcellar,
+                .fridge = here.has_flag( TFLAG_FRIDGE, pos ),
+                .freezer = here.has_flag( TFLAG_FREEZER, pos ),
             } );
         }
         case item_location_type::vehicle: {
-            auto pos = loc.bub_pos();
-            optional_vpart_position veh = m.veh_at( pos );
+            auto pos = loc.abs_pos();
+            optional_vpart_position veh = here.veh_at( pos );
             if( !veh ) {
                 debugmsg( "Expected vehicle at %d, %d, %d, but couldn't find any", pos.x(), pos.y(), pos.z() );
                 return temperature_flag::TEMP_NORMAL;
@@ -62,7 +63,7 @@ auto for_location( const map &m, const item &loc ) -> temperature_flag
             if( parent == nullptr ) {
                 return temperature_flag::TEMP_NORMAL;
             }
-            return for_location( m, *parent );
+            return for_location( *parent );
         }
         default:
             debugmsg( "Invalid item location %d", static_cast<int>( loc.where() ) );

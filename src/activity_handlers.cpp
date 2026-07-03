@@ -1766,7 +1766,7 @@ void activity_handlers::game_do_turn( player_activity *act, player *p )
     // Consume battery charges for every minute spent playing
     if( action_time_scale::once_every_this_tick( 1_minutes ) ) {
         int energy = game_item.ammo_required();
-        energy -= game_item.ammo_consume( energy, p->bub_pos() );
+        energy -= game_item.ammo_consume( energy );
         if( energy > 0 && game_item.has_flag( flag_USE_UPS ) ) {
             if( p->use_charges_if_avail( itype_UPS, energy ) ) {
                 energy = 0;
@@ -2136,20 +2136,19 @@ void activity_handlers::start_fire_finish( player_activity *act, player *p )
     p->practice( skill_survival, act->index, 5 );
 
     map &here = get_map();
-    firestarter_actor::resolve_firestarter_use( *p, abs_to_bub( act->placement ) );
+    firestarter_actor::resolve_firestarter_use( *p, act->placement );
     act->set_to_null();
 }
 
 void activity_handlers::start_fire_do_turn( player_activity *act, player *p )
 {
-    map &here = get_map();
-    const auto bub_loc = abs_to_bub( act->placement );
+    auto &here = p->get_mapbuffer();
     item &firestarter = *act->get_tools().front();
     // Try fueling the fire if we don't already have fuel, OR if the tool needs to look for tinder to work
-    if( !here.is_flammable( bub_loc ) || ( firestarter.has_flag( flag_REQUIRES_TINDER ) &&
-                                           !here.tinder_at( bub_loc ) ) ) {
+    if( !here.is_flammable( act->placement ) || ( firestarter.has_flag( flag_REQUIRES_TINDER ) &&
+                                           !here.tinder_at( act->placement ) ) ) {
         try_fuel_fire( *act, *p, true );
-        if( !here.is_flammable( bub_loc ) ) {
+        if( !here.is_flammable( act->placement ) ) {
             p->add_msg_if_player( m_info, _( "There's nothing to light there." ) );
             p->cancel_activity();
             return;
@@ -2157,7 +2156,7 @@ void activity_handlers::start_fire_do_turn( player_activity *act, player *p )
     }
 
     if( firestarter.has_flag( flag_REQUIRES_TINDER ) ) {
-        if( !here.tinder_at( bub_loc ) ) {
+        if( !here.tinder_at( act->placement ) ) {
             p->add_msg_if_player( m_info, _( "This item requires tinder to light." ) );
             p->cancel_activity();
             return;
@@ -2173,7 +2172,7 @@ void activity_handlers::start_fire_do_turn( player_activity *act, player *p )
 
     p->mod_moves( -p->moves );
     const firestarter_actor *actor = dynamic_cast<const firestarter_actor *>( usef->get_actor_ptr() );
-    const float light = actor->light_mod( p->bub_pos() );
+    const float light = actor->light_mod( *p, act->placement );
     act->moves_left -= light * action_time_scale::activity_progress_per_tick();
     if( light < 0.1 ) {
         add_msg( m_bad, _( "There is not enough sunlight to start a fire now.  You stop trying." ) );
@@ -2375,7 +2374,7 @@ void activity_handlers::vibe_do_turn( player_activity *act, player *p )
     if( action_time_scale::once_every_this_tick( 1_minutes ) ) {
         p->mod_fatigue( 1 );
         if( vibrator_item.ammo_remaining() > 0 ) {
-            vibrator_item.ammo_consume( 1, p->bub_pos() );
+            vibrator_item.ammo_consume( 1 );
             p->add_morale( MORALE_FEELING_GOOD, 3, 40 );
             if( vibrator_item.ammo_remaining() == 0 ) {
                 add_msg( m_info, _( "The %s runs out of batteries." ), vibrator_item.tname() );
@@ -2744,7 +2743,7 @@ void activity_handlers::train_skill_do_turn( player_activity *act, player *p )
 
         p->mod_fatigue( training_skill_fatigue );
         if( skill_training_item.ammo_remaining() > 0 ) {
-            skill_training_item.ammo_consume( 1, p->bub_pos() );
+            skill_training_item.ammo_consume( 1 );
             if( hack_type.has_value() ) {
                 hack::discharge_real_power_source(
                     hack_type.value(),
@@ -2847,7 +2846,7 @@ void activity_handlers::repair_item_finish( player_activity *act, player *p )
         const repair_item_actor::attempt_hint attempt = actor->repair( *p, *used_tool, *fix_location );
         if( attempt != repair_item_actor::AS_CANT ) {
             if( ploc && ploc->where() == item_location_type::map ) {
-                used_tool->ammo_consume( used_tool->ammo_required(), ploc->bub_pos() );
+                used_tool->ammo_consume( used_tool->ammo_required() );
             } else {
                 p->consume_charges( *used_tool, used_tool->ammo_required() );
             }
@@ -2914,7 +2913,7 @@ void activity_handlers::repair_item_finish( player_activity *act, player *p )
         }
     }
 
-    const item &fix = *act->targets[1];
+    item &fix = *act->targets[1];
 
     if( repeat == REPEAT_INIT ) {
         const int level = p->get_skill_level( actor->used_skill );
@@ -3290,7 +3289,7 @@ static void rod_fish( player *p,
 
 void activity_handlers::fish_do_turn( player_activity *act, player *p )
 {
-    int fishing_mult = iuse::good_fishing_spot( abs_to_bub( act->placement ) );
+    int fishing_mult = good_fishing_spot( p->get_mapbuffer(), act->placement );
     if( fishing_mult == 0 || p->is_blind() ) {
         act->set_to_null();
         p->add_msg_if_player( m_info,

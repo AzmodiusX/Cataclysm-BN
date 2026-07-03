@@ -3597,14 +3597,14 @@ double npc_ai::melee_value( const Character &who, const item &weap )
     if( weapon.has_flag( flag_COMBAT_NPC_USE ) && !weapon.has_flag( flag_COMBAT_NPC_ON ) ) {
         if( weapon.get_use( "transform" ) ) {
             const use_function *use = weapon.type->get_use( "transform" );
-            if( use->can_call( who, weapon, false, who.bub_pos() ).success() ) {
+            if( use->can_call( who, weapon, false, who.abs_pos() ).success() ) {
                 // Stolen from item.cpp
                 weapon.convert( dynamic_cast<const iuse_transform *>
                                 ( use->get_actor_ptr() )->target );
             }
         } else if( weapon.get_use( "fireweapon_off" ) ) {
             const use_function *use = weapon.type->get_use( "fireweapon_off" );
-            if( use->can_call( who, weapon, false, who.bub_pos() ).success() ) {
+            if( use->can_call( who, weapon, false, who.abs_pos() ).success() ) {
                 weapon.convert( dynamic_cast<const fireweapon_off_actor *>
                                 ( use->get_actor_ptr() )->target_id );
             }

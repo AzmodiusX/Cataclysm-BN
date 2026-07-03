@@ -7789,7 +7789,7 @@ bool game::forced_door_closing( const tripoint_bub_ms &p, const ter_id &door_typ
 
 void game::toggle_gate( const tripoint_bub_ms &p )
 {
-    gates::toggle_gate( p, u );
+    gates::toggle_gate( bub_to_abs( p ), u );
 }
 
 void game::moving_vehicle_dismount( const tripoint_bub_ms &dest_loc )
@@ -8024,7 +8024,7 @@ bool game::npc_menu( npc &who, const bool &force )
             return false;
         }
         item &used = *loc;
-        bool did_use = u.invoke_item( &used, heal_string, who.bub_pos() );
+        bool did_use = u.invoke_item( &used, heal_string );
         if( did_use ) {
             // Note: exiting a body part selection menu counts as use here
             u.mod_moves( -300 );
@@ -8634,7 +8634,7 @@ void game::pickup( const tripoint_bub_ms &p )
     if( get_option<bool>( "NEW_PICKUP_MENU" ) ) {
         std::vector<pickup::pick_drop_selection> pickup_list = game_menus::inv::pickup_from_tile( g->u, p );
         g->u.assign_activity( std::make_unique<player_activity>( std::make_unique<pickup_activity_actor>
-                              ( pickup_list, g->u.bub_pos() ) ) );
+                              ( pickup_list, g->u.abs_pos() ) ) );
     } else {
         pickup::pick_up( p, 0 );
     }
@@ -8646,7 +8646,7 @@ void game::pickup_all()
     if( get_option<bool>( "NEW_PICKUP_MENU" ) ) {
         std::vector<pickup::pick_drop_selection> pickup_list = game_menus::inv::pickup_nearby( g->u );
         g->u.assign_activity( std::make_unique<player_activity>( std::make_unique<pickup_activity_actor>
-                              ( pickup_list, g->u.bub_pos() ) ) );
+                              ( pickup_list, g->u.abs_pos() ) ) );
     } else {
         pickup::pick_up_all_nearby();
     }
@@ -8659,7 +8659,7 @@ void game::pickup_feet()
         std::vector<pickup::pick_drop_selection> pickup_list = game_menus::inv::pickup_from_tile( g->u,
                 g->u.bub_pos() );
         g->u.assign_activity( std::make_unique<player_activity>( std::make_unique<pickup_activity_actor>
-                              ( pickup_list, g->u.bub_pos() ) ) );
+                              ( pickup_list, g->u.abs_pos() ) ) );
     } else {
         pickup::pick_up( u.bub_pos(), 1 );
     }
@@ -11061,7 +11061,7 @@ game::vmenu_ret game::list_items( const std::vector<map_item_stack> &item_list )
 
             if( iItemNum > 0 && activeItem ) {
                 const item &loc = *activeItem->example;
-                temperature_flag temperature = rot::temp::for_location( m, loc );
+                temperature_flag temperature = rot::temp::for_location( loc );
                 std::vector<iteminfo> this_item = activeItem->example->info( temperature );
                 std::vector<iteminfo> item_info_dummy;
 
@@ -11133,7 +11133,7 @@ game::vmenu_ret game::list_items( const std::vector<map_item_stack> &item_list )
             const item *example_item = activeItem->example;
             // TODO: const_item_location
             const item &loc = *example_item;
-            temperature_flag temperature = rot::temp::for_location( m, loc );
+            temperature_flag temperature = rot::temp::for_location( loc );
             std::vector<iteminfo> this_item = example_item->info( temperature );
 
             item_info_data info_data( example_item->tname(), example_item->type_name(), this_item, dummy );

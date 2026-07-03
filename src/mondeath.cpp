@@ -418,16 +418,17 @@ void mdeath::fungus( monster &z )
     se.variant = "puff";
     se.monfaction = z.faction.id();
     sounds::sound( se );
+    auto &here = z.get_mapbuffer();
 
-    fungal_effects fe( *g, g->m );
-    for( const tripoint_bub_ms &sporep : g->m.points_in_radius( z.bub_pos(), 1 ) ) { // *NOPAD*
-        if( g->m.impassable( sporep ) &&
-            !get_map().obstructed_by_vehicle_rotation( z.bub_pos(), sporep ) ) {
+    fungal_effects fe( *g, here );
+    for( const auto &sporep : simulated_tiles_in_radius( here, z.abs_pos(), 1 ) ) { // *NOPAD*
+        if( sporep.impassable() &&
+            !here.obstructed_by_vehicle_rotation( z.abs_pos(), sporep.abs_pos() ) ) {
             continue;
         }
         // z is dead, don't credit it with the kill
         // Maybe credit z's killer?
-        fe.fungalize( sporep, nullptr, fungal_opt.spore_chance );
+        fe.fungalize( sporep.abs_pos(), nullptr, fungal_opt.spore_chance );
     }
 }
 

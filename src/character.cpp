@@ -2935,7 +2935,7 @@ detached_ptr<item> Character::i_rem( int pos )
 detached_ptr<item> Character::i_rem_keep_contents( const int idx )
 {
     detached_ptr<item> ret = i_rem( idx );
-    ret->spill_contents( bub_pos() );
+    ret->spill_contents();
     return ret ;
 }
 
@@ -2943,7 +2943,7 @@ detached_ptr<item> Character::i_add_or_drop( detached_ptr<item> &&it )
 {
     if( it->made_of( LIQUID ) || !can_pick_weight( *it, !get_option<bool>( "DANGEROUS_PICKUPS" ) ) ||
         !can_pick_volume( *it ) ) {
-        return get_map().add_item_or_charges( bub_pos(), std::move( it ) );
+        return get_mapbuffer().add_item_or_charges( abs_pos(), std::move( it ) );
     } else {
         inv.assign_empty_invlet( *it, *this );
         i_add( std::move( it ) );
@@ -8258,26 +8258,26 @@ void Character::update_stamina( int turns )
 
 bool Character::invoke_item( item *used )
 {
-    return invoke_item( used, bub_pos() );
+    return invoke_item( used, abs_pos() );
 }
 
-bool Character::invoke_item( item *, const tripoint_bub_ms & )
+bool Character::invoke_item( item *, const tripoint_abs_ms & )
 {
     return false;
 }
 
 bool Character::invoke_item( item *used, const std::string &method )
 {
-    return invoke_item( used, method, bub_pos() );
+    return invoke_item( used, method, abs_pos() );
 }
 
-bool Character::invoke_item( item *used, const std::string &method, const tripoint_bub_ms &pt )
+bool Character::invoke_item( item *used, const std::string &method, const tripoint_abs_ms &pt )
 {
     if( method != iuse_TOGGLE_UPS_CHARGING && !has_enough_charges( *used, true ) ) {
         return false;
     }
     if( method == iuse_TOGGLE_UPS_CHARGING ) {
-        iuse::toggle_ups_charging( this->as_player(), used, false, pt );
+        iuse::toggle_ups_charging( this->as_player(), used, false, &pt );
         return true;
     }
     item *actually_used = used->get_usable_item( method );
@@ -8498,7 +8498,7 @@ bool Character::consume_charges( item &used, int qty )
 
     if( used.is_power_armor() ) {
         if( used.charges >= qty ) {
-            used.ammo_consume( qty, bub_pos() );
+            used.ammo_consume( qty );
         } else if( character_funcs::can_interface_armor( *this ) && has_charges( itype_bio_armor, qty ) ) {
             use_charges( itype_bio_armor, qty );
         } else {
@@ -8512,12 +8512,12 @@ bool Character::consume_charges( item &used, int qty )
         // With the new UPS system, we'll want to use any charges built up in the tool before pulling from the UPS
         // The usage of the item was already approved, so drain item if possible, otherwise use UPS
         if( used.charges >= qty ) {
-            used.ammo_consume( qty, bub_pos() );
+            used.ammo_consume( qty );
         } else {
             use_charges( itype_UPS, qty );
         }
     } else {
-        used.ammo_consume( std::min( qty, used.ammo_remaining() ), bub_pos() );
+        used.ammo_consume( std::min( qty, used.ammo_remaining() ) );
     }
     return false;
 }
@@ -8787,15 +8787,15 @@ void Character::vomit()
 {
     g->events().send<event_type::throws_up>( getID() );
 
-    map &here = get_map();
+    auto &here = get_mapbuffer();
     if( get_effect_int( effect_fungus ) >= 3 ) {
         add_msg_player_or_npc( m_bad,  _( "You vomit thousands of live spores!" ),
                                _( "<npcname> vomits thousands of live spores!" ) );
-        fungal_effects( *g, here ).fungalize( bub_pos(), this );
+        fungal_effects( *g, here ).fungalize( abs_pos(), this );
     } else if( stomach.get_calories() > 0 || get_thirst() < 0 ) {
         add_msg_player_or_npc( m_bad, _( "You throw up heavily!" ), _( "<npcname> throws up heavily!" ) );
-        here.add_field( tripoint_bub_ms( character_funcs::pick_safe_adjacent_tile( *this ).value_or(
-                                             bub_pos() ) ), fd_bile, 1 );
+        here.add_field( bub_to_abs( tripoint_bub_ms( character_funcs::pick_safe_adjacent_tile( *this ).value_or(
+                                             bub_pos() ) ) ), {fd_bile, 1} );
     } else {
         return;
     }
@@ -9885,7 +9885,7 @@ void Character::restore_scent()
 
 void Character::spores()
 {
-    map &here = get_map();
+    auto &here = get_mapbuffer();
     fungal_effects fe( *g, here );
     //~spore-release sound
     sound_event se;
@@ -9900,11 +9900,11 @@ void Character::spores()
     se.id = "misc";
     se.variant = "puff";
     sounds::sound( se );
-    for( const tripoint_bub_ms &sporep : here.points_in_radius( bub_pos(), 1 ) ) {
-        if( sporep == bub_pos() ) {
+    for( const auto &sporep : simulated_tiles_in_radius( here, abs_pos(), 1 ) ) {
+        if( sporep.abs_pos() == abs_pos() ) {
             continue;
         }
-        fe.fungalize( sporep, this, fungal_opt.spore_chance );
+        fe.fungalize( sporep.abs_pos(), this, fungal_opt.spore_chance );
     }
 }
 
@@ -10938,7 +10938,7 @@ std::vector<detached_ptr<item>> Character::use_charges( const itype_id &what, in
                 qty -= used;
                 int rand_increase = x_in_y( used % ups_eff_mult, ups_eff_mult );
                 int really_used = ( used / ups_eff_mult ) + rand_increase;
-                e->ammo_consume( really_used, bub_pos() );
+                e->ammo_consume( really_used );
                 res.push_back( std::move( split ) );
             }
             return qty != 0 ? VisitResponse::NEXT : VisitResponse::ABORT;
@@ -10950,8 +10950,7 @@ std::vector<detached_ptr<item>> Character::use_charges( const itype_id &what, in
 
 
     bool has_tool_with_UPS = false;
-    const auto p = bub_pos();
-    remove_items_with( [&qty, filter, &has_tool_with_UPS, &what, &res, &p]( detached_ptr<item> &&e ) {
+    remove_items_with( [&qty, filter, &has_tool_with_UPS, &what, &res]( detached_ptr<item> &&e ) {
         if( qty == 0 ) {
             // found sufficient charges
             return VisitResponse::ABORT;
@@ -10969,11 +10968,11 @@ std::vector<detached_ptr<item>> Character::use_charges( const itype_id &what, in
 
                 if( n == e->ammo_remaining() ) {
                     res.push_back( item::spawn( *e ) );
-                    e->ammo_consume( n, p );
+                    e->ammo_consume( n );
                 } else {
                     detached_ptr<item> split = item::spawn( *e );
                     split->ammo_set( e->ammo_current(), n );
-                    e->ammo_consume( n, p );
+                    e->ammo_consume( n );
                     res.push_back( std::move( split ) );
                 }
             }
@@ -11014,7 +11013,7 @@ bool Character::has_fire( const int quantity ) const
 {
     // TODO: Replace this with a "tool produces fire" flag.
 
-    if( get_map().has_nearby_fire( bub_pos() ) ) {
+    if( get_mapbuffer().has_nearby_fire( abs_pos() ) ) {
         return true;
     } else if( has_item_with_flag( flag_FIRE ) ) {
         return true;
@@ -11028,7 +11027,7 @@ bool Character::has_fire( const int quantity ) const
                     continue;
                 }
                 const firestarter_actor *actor = dynamic_cast<const firestarter_actor *>( usef->get_actor_ptr() );
-                if( actor->can_use( *this->as_character(), *i, false, tripoint_bub_ms::zero() ).success() ) {
+                if( actor->can_use( *this, *i, false, abs_pos() ).success() ) {
                     return true;
                 }
             } else if( has_charges( i->typeId(), quantity ) ) {
@@ -11597,6 +11596,27 @@ bool Character::can_hear( const tripoint_bub_ms &source, const int volume ) cons
                            bub_pos().x(), bub_pos().y() )] : 0;
     return ( ( dBspl_to_mdBspl( volume ) ) - get_cumulative_vol_dist_loss( 3, dist,
              tabsp ) ) >= ( SOUND_MINIMUM_VOLUME_FOR_PROPAGATION - ( ( volume_multiplier * 500 ) - 500 ) );
+}
+
+bool Character::can_hear( const tripoint_abs_ms &source, const int volume ) const
+{
+    if( is_deaf() ) {
+        return false;
+    }
+
+    // source is in-ear and at our square, we can hear it
+    if( source == abs_pos() ) {
+        return true;
+    }
+    if( is_player() || ( get_dimension() == g->u.get_dimension() && 
+        get_map().inbounds( abs_to_bub( source ) ) &&
+        get_map().inbounds( bub_pos() ) ) ) {
+        return( can_hear( abs_to_bub( source ), volume ) );
+    }
+    const int dist = rl_dist( source, abs_pos() );
+    const float volume_multiplier = hearing_ability();
+    return ( ( dBspl_to_mdBspl( volume ) ) - get_cumulative_vol_dist_loss( 3, dist, 0 ) ) >=
+           ( SOUND_MINIMUM_VOLUME_FOR_PROPAGATION - ( ( volume_multiplier * 500 ) - 500 ) );
 }
 
 float Character::hearing_ability() const

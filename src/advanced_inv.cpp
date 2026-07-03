@@ -950,7 +950,7 @@ bool advanced_inventory::move_all_items( bool nested_call )
                         quantities );
                 g->u.assign_activity( std::make_unique<player_activity>( std::make_unique<pickup_activity_actor>(
                                           targets,
-                                          panes[src].in_vehicle() ? std::nullopt : std::optional<tripoint_bub_ms>( g->u.bub_pos() )
+                                          panes[src].in_vehicle() ? std::nullopt : std::optional<tripoint_abs_ms>( g->u.abs_pos() )
                                       ) ) );
             } else {
                 g->u.assign_activity( std::make_unique<player_activity>
@@ -1169,7 +1169,7 @@ void advanced_inventory::start_activity( const aim_location destarea,
                     quantities );
             g->u.assign_activity( std::make_unique<player_activity>( std::make_unique<pickup_activity_actor>(
                                       targets,
-                                      from_vehicle ? std::nullopt : std::optional<tripoint_bub_ms>( g->u.bub_pos() )
+                                      from_vehicle ? std::nullopt : std::optional<tripoint_abs_ms>( g->u.abs_pos() )
                                   ) ) );
         } else {
             // Stash the destination

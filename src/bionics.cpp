@@ -1009,11 +1009,11 @@ bool Character::activate_bionic( bionic &bio, bool eff_only, bool *close_bionics
         if( !is_avatar() ) {
             return false;
         }
-        std::optional<tripoint_bub_ms> target = lockpick_activity_actor::select_location( g->u );
+        std::optional<tripoint_abs_ms> target = lockpick_activity_actor::select_location( g->u );
         if( target.has_value() ) {
             add_msg_activate();
             assign_activity( std::make_unique<player_activity>( lockpick_activity_actor::use_bionic(
-                                 item::spawn( bio.info().fake_item ), bub_to_abs( *target ) ) ) );
+                                 item::spawn( bio.info().fake_item ), *target ) ) );
             if( close_bionics_ui ) {
                 *close_bionics_ui = true;
             }

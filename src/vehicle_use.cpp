@@ -1432,7 +1432,7 @@ void vehicle::beeper_sound()
 void vehicle::play_music()
 {
     for( const vpart_reference &vp : get_enabled_parts( "STEREO" ) ) {
-        iuse::play_music( g->u, vp.bub_pos(), 70, 30 );
+        ::play_music( g->u, vp.abs_pos(), 70, 30 );
     }
 }
 
@@ -1833,7 +1833,7 @@ void vehicle::use_monster_capture( int part, const tripoint_bub_ms &pos )
         return;
     }
     item &base = parts[part].get_base();
-    base.type->invoke( g->u, base, pos );
+    base.type->invoke( g->u, base, bub_to_abs( pos ) );
     if( base.has_var( "contained_name" ) ) {
         parts[part].set_flag( vehicle_part::animal_flag );
     } else {
@@ -2138,7 +2138,7 @@ void vehicle::interact_with( const tripoint_bub_ms &pos, int interact_part )
         auto capacity = pseudo.ammo_capacity( true );
         auto qty = capacity - discharge_battery( capacity );
         pseudo.ammo_set( itype_battery, qty );
-        you.invoke_item( &pseudo, pos );
+        you.invoke_item( &pseudo, bub_to_abs( pos ) );
         charge_battery( pseudo.ammo_remaining() );
         return true;
     };
@@ -2166,7 +2166,8 @@ void vehicle::interact_with( const tripoint_bub_ms &pos, int interact_part )
             return;
         }
         case USE_TOWEL: {
-            iuse::towel_common( &you, nullptr, false );
+            const tripoint_abs_ms abs = bub_to_abs( pos );
+            iuse::towel_common( &you, nullptr, false, &abs );
             return;
         }
         case USE_SHOWER: {
@@ -2224,7 +2225,7 @@ void vehicle::interact_with( const tripoint_bub_ms &pos, int interact_part )
             fake_item.item_tags.insert( flag_PSEUDO );
             fake_item.charges = fuel_left( itype_battery, true );
             int original_charges = fake_item.charges;
-            you.invoke_item( &fake_item, pos );
+            you.invoke_item( &fake_item, bub_to_abs( pos ) );
             // HACK: Evil hack incoming
             activity_handlers::repair_activity_hack::patch_activity_for_vehicle(
                 *you.activity, pos, *this, interact_part, fake_item.typeId()
