@@ -115,6 +115,7 @@ void clear_items(const int zlevel) {
 void clear_overmap() {
     MAPBUFFER.clear();
     ACTIVE_OVERMAP_BUFFER.clear();
+    g->m.bind_dimension( g->m.get_bound_dimension() );
 }
 
 void clear_map() {
@@ -165,6 +166,7 @@ void build_test_map(const ter_id& terrain) {
         g->m.i_clear(p);
     }
 
+    g->m.bind_dimension( g->m.get_bound_dimension() );
     g->m.invalidate_map_cache(0);
     g->m.build_map_cache(0, true);
 

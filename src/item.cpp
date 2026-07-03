@@ -920,7 +920,16 @@ bool item::attempt_split( int qty,
         det->mark_rot_checked_now();
     }
     if( det && split_needs_rot_actualization ) {
+        // The split item is freshly spawned and has no location,
+        // but actualize_rot needs abs_pos() for temperature lookup.
+        // Inherit the original item's location temporarily.
+        if( loc ) {
+            det->set_location( loc );
+        }
         det = actualize_rot( std::move( det ), split_temperature, get_weather() );
+        if( det ) {
+            det->remove_location();
+        }
     }
     if( !det ) {
         if( charges == 0 && has_position() ) {

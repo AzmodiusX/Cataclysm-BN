@@ -844,17 +844,20 @@ auto abs_tile_handle::furn() const -> furn_id
 
 auto abs_tile_handle::ter_obj() const -> const ter_t &
 {
-    return ter().obj();
+    static const ter_t null_ter;
+    return sm_ ? ter().obj() : null_ter;
 }
 
 auto abs_tile_handle::furn_obj() const -> const furn_t &
 {
-    return furn().obj();
+    static const furn_t null_furn;
+    return sm_ ? furn().obj() : null_furn;
 }
 
 auto abs_tile_handle::trap_obj() const -> const trap &
 {
-    return trap_id().obj();
+    static const trap null_trap;
+    return sm_ ? trap_id().obj() : null_trap;
 }
 
 auto abs_tile_handle::field() const -> const class field &
@@ -5130,6 +5133,11 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
         auto &items = tile.sm->get_items( tile.local );
         if( new_item->count_by_charges() ) {
             for( auto &existing : items ) {
+                // Remove the location before merge so the merged-away item is
+                // not destroyed with a dangling loc pointer, which would
+                // trigger the "Attempted to destroy an item with a location"
+                // warning in game_object::destroy().
+                new_item->remove_location();
                 if( existing->merge_charges( std::move( new_item ) ) ) {
                     return;
                 }
@@ -8515,34 +8523,75 @@ auto mapbuffer::add_splash( const field_type_id &type, const tripoint_abs_ms &ce
 }
 
 auto mapbuffer::propagate_field( const tripoint_abs_ms &center, const field_type_id &type,
-                                 const int amount, const int max_intensity,
+                                 int amount, const int max_intensity,
                                  const mapbuffer_lookup_options options ) -> void
 {
-    // Propagate to all adjacent tiles
-    for( const auto &pt : simulated_tiles_in_radius( *this, center, 1 ) ) {
-        if( pt.abs_pos() == center ) {
+    using gas_blast = std::pair<float, tripoint_abs_ms>;
+    auto cmp = []( const gas_blast &a, const gas_blast &b ) {
+        return a.first > b.first;
+    };
+    std::priority_queue<gas_blast, std::vector<gas_blast>, decltype( cmp )> open( cmp );
+    std::unordered_set<tripoint_abs_ms> closed;
+    open.emplace( 0.0f, center );
+
+    const bool not_gas = type.obj().phase != GAS;
+
+    while( amount > 0 && !open.empty() ) {
+        tripoint_abs_ms cur_pos = open.top().second;
+        if( closed.contains( cur_pos ) ) {
+            open.pop();
             continue;
         }
-        const auto cur_intensity = pt.get_field_intensity( type );
 
-        if( cur_intensity > 0 && cur_intensity < max_intensity ) {
-            set_field_intensity( pt.abs_pos(), {
-                .type = type,
-                .intensity = cur_intensity + 1,
-                .isoffset = false,
-                .lookup = options,
-            } );
-        } else if( cur_intensity == 0 ) {
-            add_field( pt.abs_pos(), {
-                .type = type,
-                .intensity = std::min( 1, max_intensity ),
-                .age = 0_turns,
-                .lookup = options,
-            } );
+        // All points with equal gas intensity should propagate at the same time
+        std::list<gas_blast> gas_front;
+        gas_front.push_back( open.top() );
+        const int cur_intensity = get_field_intensity( cur_pos, type, options ).value_or( 0 );
+        open.pop();
+        while( !open.empty() ) {
+            tripoint_abs_ms next_pos = open.top().second;
+            if( get_field_intensity( next_pos, type, options ).value_or( 0 ) != cur_intensity ) {
+                break;
+            }
+            if( !closed.contains( next_pos ) ) {
+                gas_front.push_back( open.top() );
+            }
+            open.pop();
         }
 
-        if( amount > 1 ) {
-            propagate_field( pt.abs_pos(), type, amount - 1, max_intensity, options );
+        int increment = std::max<int>( 1, amount / static_cast<int>( gas_front.size() ) );
+
+        while( !gas_front.empty() ) {
+            gas_blast gp = random_entry_removed( gas_front );
+            const tripoint_abs_ms &gp_pos = gp.second;
+            closed.insert( gp_pos );
+            const int cur_intensity = get_field_intensity( gp_pos, type, options ).value_or( 0 );
+            if( cur_intensity < max_intensity ) {
+                const int bonus = std::min( max_intensity - cur_intensity, increment );
+                mod_field_intensity( gp_pos, {type, bonus, false, options} );
+                amount -= bonus;
+            } else {
+                amount--;
+            }
+
+            if( amount <= 0 ) {
+                return;
+            }
+
+            for( const auto &pt : simulated_tiles_in_radius( *this, gp_pos, 1 ) ) {
+                const auto pt_pos = pt.abs_pos();
+                if( pt_pos == gp_pos || closed.contains( pt_pos ) ) {
+                    continue;
+                }
+
+                if( pt.impassable() && ( not_gas || !pt.has_flag( TFLAG_PERMEABLE ) ) ) {
+                    closed.insert( pt_pos );
+                    continue;
+                }
+                if( !obstructed_by_vehicle_rotation( gp_pos, pt_pos ) ) {
+                    open.emplace( static_cast<float>( rl_dist( center, pt_pos ) ), pt_pos );
+                }
+            }
         }
     }
 }

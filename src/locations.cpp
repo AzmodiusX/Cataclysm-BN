@@ -530,7 +530,17 @@ detached_ptr<item> vehicle_item_location::detach( item *it )
     detached_ptr<item> ret = part_index >= 0 ? veh->remove_item( part_index, it ) :
                              veh->get_part_hack( hack_id ).remove_item( *it );
     if( ret ) {
-        ret = item::actualize_rot( std::move( ret ), temperature, get_weather() );
+        // Item was just removed from the vehicle and has no location;
+        // compute position from the vehicle part directly.
+        const tripoint_abs_ms part_abs_pos =
+            veh->mount_to_abs( veh->get_part_hack( hack_id ).mount );
+        ret = item::actualize_rot( std::move( ret ), {
+            .position = part_abs_pos,
+            .temperature = temperature,
+            .weather = &get_weather(),
+            .local_temperature = g && !g->new_game ?
+                veh->get_mapbuffer().get_temperature( part_abs_pos ).value_or( 0 ) : 0,
+        } );
     }
     veh->invalidate_mass();
     return ret;

@@ -669,7 +669,8 @@ int explosion_iuse::use( Character &p, item &it, bool t, const tripoint_abs_ms &
         return 0;
     }
     if( it.charges == 0 ) {
-        trigger_explosion( it.get_mapbuffer(), pos, it.activated_by );
+        auto &here = it.has_position() ? it.get_mapbuffer() : p.get_mapbuffer();
+        trigger_explosion( here, pos, it.activated_by );
     }
     return 1;
 }

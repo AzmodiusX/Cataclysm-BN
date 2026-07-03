@@ -162,6 +162,7 @@ TEST_CASE("grid_and_vehicle_outside_bubble", "[grids][vehicle]") {
     m.load(m.get_abs_sub() + point(g_mapsize, 0), true);
     GIVEN("vehicle and battery are on one grid") {
         map tm(2);
+        tm.bind_dimension( m.get_bound_dimension() );
         tm.load(old_abs_sub, false);
         auto setup = set_up_grid(tm);
         test_grid_veh(setup.grid, setup.veh, setup.battery);
