@@ -1873,17 +1873,17 @@ class map
         }
 
         auto active_submap_views() const -> std::span<const submap_ref> {
-            return active_submaps_.submaps();
+            return active_load_region_.view().submaps();
         }
 
         auto active_submap_views( const int zlev ) const
         -> std::span<const submap_ref> {
-            return active_submaps_.submaps( zlev );
+            return active_load_region_.view().submaps( zlev );
         }
 
         auto active_submap_view( const tripoint_abs_sm &pos ) const
         -> std::optional<submap_ref> {
-            return active_submaps_.get_submap_view( pos );
+            return active_load_region_.view().get_submap_view( pos );
         }
 
         auto has_active_load_region() const -> bool {
@@ -2117,7 +2117,6 @@ class map
          * anchor.
          */
         point_abs_sm abs_sub;
-        mapbuffer_bounds_view active_submaps_;
         mapbuffer_load_region active_load_region_;
 
         auto set_abs_sub( const point_abs_sm &p ) -> void {

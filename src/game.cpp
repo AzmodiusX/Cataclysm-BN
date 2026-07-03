@@ -811,6 +811,15 @@ void game::load_map( const point_abs_sm &pos_sm, const bool pump_events )
     // and also rebuilds the tracker bounds — both calls are required.
     fluid_grid::bind_dimension( new_dim_id );
 
+    // Create the load region before m.load() so that refresh_active_submap_view()
+    // (called inside set_abs_sub → m.load()) can delegate to the load region's
+    // internal view instead of building a separate snapshot.
+    {
+        const auto bubble_begin = pos_sm;
+        const auto bubble_end = bubble_begin + point_rel_sm( g_mapsize, g_mapsize );
+        update_active_load_regions( new_dim_id, bubble_begin, bubble_end );
+    }
+
     m.load( pos_sm, true, pump_events );
 
     // Repopulate the distribution-grid tracker for the current dimension.
@@ -835,11 +844,6 @@ void game::load_map( const point_abs_sm &pos_sm, const bool pump_events )
 
     // NPC loading is triggered after submap_loader.update() in the game loop
     // so that entities are registered for newly-simulated submaps.
-
-    const auto bubble_begin = pos_sm;
-    const auto bubble_end = bubble_begin + point_rel_sm( g_mapsize, g_mapsize );
-
-    update_active_load_regions( new_dim_id, bubble_begin, bubble_end );
     // map::loadn() now uses MAPBUFFER_REGISTRY.get(bound_dimension_), so
     // the load manager can safely fire on_submap_loaded/unloaded events.
     // Ensure a distribution_grid_tracker exists for every active dimension before
@@ -14986,13 +14990,19 @@ auto game::update_map( const tripoint_abs_ms &center ) -> point_rel_sm
     }
 
     // Keep the reality bubble request bounds in sync with the shifted map.
-    // Distribution-grid tracker updates are fully incremental via
-    // on_submap_loaded/unloaded; the old full-rebuild has been removed.
-    if( m.has_active_load_region() ) {
+    // The load region must be created/updated even on first call (tests that
+    // skip load_map / activate_dimension_state won't have one yet), so call
+    // update_active_load_regions unconditionally.  It internally creates a
+    // mapbuffer_load_region on first use via m.update_active_load_region().
+    // Submap-loader and entity-bookkeeping operations stay gated since they
+    // depend on the load region existing.
+    {
         ZoneScopedN( "update_map_submap_loader" );
         const auto bubble_begin = player_reality_bubble_origin().xy();
         const auto bubble_end = bubble_begin + point_rel_sm( g_mapsize, g_mapsize );
         update_active_load_regions( m.get_bound_dimension(), bubble_begin, bubble_end );
+    }
+    if( m.has_active_load_region() ) {
         // Ensure trackers exist for all active dimensions before firing events.
         for( const auto &dim_id : submap_loader.active_dimensions() ) {
             ensure_distribution_grid_tracker_for( dim_id );

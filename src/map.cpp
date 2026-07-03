@@ -524,10 +524,11 @@ auto map::bind_dimension( const dimension_id &dim ) -> void
 
 auto map::refresh_active_submap_view() -> void
 {
-    active_submaps_ = mapbuffer_bounds_view( get_mapbuffer(), abs_sub,
-    abs_sub + point_rel_sm( my_MAPSIZE, my_MAPSIZE ), {
-        .mode = mapbuffer_lookup_mode::resident_only,
-    } );
+    if( active_load_region_ ) {
+        // The load region's internal view is our single source of truth.
+        // Refresh it so newly-loaded submaps are visible.
+        active_load_region_.refresh_view();
+    }
 }
 
 auto map::update_active_load_region( const point_abs_sm &begin,
@@ -552,13 +553,14 @@ auto map::release_active_load_region() -> void
 
 auto map::validate_active_submap_view_complete( const char *context ) const -> void
 {
-    if( active_submaps_.is_complete() ) {
+    const auto &view = active_load_region_.view();
+    if( view.is_complete() ) {
         return;
     }
 
     for( const auto p : bubble_submaps() ) {
         const auto local = point_rel_sm( p.x(), p.y() );
-        if( active_submaps_.get_submap_view( local, p.z() ) ) {
+        if( view.get_submap_view( local, p.z() ) ) {
             continue;
         }
         const auto missing = map_local_to_abs( *this, p );
@@ -1446,12 +1448,13 @@ VehicleList map::get_vehicles( const tripoint_bub_sm &start, const tripoint_bub_
     }
 
     for( const auto sm_pos : tripoint_range<tripoint_bub_sm>( chunk_start, chunk_end ) ) {
-        const auto view = active_submaps_.get_submap_view( point_rel_sm( sm_pos.x(), sm_pos.y() ),
-                          sm_pos.z() );
-        if( !view ) {
+        const auto sm_view = active_load_region_.view().get_submap_view(
+                                 point_rel_sm( sm_pos.x(), sm_pos.y() ),
+                                 sm_pos.z() );
+        if( !sm_view ) {
             continue;
         }
-        const submap *current_submap = view->sm;
+        const submap *current_submap = sm_view->sm;
         for( const auto &elem : current_submap->vehicles ) {
             auto w = wrapped_vehicle{};
             w.v = elem.get();
@@ -5415,8 +5418,8 @@ std::vector<tripoint_abs_sm> map::check_submap_active_item_consistency()
     // Lazy-border submaps are intentionally excluded: they are pre-loaded for
     // shift performance but never registered in submaps_with_active_items.
     const auto &active_item_submaps = get_mapbuffer().get_submaps_with_active_items();
-    for( const auto &view : active_submaps_.submaps() ) {
-        const submap &sm = *view.sm;
+    for( const auto &sm_ref : active_load_region_.view().submaps() ) {
+        const submap &sm = *sm_ref.sm;
         if( sm.active_items.empty() ) {
             continue;
         }
@@ -7993,7 +7996,7 @@ void map::spawn_monsters_submap_group( const tripoint_bub_sm &gp, mongroup &grou
     };
 
     // If the submap is uniform, we can skip many checks
-    const auto current_submap = active_submaps_.get_submap_view( map_local_to_abs( *this, gp ) );
+    const auto current_submap = active_load_region_.view().get_submap_view( map_local_to_abs( *this, gp ) );
     if( !current_submap ) {
         return;
     }
@@ -8397,16 +8400,17 @@ void map::build_obstacle_cache( const tripoint_bub_ms &start, const tripoint_bub
     for( int smx = min_submap.x(); smx <= max_submap.x(); ++smx ) {
         for( int smy = min_submap.y(); smy <= max_submap.y(); ++smy ) {
             const auto gridp = tripoint_bub_sm( smx, smy, start.z() );
-            const auto view = active_submaps_.get_submap_view( point_rel_sm( gridp.x(), gridp.y() ),
-                              gridp.z() );
-            if( !view ) {
+            const auto sm_view = active_load_region_.view().get_submap_view(
+                                     point_rel_sm( gridp.x(), gridp.y() ),
+                                     gridp.z() );
+            if( !sm_view ) {
                 for( const auto sm_ms : submap_tiles() ) {
                     const auto ms_pos = project_combine( gridp, sm_ms );
                     obstacle_cache[ms_pos.x() * cache_sy + ms_pos.y()] = 1000.0f;
                 }
                 continue;
             }
-            const submap &cur_submap = *view->sm;
+            const submap &cur_submap = *sm_view->sm;
 
             // TODO: Init indices to prevent iterating over unused submap sections.
             for( const auto sm_ms : submap_tiles() ) {
@@ -8518,9 +8522,9 @@ void map::update_suspension_cache( const int &z )
     }
     std::list<point_abs_ms> &suspension_cache = ch.suspension_cache;
     if( !ch.suspension_cache_initialized ) {
-        for( const auto &view : active_submaps_.submaps( z ) ) {
-            const submap &cur_submap = *view.sm;
-            const auto abs_sm = view.pos.xy();
+        for( const auto &sm_ref : active_load_region_.view().submaps( z ) ) {
+            const submap &cur_submap = *sm_ref.sm;
+            const auto abs_sm = sm_ref.pos.xy();
             for( const auto sm_ms : submap_tiles() ) {
                 const ter_t &terrain = cur_submap.get_ter( sm_ms ).obj();
                 if( terrain.has_flag( TFLAG_SUSPENDED ) ) {
@@ -9371,13 +9375,14 @@ auto map::function_over( const tripoint_bub_ms &start, const tripoint_bub_ms &en
                 break;
             }
             const auto sm_pos = tripoint_bub_sm( smp, z );
-            const auto view = active_submaps_.get_submap_view( point_rel_sm( smp.x(), smp.y() ), z );
-            if( !view ) {
+            const auto sm_view = active_load_region_.view().get_submap_view(
+                                     point_rel_sm( smp.x(), smp.y() ), z );
+            if( !sm_view ) {
                 // This can happen in pocket dimensions where out-of-bounds
                 // submaps are intentionally set to null.
                 continue;
             }
-            const submap &cur_submap = *view->sm;
+            const submap &cur_submap = *sm_view->sm;
             const auto sm_ms_min = project_remain<coords::sm>( min ).remainder;
             const auto sm_ms_max = project_remain<coords::sm>( max ).remainder;
 
@@ -9835,9 +9840,9 @@ auto map::current_lightmap_source_signature() -> std::size_t
         cata::hash_combine( seed, quantized_light_signature_value( luminance ) );
     }
 
-    for( const auto &view : active_submaps_.submaps() ) {
-        const auto grid = abs_to_bub( view.pos );
-        const submap &sm = *view.sm;
+    for( const auto &sm_ref : active_load_region_.view().submaps() ) {
+        const auto grid = abs_to_bub( sm_ref.pos );
+        const submap &sm = *sm_ref.sm;
         if( sm.is_uniform ) {
             continue;
         }
@@ -10105,7 +10110,7 @@ int map::calc_max_populated_zlev()
     const auto expected_submaps = static_cast<std::size_t>( my_MAPSIZE ) *
                                   static_cast<std::size_t>( my_MAPSIZE );
     for( const auto zlev : std::views::iota( 1, OVERMAP_HEIGHT + 1 ) ) {
-        const auto submaps = active_submaps_.submaps( zlev );
+        const auto submaps = active_load_region_.view().submaps( zlev );
         if( submaps.size() != expected_submaps ||
         std::ranges::any_of( submaps, []( const submap_ref & view ) {
         return !view.sm->is_uniform;
