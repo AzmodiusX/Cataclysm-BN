@@ -36,6 +36,9 @@ template<typename T>
 void game_object<T>::set_location( location<T> *own )
 {
     if( loc != nullptr ) {
+        if( loc == own ) {
+            return;
+        }
         debugmsg( "Attempted to set the location of [%s] that already has one.", debug_name() );
         detach().release();
     }

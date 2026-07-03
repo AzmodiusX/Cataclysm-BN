@@ -26,6 +26,7 @@ class game_object
         friend location_ptr<T, false>;
         friend location_inventory;
         friend location_vector<T>;
+        friend class mapbuffer;
         friend location_visitable<location_inventory>;
         template<typename U>
         friend void ::std::swap( location_vector<U> &, location_vector<U> & ) noexcept ;

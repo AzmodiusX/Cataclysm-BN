@@ -42,6 +42,7 @@
 #include "iexamine.h"
 #include "item.h"
 #include "itype.h"
+#include "iuse_actor.h"
 #include "json.h"
 #include "map.h"
 #include "mapdata.h"
@@ -5150,18 +5151,28 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
         if( reject_noitem && ( tile_has_flag( *tile, "NOITEM" ) || tile_has_flag( *tile, "SEALED" ) ) ) {
             return false;
         }
+
+        // Set the item's location before calling any hooks that may access it
+        // (e.g. on_drop calls get_mapbuffer and abs_pos).
+        auto &items = tile->sm->get_items( tile->local );
+        new_item->set_location( items.get_location() );
+
         if( call_drop_hook_first && call_active_drop_hook( target ) ) {
+            new_item->remove_location();
             return true;
         }
         if( ( !tile_has_flag( *tile, "NOITEM" ) ||
               tile_allows_item_despite_noitem_flag( *new_item, *tile ) ) &&
             valid_limits( *tile ) ) {
             if( !call_drop_hook_first && call_active_drop_hook( target ) ) {
+                new_item->remove_location();
                 return true;
             }
             place_item( target, *tile );
             return true;
         }
+
+        new_item->remove_location();
         return false;
     };
 
@@ -5202,17 +5213,43 @@ auto mapbuffer::add_item( const tripoint_abs_ms &p, detached_ptr<item> &&new_ite
         return std::move( new_item );
     }
 
-    if( !map_mutation_hooks::prepare_item_for_placement( {
-    .dim_id = dimension_id_,
-    .p = p,
-    .item_to_place = new_item,
-} ) ) {
+    // Set the item's location once; it stays set through all processing
+    // and push_back skips the redundant set. Removed only on failure paths.
+    auto &items = tile->sm->get_items( tile->local );
+    new_item->set_location( items.get_location() );
+
+    // --- inlined from prepare_item_for_placement ---
+
+    auto reject = [&]() {
+        new_item->remove_location();
         return std::move( new_item );
+    };
+
+    if( new_item->is_food() ) {
+        new_item = item::process( std::move( new_item ), nullptr, false );
+        if( !new_item ) {
+            return std::move( new_item );
+        }
     }
 
-    if( new_item->is_map() && !new_item->has_var( "reveal_map_center_omt" ) ) {
-        new_item->set_var( "reveal_map_center_omt", project_to<coords::omt>( p ) );
+    if( new_item->made_of( LIQUID ) && tile_has_flag( *tile, "SWIMMABLE" ) ) {
+        return reject();
     }
+
+    if( tile_has_flag( *tile, "DESTROY_ITEM" ) ) {
+        return reject();
+    }
+
+    if( new_item->has_flag( flag_ACT_IN_FIRE ) &&
+        tile->sm->get_field( tile->local ).find_field( fd_fire ) != nullptr ) {
+        if( new_item->has_flag( flag_BOMB ) && new_item->is_transformable() ) {
+            new_item->convert( dynamic_cast<const iuse_transform *>(
+                                   new_item->type->get_use( "transform" )->get_actor_ptr() )->target );
+        }
+        new_item->activate();
+    }
+
+    new_item->on_placement();
 
     tile->sm->is_uniform = false;
     if( active_reality_bubble_local( p ) ) {
