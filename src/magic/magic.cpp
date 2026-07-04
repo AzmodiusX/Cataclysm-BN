@@ -759,7 +759,7 @@ bool spell::is_spell_class(const trait_id& mid) const { return mid == type->spel
 bool spell::can_cast(Character& guy) const {
     if (!type->spell_components.is_empty()
         && !type->spell_components->can_make_with_inventory(
-            guy.crafting_inventory(guy.bub_pos(), 0), return_true<item>)) {
+            guy.crafting_inventory(guy.abs_pos(), 0), return_true<item>)) {
         return false;
     }
 

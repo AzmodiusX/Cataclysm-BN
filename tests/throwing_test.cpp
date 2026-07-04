@@ -209,12 +209,8 @@ TEST_CASE("flung creatures stop at the reality bubble edge", "[throwing][bubble]
     
     auto& map = get_map();
     auto& here = map.get_mapbuffer();
-    // Use the runtime bubble size (g_mapsize) rather than the compile-time MAPSIZE,
-    // since the test map is never resized by game::setup() and retains the default
-    // constructor size of MAPSIZE=35.
-    const auto bubble_mapsize = 2 * g_reality_bubble_size + 3;
-    const auto bubble_edge_x = SEEX * bubble_mapsize - 1;
-    const auto bubble_mid_y = SEEY * bubble_mapsize / 2;
+    const auto bubble_edge_x = SEEX * T_BUBBLE_SIZE - 1;
+    const auto bubble_mid_y = SEEY * T_BUBBLE_SIZE / 2;
     const auto start = bub_to_abs(tripoint_bub_ms{bubble_edge_x - 1, bubble_mid_y, 0});
     const auto edge = bub_to_abs(tripoint_bub_ms{bubble_edge_x, bubble_mid_y, 0});
 

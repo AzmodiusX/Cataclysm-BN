@@ -29,8 +29,8 @@ static auto set_ramp_for_furniture(const int transit_x, const bool use_ramp, con
         const auto lower_zlevel = up - 1;
         const auto highx = transit_x + (up ? 0 : 1);
         const auto lowx = transit_x + (up ? 1 : 0);
-        const auto max_x = SEEX * MAPSIZE - 1;
-        const auto max_y = SEEY * MAPSIZE - 1;
+        const auto max_x = T_MAPSIZE_X - 1;
+        const auto max_y = T_MAPSIZE_Y - 1;
 
         for (const auto& handle : simulated_tiles_in_rectangle(here,
                  tripoint_abs_ms(0, 0, -1), tripoint_abs_ms(transit_x - 1, max_y, 1))) {

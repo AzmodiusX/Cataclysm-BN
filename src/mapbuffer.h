@@ -1540,15 +1540,15 @@ class mapbuffer
          */
         void transfer_all_to( mapbuffer &dest );
 
+        auto active_reality_bubble_local( const tripoint_abs_ms &p ) const
+        -> std::optional<tripoint_bub_ms>;
+
     private:
         using submap_map_t = std::unordered_map<tripoint_abs_sm, std::unique_ptr<submap>>;
         struct vehicle_footprint_entry {
             vehicle *veh = nullptr;
             std::size_t part_index = 0;
         };
-
-        auto active_reality_bubble_local( const tripoint_abs_ms &p ) const
-        -> std::optional<tripoint_bub_ms>;
         auto invalidate_active_terrain_set_caches( const tripoint_abs_ms &p, const ter_id &old_id,
                 const ter_id &new_id ) const -> void;
         auto sync_furniture_change_side_tables( const tripoint_abs_ms &p, submap &sm,

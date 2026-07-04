@@ -138,7 +138,7 @@ test_data["item_count"] = #map:get_items_at(test_data["pos"])
 
 TEST_CASE("item_lua_invoke_at_invokes_use_action", "[lua][item]") {
     auto lua = make_lua_state();
-    lua["invoke_pos"] = get_avatar().bub_pos();
+    lua["invoke_pos"] = get_avatar().abs_pos();
 
     const auto load_res = lua.load(
         "local item = Item.spawn(ItypeId.new('helmet_riot'), 1)\n"
@@ -921,11 +921,10 @@ TEST_CASE("lua_map_vehicle_replacement", "[lua]") {
     clear_all_state();
 
     auto& here = get_map();
-    const auto origin = tripoint_abs_ms(60, 60, 0);
     const auto original_facing = -90_degrees;
     const auto overridden_facing = 180_degrees;
     auto* vehicle_ptr =
-        here.add_vehicle(vproto_id("bicycle"), abs_to_bub(origin), original_facing, 0, 0);
+        here.add_vehicle(vproto_id("bicycle"), bub_test_origin(), original_facing, 0, 0);
     REQUIRE(vehicle_ptr != nullptr);
 
     sol::state lua = make_lua_state();
@@ -944,7 +943,7 @@ TEST_CASE("lua_map_vehicle_replacement", "[lua]") {
 
     const auto vehicles = here.get_vehicles();
     REQUIRE(vehicles.size() == 1);
-    CHECK(vehicles.front().pos == abs_to_bub(origin));
+    CHECK(vehicles.front().pos == bub_test_origin());
     REQUIRE(vehicles.front().v != nullptr);
     CHECK(vehicles.front().v->type == vproto_id("swivel_chair"));
     CHECK(normalize(vehicles.front().v->face.dir()) == normalize(overridden_facing));
@@ -1884,7 +1883,7 @@ TEST_CASE("lua_hook_wiring_npc_loaded", "[lua]") {
     hook_cleanup cleanup_cl{cl, ci};
 
     // spawn_npc calls g->load_npcs() which calls npc::on_load() for the new NPC
-    npc& spawned = spawn_npc(abs_to_bub(tripoint_abs_ms{50, 50, 0}), "test_talker");
+    npc& spawned = spawn_npc(abs_to_bub(tripoint_abs_ms{-10, -10, 0}), "test_talker");
 
     CHECK(*npc_ptr == &spawned);
     CHECK(*cre_ptr == static_cast<Creature*>(&spawned));

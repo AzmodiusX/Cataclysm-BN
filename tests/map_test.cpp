@@ -48,6 +48,13 @@ auto setup_adjacent_pit_move(const ter_id& origin_terrain, const ter_id& destina
     g->place_player(origin);
     here.ter_set(origin, origin_terrain);
     here.ter_set(destination, destination_terrain);
+    // ter_set does not auto-place the associated trap from terrain JSON, so do it explicitly
+    if( origin_terrain.obj().trap != tr_null ) {
+        here.trap_set( origin, origin_terrain.obj().trap );
+    }
+    if( destination_terrain.obj().trap != tr_null ) {
+        here.trap_set( destination, destination_terrain.obj().trap );
+    }
     g->u.add_known_trap(
         map_local_to_abs(here, origin),
         here.get_mapbuffer().get_trap(map_local_to_abs(here, origin))->obj());
@@ -706,7 +713,7 @@ TEST_CASE("monster_tracker_uses_absolute_positions") {
     you.setpos(test_origin);
 
     const auto monster_start = test_origin + point_rel_ms(2, 0);
-    auto* const mon = g->place_critter_at(mtype_id("mon_zombie"), bub_test_origin());
+    auto* const mon = g->place_critter_at(mtype_id("mon_zombie"), abs_to_bub(monster_start));
     REQUIRE(mon != nullptr);
     const auto monster_abs = mon->abs_pos();
 

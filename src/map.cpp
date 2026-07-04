@@ -527,7 +527,9 @@ auto map::refresh_active_submap_view() -> void
     if( active_load_region_ ) {
         // The load region's internal view is our single source of truth.
         // Refresh it so newly-loaded submaps are visible.
-        active_load_region_.refresh_view();
+        const auto begin = abs_sub;
+        const auto end = abs_sub + point_rel_sm( my_MAPSIZE, my_MAPSIZE );
+        active_load_region_.update( begin, end );
     }
 }
 
@@ -7419,6 +7421,13 @@ std::vector<tripoint_bub_ms> map::get_dir_circle( const tripoint_bub_ms &f,
 void map::load( const point_abs_sm &w, const bool update_vehicle, const bool pump_events )
 {
     funnel_locations_.clear();
+    if( !active_load_region_ ) {
+        // Create the load region before set_abs_sub() so that
+        // refresh_active_submap_view() actually populates the view.
+        // Without this, freshly-constructed maps (e.g. map tm(2) in tests)
+        // would have an empty view and fail validate_active_submap_view_complete().
+        update_active_load_region( w, w + point_rel_sm( my_MAPSIZE, my_MAPSIZE ) );
+    }
     set_abs_sub( w );
     for( const auto p : bubble_submaps() ) {
         loadn( p, update_vehicle );

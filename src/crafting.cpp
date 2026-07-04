@@ -600,13 +600,13 @@ bool Character::can_start_craft( const recipe *rec, recipe_filter_flags flags, i
 
 const inventory &Character::crafting_inventory( bool clear_path )
 {
-    return crafting_inventory( tripoint_bub_ms::zero(), PICKUP_RANGE, clear_path );
+    return crafting_inventory( abs_pos(), PICKUP_RANGE, clear_path );
 }
 
-const inventory &Character::crafting_inventory( const tripoint_bub_ms &src_pos, int radius,
+const inventory &Character::crafting_inventory( const tripoint_abs_ms &src_pos, int radius,
         bool clear_path )
 {
-    auto inv_pos = bub_to_abs( src_pos );
+    auto inv_pos = src_pos;
     if( inv_pos == tripoint_abs_ms::zero() ) {
         inv_pos = abs_pos();
     }

@@ -62,7 +62,7 @@ static void set_ramp(const int transit_x, bool use_ramp, bool up) {
         // down z0            rDl  rdh .................
         //      z-1   ......  rdl  rUh
         //                    60   61
-        for (int y = 0; y < SEEY * MAPSIZE; y++) {
+        for (int y = 0; y < T_MAPSIZE_Y; y++) {
             for (int x = 0; x < bubx; x++) {
                 const int mid = up ? upper_zlevel : lower_zlevel;
                 here.set_ter(tripoint_abs_ms(x, y, mid - 2), ter_id("t_rock"));
@@ -79,7 +79,7 @@ static void set_ramp(const int transit_x, bool use_ramp, bool up) {
             here.set_ter(ramp_up_high, ter_id("t_ramp_up_high"));
             here.set_ter(ramp_down_low, ter_id("t_ramp_down_low"));
             here.set_ter(ramp_down_high, ter_id("t_ramp_down_high"));
-            for (int x = bubx + 2; x < SEEX * MAPSIZE; x++) {
+            for (int x = bubx + 2; x < T_MAPSIZE_X; x++) {
                 here.set_ter(tripoint_abs_ms(x, y, 1), ter_id("t_open_air"));
                 here.set_ter(tripoint_abs_ms(x, y, 0), ter_id("t_pavement"));
                 here.set_ter(tripoint_abs_ms(x, y, -1), ter_id("t_rock"));

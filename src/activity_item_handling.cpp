@@ -1614,7 +1614,7 @@ static activity_reason_info can_do_activity_there( const activity_id &act, playe
                     continue;
                 }
                 const auto &reqs = vpinfo.repair_requirements();
-                const inventory &inv = p.crafting_inventory( src_loc, PICKUP_RANGE - 1, false );
+                const inventory &inv = p.crafting_inventory( bub_to_abs( src_loc ), PICKUP_RANGE - 1, false );
                 const bool can_make = reqs.can_make_with_inventory( inv, is_crafting_component );
                 p.set_value( "veh_index_type", vpinfo.name() );
                 // temporarily store the intended index, we do this so two NPCs don't try and work on the same part at same time.
@@ -1771,7 +1771,7 @@ static activity_reason_info can_do_activity_there( const activity_id &act, playe
         const map_stack stuff_there = here.i_at( src_loc );
 
         // PICKUP_RANGE -1 because we will be adjacent to the spot when arriving.
-        const inventory &pre_inv = p.crafting_inventory( src_loc, PICKUP_RANGE - 1 );
+        const inventory &pre_inv = p.crafting_inventory( bub_to_abs( src_loc ), PICKUP_RANGE - 1 );
         for( const zone_data &zone : zones ) {
             const blueprint_options &options = dynamic_cast<const blueprint_options &>( zone.get_options() );
             const construction_id index = options.get_index();

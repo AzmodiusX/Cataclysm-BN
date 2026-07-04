@@ -1893,6 +1893,11 @@ class map
                                         const point_abs_sm &end ) -> void;
         auto release_active_load_region() -> void;
 
+        void set_abs_sub( const point_abs_sm &p ) {
+            abs_sub = p;
+            refresh_active_submap_view();
+        }
+
         bool inbounds_z( const int z ) const {
             return z >= -OVERMAP_DEPTH && z <= OVERMAP_HEIGHT;
         }
@@ -2118,11 +2123,6 @@ class map
          */
         point_abs_sm abs_sub;
         mapbuffer_load_region active_load_region_;
-
-        auto set_abs_sub( const point_abs_sm &p ) -> void {
-            abs_sub = p;
-            refresh_active_submap_view();
-        }
 
         auto refresh_active_submap_view() -> void;
         auto validate_active_submap_view_complete( const char *context ) const -> void;

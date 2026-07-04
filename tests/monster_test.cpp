@@ -178,10 +178,10 @@ static int can_catch_player(
         test_player.mod_moves(target_speed);
         while (test_player.moves >= 0) {
             test_player.setpos(test_player.abs_pos() + direction_of_flight);
-            if (test_player.abs_pos().x() < SEEX * int(MAPSIZE / 2)
-                || test_player.abs_pos().y() < SEEY * int(MAPSIZE / 2)
-                || test_player.abs_pos().x() >= SEEX * (1 + int(MAPSIZE / 2))
-                || test_player.abs_pos().y() >= SEEY * (1 + int(MAPSIZE / 2))) {
+            if (test_player.abs_pos().x() < T_HALF_MAPSIZE_X
+                || test_player.abs_pos().y() < T_HALF_MAPSIZE_Y
+                || test_player.abs_pos().x() >= SEEX * (1 + int(T_HALF_MAPSIZE))
+                || test_player.abs_pos().y() >= SEEY * (1 + int(T_HALF_MAPSIZE))) {
                 auto offset = center - test_player.abs_pos();
                 test_player.setpos(center);
                 test_monster.setpos(test_monster.abs_pos() + offset);
