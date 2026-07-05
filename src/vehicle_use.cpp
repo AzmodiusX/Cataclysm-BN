@@ -538,16 +538,9 @@ bool vehicle::interact_vehicle_locked()
                 const int hotwire_time = 6000 / ( ( mechanics_skill > 0 ) ? mechanics_skill : 1 );
                 const int moves = to_moves<int>( time_duration::from_turns( hotwire_time ) );
                 //assign long activity
-                g->u.assign_activity( ACT_HOTWIRE_CAR, moves, -1, INT_MIN, _( "Hotwire" ) );
-                // use part 0 as the reference point
-                auto q = coord_translate( parts[0].mount );
-                const auto abs_veh_pos = abs_ms_location();
-                //[0]
-                g->u.activity->values.push_back( abs_veh_pos.x() + q.x() );
-                //[1]
-                g->u.activity->values.push_back( abs_veh_pos.y() + q.y() );
-                //[2]
-                g->u.activity->values.push_back( g->u.get_skill_level( skill_mechanics ) );
+                g->u.assign_activity( std::make_unique<player_activity>(
+                    std::make_unique<hotwire_car_actor>(
+                        g->u.abs_pos(), g->u.get_skill_level( skill_mechanics ) ) ) );
             } else {
                 if( has_security_working() && query_yn( _( "Trigger the %s's Alarm?" ), name ) ) {
                     is_alarm_on = true;
@@ -1304,9 +1297,8 @@ void vehicle::start_engines( const bool take_control, const bool autodrive )
     }
 
     if( !autodrive ) {
-        g->u.assign_activity( ACT_START_ENGINES, start_time );
-        g->u.activity->placement = starting_engine_position;
-        g->u.activity->values.push_back( take_control );
+        g->u.assign_activity( std::make_unique<player_activity>(
+            std::make_unique<start_engines_actor>( take_control, starting_engine_position ) ) );
     }
 }
 

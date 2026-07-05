@@ -616,10 +616,9 @@ void player_activity::do_turn( player &p )
             p.add_msg_if_player( _( "You pause for a moment to catch your breath." ) );
         }
         auto_resume = true;
-        std::unique_ptr<player_activity> new_act = std::make_unique<player_activity>
-                ( ACT_WAIT_STAMINA, to_moves<int>( 1_minutes ) );
-        new_act->values.push_back( 200 + p.get_stamina_max() / 3 );
-        p.assign_activity( std::move( new_act ) );
+        p.assign_activity( std::make_unique<player_activity>(
+            std::make_unique<wait_stamina_actor>( 200 + p.get_stamina_max() / 3 )
+        ) );
         return;
     }
 

@@ -409,8 +409,8 @@ void monexamine::shear_animal( monster &z )
     const int moves = to_moves<int>( time_duration::from_minutes( 30 / you.max_quality(
                                          qual_shear ) ) );
 
-    you.assign_activity( activity_id( "ACT_SHEAR" ), moves, -1 );
-    you.activity->coords.push_back( z.abs_pos() );
+    you.assign_activity( std::make_unique<player_activity>(
+        std::make_unique<shear_actor>( z.abs_pos() ) ) );
     // pin the sheep in place if it isn't already
     if( !z.has_effect( effect_tied ) ) {
         z.add_effect( effect_tied, 1_turns );
@@ -884,9 +884,8 @@ void monexamine::play_with( monster &z )
     std::string pet_name = z.get_name();
     avatar &you = get_avatar();
     const int turns = rng( 50, 125 ) * 100;
-    you.assign_activity( ACT_PLAY_WITH_PET, turns );
-    you.activity->monsters.push_back( g->shared_from( z ) );
-    you.activity->str_values.push_back( pet_name );
+    you.assign_activity( std::make_unique<player_activity>(
+        std::make_unique<play_with_pet_actor>( g->shared_from( z ), pet_name ) ) );
     z.add_effect( effect_ai_waiting, time_duration::from_turns( turns ) );
     z.on_pet_bonding( you.as_character() );
 }
@@ -895,9 +894,8 @@ void monexamine::train_pet( monster &z )
 {
     avatar &you = get_avatar();
     std::string pet_name = z.get_name();
-    you.assign_activity( ACT_TRAIN_PET, to_moves<int>( 60_minutes ) );
-    you.activity->monsters.push_back( g->shared_from( z ) );
-    you.activity->str_values.push_back( pet_name );
+    you.assign_activity( std::make_unique<player_activity>(
+        std::make_unique<train_pet_actor>( g->shared_from( z ), pet_name ) ) );
     z.add_effect( effect_ai_waiting, 60_minutes );
 }
 
@@ -1065,8 +1063,8 @@ void monexamine::milk_source( monster &source_mon )
     avatar &you = get_avatar();
     if( milkable_ammo->second > 0 ) {
         const int moves = to_moves<int>( time_duration::from_minutes( milkable_ammo->second / 2 ) );
-        you.assign_activity( ACT_MILK, moves, -1 );
-        you.activity->coords.push_back( source_mon.abs_pos() );
+        you.assign_activity( std::make_unique<player_activity>(
+            std::make_unique<milk_actor>( source_mon.abs_pos() ) ) );
         // pin the cow in place if it isn't already
         bool temp_tie = !source_mon.has_effect( effect_tied );
         if( temp_tie ) {

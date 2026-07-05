@@ -1,5 +1,6 @@
 #include "avatar_functions.h"
 
+#include "activity_actor_definitions.h"
 #include "activity_handlers.h"
 #include "avatar.h"
 #include "character_functions.h"
@@ -453,13 +454,12 @@ void gunmod_add( avatar &you, item &gun, item &mod )
 
     const int moves = !you.has_trait( trait_DEBUG_HS ) ? mod.type->gunmod->install_time : 0;
 
-    you.assign_activity( activity_id( "ACT_GUNMOD_ADD" ), moves, -1, 0, tool );
-    you.activity->targets.emplace_back( &gun );
-    you.activity->targets.emplace_back( &mod );
-    you.activity->values.push_back( 0 ); // dummy value
-    you.activity->values.push_back( roll ); // chance of success (%)
-    you.activity->values.push_back( risk ); // chance of damage (%)
-    you.activity->values.push_back( qty ); // tool charges
+    you.assign_activity( std::make_unique<player_activity>(
+        std::make_unique<gunmod_add_actor>(
+            roll, risk, qty, tool,
+            safe_reference<item>( &gun ), safe_reference<item>( &mod )
+        )
+    ) );
 }
 
 bool gunmod_remove( avatar &you, item &gun, item &mod )

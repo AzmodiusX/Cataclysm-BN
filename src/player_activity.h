@@ -140,6 +140,16 @@ class player_activity
         /** This replaces the former usage `act.type = ACT_NULL` */
         void set_to_null();
 
+        bool has_actor() const {
+            return actor != nullptr;
+        }
+        const activity_actor *get_actor() const {
+            return actor.get();
+        }
+        activity_actor *get_actor() {
+            return actor.get();
+        }
+
         const activity_id &id() const {
             return type;
         }

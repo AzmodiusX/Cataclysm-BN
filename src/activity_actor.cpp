@@ -2212,12 +2212,18 @@ craft_activity_actor::craft_activity_actor(
     int batch_size,
     int craft_counter,
     const tripoint_abs_ms &location,
+    bench_type bench,
+    int tools_mult_percent,
+    const tripoint_abs_ms &bench_pos,
     std::vector<comp_selection<item_comp>> item_selections,
     std::vector<comp_selection<tool_comp>> tool_selections,
     bool tools_prepaid,
     bool is_long
 ) : rec( rec ), batch_size( batch_size ), craft_counter( craft_counter ),
     location( location ),
+    bench( bench ),
+    tools_mult_percent( tools_mult_percent ),
+    bench_pos( bench_pos ),
     item_selections( std::move( item_selections ) ),
     tool_selections( std::move( tool_selections ) ),
     tools_prepaid( tools_prepaid ),
@@ -2551,6 +2557,9 @@ void craft_activity_actor::serialize( JsonOut &jsout ) const
     jsout.member( "batch_size", batch_size );
     jsout.member( "craft_counter", craft_counter );
     jsout.member( "location", location );
+    jsout.member( "bench", static_cast<int>( bench ) );
+    jsout.member( "tools_mult_percent", tools_mult_percent );
+    jsout.member( "bench_pos", bench_pos );
     jsout.member( "item_selections", item_selections );
     jsout.member( "tool_selections", tool_selections );
     jsout.member( "tools_prepaid", tools_prepaid );
@@ -2577,11 +2586,46 @@ std::unique_ptr<activity_actor> craft_activity_actor::deserialize( JsonIn &jsin 
     data.read( "batch_size", actor->batch_size );
     data.read( "craft_counter", actor->craft_counter );
     data.read( "location", actor->location );
+
+    int bt = 0;
+    data.read( "bench", bt );
+    actor->bench = static_cast<bench_type>( bt );
+    data.read( "tools_mult_percent", actor->tools_mult_percent );
+    data.read( "bench_pos", actor->bench_pos );
+
     data.read( "item_selections", actor->item_selections );
     data.read( "tool_selections", actor->tool_selections );
     data.read( "tools_prepaid", actor->tools_prepaid );
     data.read( "is_long", actor->is_long );
     data.read( "last_turn_nr", actor->last_turn_nr );
+
+    return actor;
+}
+
+std::unique_ptr<activity_actor> craft_activity_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto actor = std::make_unique<craft_activity_actor>();
+
+    // bench type from values[1]
+    auto values = data.get_int_array( "values" );
+    if( values.size() >= 2 ) {
+        actor->bench = static_cast<bench_type>( values[1] );
+    }
+    // tools_mult_percent from values[2] (optional)
+    if( values.size() >= 3 ) {
+        actor->tools_mult_percent = values[2];
+    }
+    // bench_pos from coords[0]
+    auto coords = std::vector<tripoint_abs_ms>();
+    data.read( "coords", coords );
+    if( !coords.empty() ) {
+        actor->bench_pos = coords[0];
+    }
+
+    // Note: rec, batch_size, location, item_selections, tool_selections, etc.
+    // are set by the existing ACT_CRAFT creation path via do_activity in crafting.cpp.
+    // Legacy saves have them in the player_activity fields which get read separately.
+    // This only handles the fields we're migrating INTO the actor.
 
     return actor;
 }
@@ -2724,6 +2768,1255 @@ std::unique_ptr<activity_actor> salvage_activity_actor::deserialize( JsonIn &jsi
     return actor;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// liquid_transfer_actor (ACT_FILL_LIQUID)
+// ─────────────────────────────────────────────────────────────────────────────
+
+liquid_transfer_actor::liquid_transfer_actor(
+    liquid_source_type src_type,
+    const tripoint_abs_ms &src_pos,
+    int src_part_index,
+    liquid_target_type tgt_type,
+    const tripoint_abs_ms &tgt_pos,
+    safe_reference<item> tgt_container
+) : source_type( src_type )
+  , source_pos( src_pos )
+  , source_part_index( src_part_index )
+  , target_type( tgt_type )
+  , target_pos( tgt_pos )
+  , target_container( std::move( tgt_container ) )
+{}
+
+void liquid_transfer_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "source_type", static_cast<int>( source_type ) );
+    jsout.member( "source_pos", source_pos );
+    jsout.member( "source_part_index", source_part_index );
+    jsout.member( "target_type", static_cast<int>( target_type ) );
+    jsout.member( "target_pos", target_pos );
+    jsout.member( "target_container", target_container );
+    jsout.end_object();
+}
+
+std::unique_ptr<activity_actor> liquid_transfer_actor::deserialize( JsonIn &jsin )
+{
+    auto actor = std::make_unique<liquid_transfer_actor>();
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+
+    int st = 0;
+    data.read( "source_type", st );
+    actor->source_type = static_cast<liquid_source_type>( st );
+
+    data.read( "source_pos", actor->source_pos );
+    data.read( "source_part_index", actor->source_part_index );
+
+    int tt = 0;
+    data.read( "target_type", tt );
+    actor->target_type = static_cast<liquid_target_type>( tt );
+
+    data.read( "target_pos", actor->target_pos );
+    data.read( "target_container", actor->target_container );
+
+    return actor;
+}
+
+std::unique_ptr<activity_actor> liquid_transfer_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto actor = std::make_unique<liquid_transfer_actor>();
+
+    auto values = data.get_int_array( "values" );
+    if( values.size() >= 1 ) {
+        actor->source_type = static_cast<liquid_source_type>( values[0] );
+    }
+    if( values.size() >= 2 ) {
+        actor->source_part_index = values[1];
+    }
+    if( values.size() >= 3 ) {
+        actor->target_type = static_cast<liquid_target_type>( values[2] );
+    }
+
+    auto coords = std::vector<tripoint_abs_ms>();
+    data.read( "coords", coords );
+    if( coords.size() >= 1 ) {
+        actor->source_pos = coords[0];
+    }
+    if( coords.size() >= 2 ) {
+        actor->target_pos = coords[1];
+    }
+
+    auto targets = std::vector<safe_reference<item>>();
+    data.read( "targets", targets );
+    if( !targets.empty() ) {
+        actor->target_container = std::move( targets[0] );
+    }
+
+    return actor;
+}
+
+void liquid_transfer_actor::start( player_activity &act, Character &who ) {}
+void liquid_transfer_actor::do_turn( player_activity &act, Character &who ) {}
+void liquid_transfer_actor::finish( player_activity &act, Character &who ) {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// vehicle_work_actor (ACT_VEHICLE)
+// ─────────────────────────────────────────────────────────────────────────────
+
+vehicle_work_actor::vehicle_work_actor(
+    char cmd,
+    const tripoint_abs_ms &ppos,
+    const tripoint_mnt_veh &cmount,
+    const vpart_id &ptype,
+    int pindex,
+    const std::unordered_set<tripoint_abs_ms> &vpoints
+) : command( cmd )
+  , part_pos( ppos )
+  , cursor_mount( cmount )
+  , part_type( ptype )
+  , part_index( pindex )
+  , vehicle_points( vpoints )
+{}
+
+void vehicle_work_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "command", static_cast<int>( command ) );
+    jsout.member( "part_pos", part_pos );
+    jsout.member( "cursor_mount", cursor_mount );
+    jsout.member( "part_type", part_type );
+    jsout.member( "part_index", part_index );
+    jsout.member( "vehicle_points", vehicle_points );
+    jsout.end_object();
+}
+
+std::unique_ptr<activity_actor> vehicle_work_actor::deserialize( JsonIn &jsin )
+{
+    auto actor = std::make_unique<vehicle_work_actor>();
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+
+    int cmd = 0;
+    data.read( "command", cmd );
+    actor->command = static_cast<char>( cmd );
+
+    data.read( "part_pos", actor->part_pos );
+    data.read( "cursor_mount", actor->cursor_mount );
+    data.read( "part_type", actor->part_type );
+    data.read( "part_index", actor->part_index );
+    data.read( "vehicle_points", actor->vehicle_points );
+
+    return actor;
+}
+
+std::unique_ptr<activity_actor> vehicle_work_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto values = data.get_int_array( "values" );
+
+    // Need at least 7 values for either format
+    if( values.size() < 7 ) {
+        return nullptr;
+    }
+
+    const bool very_old = values.size() == 8;
+
+    // Part position — values[0], values[1] are bubble in very old format, abs otherwise
+    tripoint_abs_ms part_pos;
+    if( very_old ) {
+        part_pos = bub_to_abs( tripoint_bub_ms( values[0], values[1], values[7] ) );
+    } else {
+        part_pos = tripoint_abs_ms( values[0], values[1], values[2] );
+    }
+
+    // Cursor mount
+    tripoint_mnt_veh cursor_mount{ 0, 0, 0 };
+    if( very_old ) {
+        cursor_mount = tripoint_mnt_veh( -values[4], -values[5], 0 );
+    } else {
+        cursor_mount = tripoint_mnt_veh( values[3], values[4], values[5] );
+    }
+
+    int part_index = values[6];
+
+    // Part type from str_values
+    auto str_values = data.get_string_array( "str_values" );
+    vpart_id part_type;
+    if( !str_values.empty() ) {
+        part_type = vpart_id( str_values[0] );
+    }
+
+    // Command from index
+    char command = static_cast<char>( data.get_int( "index" ) );
+
+    // Vehicle points from coord_set
+    auto vehicle_points = std::unordered_set<tripoint_abs_ms>();
+    data.read( "coord_set", vehicle_points );
+
+    return std::make_unique<vehicle_work_actor>(
+               command, part_pos, cursor_mount, part_type, part_index, vehicle_points );
+}
+
+void vehicle_work_actor::start( player_activity &act, Character &who ) {}
+void vehicle_work_actor::do_turn( player_activity &act, Character &who ) {}
+void vehicle_work_actor::finish( player_activity &act, Character &who ) {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// repair_actor (ACT_REPAIR_ITEM)
+// ─────────────────────────────────────────────────────────────────────────────
+
+repair_actor::repair_actor(
+    hack_type_t htype,
+    const tripoint_abs_ms &tpos,
+    const itype_id &ttool,
+    int cpart_idx
+) : hack_type( htype )
+  , target_pos( tpos )
+  , tool_type( ttool )
+  , crafter_part_index( cpart_idx )
+{}
+
+void repair_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "hack_type", static_cast<int>( hack_type ) );
+    jsout.member( "target_pos", target_pos );
+    jsout.member( "tool_type", tool_type );
+    jsout.member( "crafter_part_index", crafter_part_index );
+    jsout.end_object();
+}
+
+std::unique_ptr<activity_actor> repair_actor::deserialize( JsonIn &jsin )
+{
+    auto data = jsin.get_object();
+    auto actor = std::make_unique<repair_actor>();
+    data.read( "progress", actor->activity_actor::progress );
+    if( data.has_member( "hack_type" ) ) {
+        actor->is_hack = true;
+        int ht = 0; data.read( "hack_type", ht );
+        actor->hack_type = static_cast<hack_type_t>( ht );
+        data.read( "target_pos", actor->target_pos );
+        data.read( "tool_type", actor->tool_type );
+        data.read( "crafter_part_index", actor->crafter_part_index );
+    } else {
+        actor->is_hack = false;
+        data.read( "iuse_name", actor->iuse_name );
+        data.read( "item_pos", actor->item_pos );
+        data.read( "tool", actor->tool );
+    }
+    return actor;
+}
+
+std::unique_ptr<activity_actor> repair_actor::legacy_deserialize( const JsonObject &data )
+{
+    // Determine if hack path: has values[2] (hack_type) set to non-zero
+    auto values = data.get_int_array( "values" );
+    if( values.size() >= 3 && values[2] != 0 ) {
+        // Hack path
+        auto actor = std::make_unique<repair_actor>();
+        actor->is_hack = true;
+        if( values.size() >= 2 ) actor->crafter_part_index = values[1];
+        actor->hack_type = static_cast<hack_type_t>( values[2] );
+
+        // tool_type from str_values[1]
+        auto str_values = data.get_string_array( "str_values" );
+        if( str_values.size() >= 2 ) actor->tool_type = itype_id( str_values[1] );
+
+        // target_pos from coords[0]
+        auto coords = std::vector<tripoint_abs_ms>();
+        data.read( "coords", coords );
+        if( !coords.empty() ) actor->target_pos = coords[0];
+        return actor;
+    }
+
+    // Core path
+    auto actor = std::make_unique<repair_actor>();
+    actor->is_hack = false;
+    auto str_values = data.get_string_array( "str_values" );
+    if( !str_values.empty() ) actor->iuse_name = str_values[0];
+    auto targets = std::vector<safe_reference<item>>();
+    data.read( "targets", targets );
+    if( !targets.empty() ) actor->tool = std::move( targets[0] );
+    actor->item_pos = data.get_int( "index", -1 );
+    return actor;
+}
+
+void repair_actor::start( player_activity &act, Character &who ) {}
+void repair_actor::do_turn( player_activity &act, Character &who ) {}
+void repair_actor::finish( player_activity &act, Character &who ) {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// wear_actor (ACT_WEAR)
+// ─────────────────────────────────────────────────────────────────────────────
+
+wear_actor::wear_actor( std::vector<wear_target> targets )
+    : to_wear( std::move( targets ) )
+{}
+
+void wear_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "to_wear" );
+    jsout.start_array();
+    for( const auto &wt : to_wear ) {
+        jsout.start_object();
+        jsout.member( "item", wt.item_ref );
+        jsout.member( "quantity", wt.quantity );
+        jsout.end_object();
+    }
+    jsout.end_array();
+    jsout.end_object();
+}
+
+std::unique_ptr<activity_actor> wear_actor::deserialize( JsonIn &jsin )
+{
+    auto actor = std::make_unique<wear_actor>();
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+
+    JsonArray arr = data.get_array( "to_wear" );
+    for( JsonObject wt : arr ) {
+        wear_actor::wear_target target;
+        wt.read( "item", target.item_ref );
+        wt.read( "quantity", target.quantity );
+        actor->to_wear.push_back( std::move( target ) );
+    }
+
+    return actor;
+}
+
+std::unique_ptr<activity_actor> wear_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto actor = std::make_unique<wear_actor>();
+
+    auto targets_vec = std::vector<safe_reference<item>>();
+    data.read( "targets", targets_vec );
+
+    auto values = data.get_int_array( "values" );
+
+    size_t count = std::min( targets_vec.size(), values.size() );
+    for( size_t i = 0; i < count; i++ ) {
+        actor->to_wear.push_back( {
+            .item_ref = std::move( targets_vec[i] ),
+            .quantity = values[i]
+        } );
+    }
+
+    return actor;
+}
+
+void wear_actor::start( player_activity &act, Character &who ) {}
+void wear_actor::do_turn( player_activity &act, Character &who ) {}
+void wear_actor::finish( player_activity &act, Character &who ) {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// wait_stamina_actor (ACT_WAIT_STAMINA)
+// ─────────────────────────────────────────────────────────────────────────────
+
+wait_stamina_actor::wait_stamina_actor( int threshold )
+    : stamina_threshold( threshold )
+{}
+
+void wait_stamina_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "stamina_threshold", stamina_threshold );
+    jsout.member( "stamina_initial", stamina_initial );
+    jsout.end_object();
+}
+
+std::unique_ptr<activity_actor> wait_stamina_actor::deserialize( JsonIn &jsin )
+{
+    auto actor = std::make_unique<wait_stamina_actor>();
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "stamina_threshold", actor->stamina_threshold );
+    data.read( "stamina_initial", actor->stamina_initial );
+    return actor;
+}
+
+std::unique_ptr<activity_actor> wait_stamina_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto actor = std::make_unique<wait_stamina_actor>();
+
+    auto values = data.get_int_array( "values" );
+    if( !values.empty() ) {
+        actor->stamina_threshold = values[0];
+    }
+    if( values.size() >= 2 ) {
+        actor->stamina_initial = values[1];
+    }
+
+    return actor;
+}
+
+void wait_stamina_actor::start( player_activity &act, Character &who ) {}
+void wait_stamina_actor::do_turn( player_activity &act, Character &who ) {}
+void wait_stamina_actor::finish( player_activity &act, Character &who ) {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// hand_crank_charge_actor (ACT_HAND_CRANK)
+// ─────────────────────────────────────────────────────────────────────────────
+
+hand_crank_charge_actor::hand_crank_charge_actor(
+    int interval_turns,
+    int charges,
+    int fatigue,
+    const itype_id &ammo
+) : charge_interval_turns( interval_turns )
+  , charge_amount( charges )
+  , fatigue_amount( fatigue )
+  , ammo_type( ammo )
+{}
+
+void hand_crank_charge_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "charge_interval_turns", charge_interval_turns );
+    jsout.member( "charge_amount", charge_amount );
+    jsout.member( "fatigue_amount", fatigue_amount );
+    jsout.member( "ammo_type", ammo_type );
+    jsout.end_object();
+}
+
+std::unique_ptr<activity_actor> hand_crank_charge_actor::deserialize( JsonIn &jsin )
+{
+    auto actor = std::make_unique<hand_crank_charge_actor>();
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "charge_interval_turns", actor->charge_interval_turns );
+    data.read( "charge_amount", actor->charge_amount );
+    data.read( "fatigue_amount", actor->fatigue_amount );
+    data.read( "ammo_type", actor->ammo_type );
+    return actor;
+}
+
+std::unique_ptr<activity_actor> hand_crank_charge_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto actor = std::make_unique<hand_crank_charge_actor>();
+
+    auto values = data.get_int_array( "values" );
+    if( values.size() >= 1 ) {
+        actor->charge_interval_turns = values[0];
+    }
+    if( values.size() >= 2 ) {
+        actor->charge_amount = std::max( 1, values[1] );
+    }
+    if( values.size() >= 3 ) {
+        actor->fatigue_amount = std::max( 0, values[2] );
+    }
+
+    auto str_values = data.get_string_array( "str_values" );
+    if( !str_values.empty() && !str_values[0].empty() ) {
+        actor->ammo_type = itype_id( str_values[0] );
+    }
+
+    return actor;
+}
+
+void hand_crank_charge_actor::start( player_activity &act, Character &who ) {}
+void hand_crank_charge_actor::do_turn( player_activity &act, Character &who ) {}
+void hand_crank_charge_actor::finish( player_activity &act, Character &who ) {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// wait_npc_actor (ACT_WAIT_NPC)
+// ─────────────────────────────────────────────────────────────────────────────
+
+wait_npc_actor::wait_npc_actor( const std::string &name )
+    : npc_name( name )
+{}
+
+void wait_npc_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "npc_name", npc_name );
+    jsout.end_object();
+}
+
+std::unique_ptr<activity_actor> wait_npc_actor::deserialize( JsonIn &jsin )
+{
+    auto actor = std::make_unique<wait_npc_actor>();
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "npc_name", actor->npc_name );
+    return actor;
+}
+
+std::unique_ptr<activity_actor> wait_npc_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto str_values = data.get_string_array( "str_values" );
+    if( str_values.empty() ) {
+        return nullptr;
+    }
+    return std::make_unique<wait_npc_actor>( str_values[0] );
+}
+
+void wait_npc_actor::start( player_activity &act, Character &who ) {}
+void wait_npc_actor::do_turn( player_activity &act, Character &who ) {}
+void wait_npc_actor::finish( player_activity &act, Character &who ) {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// clear_rubble_actor (ACT_CLEAR_RUBBLE)
+// ─────────────────────────────────────────────────────────────────────────────
+
+clear_rubble_actor::clear_rubble_actor( const tripoint_abs_ms &pos )
+    : rubble_pos( pos )
+{}
+
+void clear_rubble_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "rubble_pos", rubble_pos );
+    jsout.end_object();
+}
+
+std::unique_ptr<activity_actor> clear_rubble_actor::deserialize( JsonIn &jsin )
+{
+    auto actor = std::make_unique<clear_rubble_actor>();
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "rubble_pos", actor->rubble_pos );
+    return actor;
+}
+
+std::unique_ptr<activity_actor> clear_rubble_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto coords = std::vector<tripoint_abs_ms>();
+    data.read( "coords", coords );
+    if( coords.empty() ) {
+        return nullptr;
+    }
+    return std::make_unique<clear_rubble_actor>( coords[0] );
+}
+
+void clear_rubble_actor::start( player_activity &act, Character &who ) {}
+void clear_rubble_actor::do_turn( player_activity &act, Character &who ) {}
+void clear_rubble_actor::finish( player_activity &act, Character &who ) {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// read_activity_actor (ACT_READ)
+// ─────────────────────────────────────────────────────────────────────────────
+
+read_activity_actor::read_activity_actor(
+    safe_reference<item> book_ref,
+    std::vector<npc_learner> npcs,
+    bool martial_arts
+) : book( std::move( book_ref ) )
+  , learners( std::move( npcs ) )
+  , is_martial_arts( martial_arts )
+{}
+
+void read_activity_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "book", book );
+    jsout.member( "is_martial_arts", is_martial_arts );
+    jsout.member( "learners" );
+    jsout.start_array();
+    for( const auto &l : learners ) {
+        jsout.start_object();
+        jsout.member( "id", l.id );
+        jsout.member( "penalty", l.penalty );
+        jsout.end_object();
+    }
+    jsout.end_array();
+    jsout.end_object();
+}
+
+std::unique_ptr<activity_actor> read_activity_actor::deserialize( JsonIn &jsin )
+{
+    auto actor = std::make_unique<read_activity_actor>();
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "book", actor->book );
+    data.read( "is_martial_arts", actor->is_martial_arts );
+
+    JsonArray arr = data.get_array( "learners" );
+    for( JsonObject lobj : arr ) {
+        npc_learner l;
+        lobj.read( "id", l.id );
+        lobj.read( "penalty", l.penalty );
+        actor->learners.push_back( l );
+    }
+
+    return actor;
+}
+
+std::unique_ptr<activity_actor> read_activity_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto actor = std::make_unique<read_activity_actor>();
+
+    // Check for martial arts flag first
+    auto str_values = data.get_string_array( "str_values" );
+    if( str_values.size() == 1 && str_values[0] == "martial_art" ) {
+        actor->is_martial_arts = true;
+    } else {
+        // Read NPC learners from values[] and str_values[]
+        auto values = data.get_int_array( "values" );
+        size_t count = std::min( values.size(), str_values.size() );
+        for( size_t i = 0; i < count; i++ ) {
+            npc_learner l;
+            l.id = character_id( values[i] );
+            l.penalty = std::stof( str_values[i] );
+            actor->learners.push_back( l );
+        }
+    }
+
+    // Book from targets[0]
+    auto targets = std::vector<safe_reference<item>>();
+    data.read( "targets", targets );
+    if( !targets.empty() ) {
+        actor->book = std::move( targets[0] );
+    }
+
+    return actor;
+}
+
+void read_activity_actor::start( player_activity &act, Character &who ) {}
+void read_activity_actor::do_turn( player_activity &act, Character &who ) {}
+void read_activity_actor::finish( player_activity &act, Character &who ) {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// move_loot_activity_actor (ACT_MOVE_LOOT)
+// ─────────────────────────────────────────────────────────────────────────────
+
+move_loot_activity_actor::move_loot_activity_actor(
+    int processed,
+    int init_stage,
+    const std::unordered_set<tripoint_abs_ms> &zpoints
+) : items_processed( processed )
+  , stage( init_stage )
+  , zone_points( zpoints )
+{}
+
+void move_loot_activity_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "items_processed", items_processed );
+    jsout.member( "stage", stage );
+    jsout.member( "zone_points", zone_points );
+    jsout.end_object();
+}
+
+std::unique_ptr<activity_actor> move_loot_activity_actor::deserialize( JsonIn &jsin )
+{
+    auto actor = std::make_unique<move_loot_activity_actor>();
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "items_processed", actor->items_processed );
+    data.read( "stage", actor->stage );
+    data.read( "zone_points", actor->zone_points );
+    return actor;
+}
+
+std::unique_ptr<activity_actor> move_loot_activity_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto actor = std::make_unique<move_loot_activity_actor>();
+
+    auto values = data.get_int_array( "values" );
+    if( !values.empty() ) {
+        actor->items_processed = values[0];
+    }
+    actor->stage = data.get_int( "index", 0 );
+
+    data.read( "coord_set", actor->zone_points );
+
+    return actor;
+}
+
+void move_loot_activity_actor::start( player_activity &act, Character &who ) {}
+void move_loot_activity_actor::do_turn( player_activity &act, Character &who ) {}
+void move_loot_activity_actor::finish( player_activity &act, Character &who ) {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// fetch_required_actor (ACT_FETCH_REQUIRED)
+// ─────────────────────────────────────────────────────────────────────────────
+
+fetch_required_actor::fetch_required_actor(
+    do_activity_reason reason,
+    const requirement_data &reqs,
+    const tripoint_abs_ms &placement,
+    const tripoint_abs_ms &source_zone
+) : reason( reason )
+  , fetch_requirements( reqs )
+  , placement_pos( placement )
+  , source_zone_pos( source_zone )
+{}
+
+void fetch_required_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "reason", static_cast<int>( reason ) );
+    jsout.member( "fetch_requirements", fetch_requirements );
+    jsout.member( "placement_pos", placement_pos );
+    jsout.member( "source_zone_pos", source_zone_pos );
+    jsout.end_object();
+}
+
+std::unique_ptr<activity_actor> fetch_required_actor::deserialize( JsonIn &jsin )
+{
+    auto actor = std::make_unique<fetch_required_actor>();
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+
+    int r = 0;
+    data.read( "reason", r );
+    actor->reason = static_cast<do_activity_reason>( r );
+
+    data.read( "fetch_requirements", actor->fetch_requirements );
+    data.read( "placement_pos", actor->placement_pos );
+    data.read( "source_zone_pos", actor->source_zone_pos );
+    return actor;
+}
+
+std::unique_ptr<activity_actor> fetch_required_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto actor = std::make_unique<fetch_required_actor>();
+
+    auto values = data.get_int_array( "values" );
+    if( !values.empty() ) {
+        actor->reason = static_cast<do_activity_reason>( values[0] );
+    }
+
+    // requirement string from str_values[0]
+    auto str_values = data.get_string_array( "str_values" );
+    if( !str_values.empty() ) {
+        requirement_id req_id( str_values[0] );
+        if( req_id.is_valid() ) {
+            actor->fetch_requirements = req_id.obj();
+        }
+    }
+
+    // placement_pos from coords[0]
+    auto coords = std::vector<tripoint_abs_ms>();
+    data.read( "coords", coords );
+    if( !coords.empty() ) {
+        actor->placement_pos = coords[0];
+    }
+
+    // source_zone_pos from placement
+    tripoint_abs_ms pl;
+    data.read( "placement", pl );
+    actor->source_zone_pos = pl;
+
+    return actor;
+}
+
+void fetch_required_actor::start( player_activity &act, Character &who ) {}
+void fetch_required_actor::do_turn( player_activity &act, Character &who ) {}
+void fetch_required_actor::finish( player_activity &act, Character &who ) {}
+
+// ─── tree_communion_actor ────────────────────────────────────────────────────
+
+tree_communion_actor::tree_communion_actor( int turns ) : startup_turns( turns ) {}
+void tree_communion_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "startup_turns", startup_turns ); jsout.end_object();
+}
+std::unique_ptr<activity_actor> tree_communion_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<tree_communion_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "startup_turns", actor->startup_turns ); return actor;
+}
+std::unique_ptr<activity_actor> tree_communion_actor::legacy_deserialize( const JsonObject &data ) {
+    auto actor = std::make_unique<tree_communion_actor>();
+    auto values = data.get_int_array( "values" );
+    if( !values.empty() ) actor->startup_turns = values[0];
+    return actor;
+}
+void tree_communion_actor::start( player_activity &, Character & ) {}
+void tree_communion_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void tree_communion_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── shear_actor ─────────────────────────────────────────────────────────────
+
+shear_actor::shear_actor( const tripoint_abs_ms &pos ) : target_pos( pos ) {}
+void shear_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "target_pos", target_pos ); jsout.end_object();
+}
+std::unique_ptr<activity_actor> shear_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<shear_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "target_pos", actor->target_pos ); return actor;
+}
+std::unique_ptr<activity_actor> shear_actor::legacy_deserialize( const JsonObject &data ) {
+    auto coords = std::vector<tripoint_abs_ms>(); data.read( "coords", coords );
+    if( coords.empty() ) return nullptr;
+    return std::make_unique<shear_actor>( coords[0] );
+}
+void shear_actor::start( player_activity &, Character & ) {}
+void shear_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void shear_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── milk_actor ──────────────────────────────────────────────────────────────
+
+milk_actor::milk_actor( const tripoint_abs_ms &pos ) : target_pos( pos ) {}
+void milk_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "target_pos", target_pos ); jsout.end_object();
+}
+std::unique_ptr<activity_actor> milk_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<milk_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "target_pos", actor->target_pos ); return actor;
+}
+std::unique_ptr<activity_actor> milk_actor::legacy_deserialize( const JsonObject &data ) {
+    auto coords = std::vector<tripoint_abs_ms>(); data.read( "coords", coords );
+    if( coords.empty() ) return nullptr;
+    return std::make_unique<milk_actor>( coords[0] );
+}
+void milk_actor::start( player_activity &, Character & ) {}
+void milk_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void milk_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── pulp_actor ──────────────────────────────────────────────────────────────
+
+pulp_actor::pulp_actor( const tripoint_abs_ms &pos, bool auto_no_acid )
+    : target_pos( pos ), auto_pulp_no_acid( auto_no_acid ) {}
+void pulp_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "target_pos", target_pos );
+    jsout.member( "auto_pulp_no_acid", auto_pulp_no_acid ); jsout.end_object();
+}
+std::unique_ptr<activity_actor> pulp_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<pulp_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "target_pos", actor->target_pos );
+    data.read( "auto_pulp_no_acid", actor->auto_pulp_no_acid ); return actor;
+}
+std::unique_ptr<activity_actor> pulp_actor::legacy_deserialize( const JsonObject &data ) {
+    auto actor = std::make_unique<pulp_actor>();
+    tripoint_abs_ms pl; data.read( "placement", pl );
+    actor->target_pos = pl;
+    auto str_values = data.get_string_array( "str_values" );
+    if( !str_values.empty() && str_values[0] == "auto_pulp_no_acid" ) {
+        actor->auto_pulp_no_acid = true;
+    }
+    return actor;
+}
+void pulp_actor::start( player_activity &, Character & ) {}
+void pulp_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void pulp_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── hotwire_car_actor ───────────────────────────────────────────────────────
+
+hotwire_car_actor::hotwire_car_actor( const tripoint_abs_ms &pos, int skill )
+    : veh_pos( pos ), mechanics_skill( skill ) {}
+void hotwire_car_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "veh_pos", veh_pos ); jsout.member( "mechanics_skill", mechanics_skill );
+    jsout.end_object();
+}
+std::unique_ptr<activity_actor> hotwire_car_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<hotwire_car_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "veh_pos", actor->veh_pos ); data.read( "mechanics_skill", actor->mechanics_skill );
+    return actor;
+}
+std::unique_ptr<activity_actor> hotwire_car_actor::legacy_deserialize( const JsonObject &data ) {
+    auto values = data.get_int_array( "values" );
+    if( values.size() < 3 ) return nullptr;
+    return std::make_unique<hotwire_car_actor>(
+        tripoint_abs_ms( values[0], values[1], 0 ), values[2] );
+}
+void hotwire_car_actor::start( player_activity &, Character & ) {}
+void hotwire_car_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void hotwire_car_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── start_engines_actor ─────────────────────────────────────────────────────
+
+start_engines_actor::start_engines_actor( int control, const tripoint_abs_ms &pos )
+    : take_control( control ), placement( pos ) {}
+void start_engines_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "take_control", take_control ); jsout.member( "placement", placement );
+    jsout.end_object();
+}
+std::unique_ptr<activity_actor> start_engines_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<start_engines_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "take_control", actor->take_control ); data.read( "placement", actor->placement );
+    return actor;
+}
+std::unique_ptr<activity_actor> start_engines_actor::legacy_deserialize( const JsonObject &data ) {
+    auto actor = std::make_unique<start_engines_actor>();
+    auto values = data.get_int_array( "values" );
+    if( !values.empty() ) actor->take_control = values[0];
+    data.read( "placement", actor->placement );
+    return actor;
+}
+void start_engines_actor::start( player_activity &, Character & ) {}
+void start_engines_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void start_engines_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── start_fire_actor ────────────────────────────────────────────────────────
+
+start_fire_actor::start_fire_actor( int light, const tripoint_abs_ms &pos )
+    : light_level( light ), placement( pos ) {}
+void start_fire_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "light_level", light_level ); jsout.member( "placement", placement );
+    jsout.end_object();
+}
+std::unique_ptr<activity_actor> start_fire_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<start_fire_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "light_level", actor->light_level ); data.read( "placement", actor->placement );
+    return actor;
+}
+std::unique_ptr<activity_actor> start_fire_actor::legacy_deserialize( const JsonObject &data ) {
+    auto actor = std::make_unique<start_fire_actor>();
+    auto values = data.get_int_array( "values" );
+    if( !values.empty() ) actor->light_level = values[0];
+    data.read( "placement", actor->placement );
+    return actor;
+}
+void start_fire_actor::start( player_activity &, Character & ) {}
+void start_fire_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void start_fire_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── make_zlave_actor ────────────────────────────────────────────────────────
+
+make_zlave_actor::make_zlave_actor( int success, const std::string &name )
+    : success_chance( success ), corpse_name( name ) {}
+void make_zlave_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "success_chance", success_chance ); jsout.member( "corpse_name", corpse_name );
+    jsout.end_object();
+}
+std::unique_ptr<activity_actor> make_zlave_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<make_zlave_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "success_chance", actor->success_chance ); data.read( "corpse_name", actor->corpse_name );
+    return actor;
+}
+std::unique_ptr<activity_actor> make_zlave_actor::legacy_deserialize( const JsonObject &data ) {
+    auto actor = std::make_unique<make_zlave_actor>();
+    auto values = data.get_int_array( "values" );
+    if( !values.empty() ) actor->success_chance = values[0];
+    auto str_values = data.get_string_array( "str_values" );
+    if( !str_values.empty() ) actor->corpse_name = str_values[0];
+    return actor;
+}
+void make_zlave_actor::start( player_activity &, Character & ) {}
+void make_zlave_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void make_zlave_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── study_spell_actor ───────────────────────────────────────────────────────
+
+study_spell_actor::study_spell_actor( const std::string &type ) : spell_type( type ) {}
+void study_spell_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "spell_type", spell_type ); jsout.end_object();
+}
+std::unique_ptr<activity_actor> study_spell_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<study_spell_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "spell_type", actor->spell_type ); return actor;
+}
+std::unique_ptr<activity_actor> study_spell_actor::legacy_deserialize( const JsonObject &data ) {
+    auto str_values = data.get_string_array( "str_values" );
+    if( str_values.empty() ) return nullptr;
+    return std::make_unique<study_spell_actor>( str_values[0] );
+}
+void study_spell_actor::start( player_activity &, Character & ) {}
+void study_spell_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void study_spell_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── firstaid_actor ──────────────────────────────────────────────────────────
+
+firstaid_actor::firstaid_actor( const std::string &type ) : heal_type( type ) {}
+void firstaid_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "heal_type", heal_type ); jsout.end_object();
+}
+std::unique_ptr<activity_actor> firstaid_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<firstaid_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "heal_type", actor->heal_type ); return actor;
+}
+std::unique_ptr<activity_actor> firstaid_actor::legacy_deserialize( const JsonObject &data ) {
+    auto str_values = data.get_string_array( "str_values" );
+    if( str_values.empty() ) return nullptr;
+    return std::make_unique<firstaid_actor>( str_values[0] );
+}
+void firstaid_actor::start( player_activity &, Character & ) {}
+void firstaid_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void firstaid_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── play_with_pet_actor ─────────────────────────────────────────────────────
+
+play_with_pet_actor::play_with_pet_actor( weak_ptr_fast<monster> pet_ref, const std::string &name )
+    : pet( std::move( pet_ref ) ), pet_name( name ) {}
+void play_with_pet_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "pet_name", pet_name ); jsout.end_object();
+}
+std::unique_ptr<activity_actor> play_with_pet_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<play_with_pet_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "pet_name", actor->pet_name ); return actor;
+}
+std::unique_ptr<activity_actor> play_with_pet_actor::legacy_deserialize( const JsonObject &data ) {
+    auto actor = std::make_unique<play_with_pet_actor>();
+    auto str_values = data.get_string_array( "str_values" );
+    if( !str_values.empty() ) actor->pet_name = str_values[0];
+    // monster weak_ptr is runtime-only; re-acquired at activity start
+    return actor;
+}
+void play_with_pet_actor::start( player_activity &, Character & ) {}
+void play_with_pet_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void play_with_pet_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── train_pet_actor ─────────────────────────────────────────────────────────
+
+train_pet_actor::train_pet_actor( weak_ptr_fast<monster> pet_ref, const std::string &name )
+    : pet( std::move( pet_ref ) ), pet_name( name ) {}
+void train_pet_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "pet_name", pet_name ); jsout.end_object();
+}
+std::unique_ptr<activity_actor> train_pet_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<train_pet_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "pet_name", actor->pet_name ); return actor;
+}
+std::unique_ptr<activity_actor> train_pet_actor::legacy_deserialize( const JsonObject &data ) {
+    auto actor = std::make_unique<train_pet_actor>();
+    auto str_values = data.get_string_array( "str_values" );
+    if( !str_values.empty() ) actor->pet_name = str_values[0];
+    // monster weak_ptr is runtime-only; re-acquired at activity start
+    return actor;
+}
+void train_pet_actor::start( player_activity &, Character & ) {}
+void train_pet_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void train_pet_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── socialize_actor ─────────────────────────────────────────────────────────
+
+socialize_actor::socialize_actor( const std::string &name ) : npc_name( name ) {}
+void socialize_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "npc_name", npc_name ); jsout.end_object();
+}
+std::unique_ptr<activity_actor> socialize_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<socialize_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "npc_name", actor->npc_name ); return actor;
+}
+std::unique_ptr<activity_actor> socialize_actor::legacy_deserialize( const JsonObject &data ) {
+    auto str_values = data.get_string_array( "str_values" );
+    if( str_values.empty() ) return nullptr;
+    return std::make_unique<socialize_actor>( str_values[0] );
+}
+void socialize_actor::start( player_activity &, Character & ) {}
+void socialize_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void socialize_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── train_actor ─────────────────────────────────────────────────────────────
+
+train_actor::train_actor( const std::string &name ) : skill_name( name ) {}
+void train_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "skill_name", skill_name ); jsout.end_object();
+}
+std::unique_ptr<activity_actor> train_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<train_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "skill_name", actor->skill_name ); return actor;
+}
+std::unique_ptr<activity_actor> train_actor::legacy_deserialize( const JsonObject &data ) {
+    return std::make_unique<train_actor>( data.get_string( "name" ) );
+}
+void train_actor::start( player_activity &, Character & ) {}
+void train_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void train_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── butcher_actor ───────────────────────────────────────────────────────────
+
+butcher_actor::butcher_actor( const activity_id &type, safe_reference<item> corpse_ref )
+    : act_type( type ), corpse( std::move( corpse_ref ) ) {}
+void butcher_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "act_type", act_type ); jsout.member( "corpse", corpse ); jsout.end_object();
+}
+std::unique_ptr<activity_actor> butcher_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<butcher_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "act_type", actor->act_type ); data.read( "corpse", actor->corpse ); return actor;
+}
+std::unique_ptr<activity_actor> butcher_actor::legacy_deserialize( const JsonObject &data ) {
+    // Read activity type from the save data itself
+    activity_id act_type( data.get_string( "type" ) );
+    auto targets = std::vector<safe_reference<item>>();
+    data.read( "targets", targets );
+    if( targets.empty() ) return nullptr;
+    return std::make_unique<butcher_actor>( act_type, std::move( targets[0] ) );
+}
+void butcher_actor::start( player_activity &, Character & ) {}
+void butcher_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void butcher_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── operation_actor ─────────────────────────────────────────────────────────
+
+operation_actor::operation_actor( const std::string &type, const std::string &bid,
+    const std::string &installer, bool adoc, int diff, int succ, int cap, int skill )
+    : op_type( type ), bionic_id( bid ), installer_name( installer ),
+    autodoc( adoc ), difficulty( diff ), success( succ ), capacity( cap ), pl_skill( skill ) {}
+void operation_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "op_type", op_type ); jsout.member( "bionic_id", bionic_id );
+    jsout.member( "installer_name", installer_name ); jsout.member( "autodoc", autodoc );
+    jsout.member( "difficulty", difficulty ); jsout.member( "success", success );
+    jsout.member( "capacity", capacity ); jsout.member( "pl_skill", pl_skill );
+    jsout.end_object();
+}
+std::unique_ptr<activity_actor> operation_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<operation_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "op_type", actor->op_type ); data.read( "bionic_id", actor->bionic_id );
+    data.read( "installer_name", actor->installer_name ); data.read( "autodoc", actor->autodoc );
+    data.read( "difficulty", actor->difficulty ); data.read( "success", actor->success );
+    data.read( "capacity", actor->capacity ); data.read( "pl_skill", actor->pl_skill );
+    return actor;
+}
+std::unique_ptr<activity_actor> operation_actor::legacy_deserialize( const JsonObject &data ) {
+    auto actor = std::make_unique<operation_actor>();
+    auto values = data.get_int_array( "values" );
+    if( values.size() >= 4 ) {
+        actor->difficulty = values[0]; actor->success = values[1];
+        actor->capacity = values[2]; actor->pl_skill = values[3];
+    }
+    auto str_values = data.get_string_array( "str_values" );
+    if( str_values.size() >= 1 ) actor->op_type = str_values[0];
+    if( str_values.size() >= 2 ) actor->bionic_id = str_values[1];
+    if( str_values.size() >= 3 ) actor->installer_name = str_values[2];
+    if( str_values.size() >= 4 ) actor->autodoc = ( str_values[3] == "true" );
+    return actor;
+}
+void operation_actor::start( player_activity &, Character & ) {}
+void operation_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void operation_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─── gunmod_add_actor ────────────────────────────────────────────────────────
+
+gunmod_add_actor::gunmod_add_actor( int r, int rk, int q,
+    const std::string &tool, safe_reference<item> gun_ref, safe_reference<item> mod_ref )
+    : roll( r ), risk( rk ), qty( q ), tool_name( tool ),
+    gun( std::move( gun_ref ) ), mod( std::move( mod_ref ) ) {}
+void gunmod_add_actor::serialize( JsonOut &jsout ) const {
+    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+    jsout.member( "roll", roll ); jsout.member( "risk", risk );
+    jsout.member( "qty", qty ); jsout.member( "tool_name", tool_name );
+    jsout.member( "gun", gun ); jsout.member( "mod", mod ); jsout.end_object();
+}
+std::unique_ptr<activity_actor> gunmod_add_actor::deserialize( JsonIn &jsin ) {
+    auto actor = std::make_unique<gunmod_add_actor>();
+    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    data.read( "roll", actor->roll ); data.read( "risk", actor->risk );
+    data.read( "qty", actor->qty ); data.read( "tool_name", actor->tool_name );
+    data.read( "gun", actor->gun ); data.read( "mod", actor->mod ); return actor;
+}
+std::unique_ptr<activity_actor> gunmod_add_actor::legacy_deserialize( const JsonObject &data ) {
+    auto actor = std::make_unique<gunmod_add_actor>();
+    auto values = data.get_int_array( "values" );
+    if( values.size() >= 4 ) {
+        actor->roll = values[1]; actor->risk = values[2]; actor->qty = values[3];
+    }
+    actor->tool_name = data.get_string( "name" );
+    auto targets = std::vector<safe_reference<item>>();
+    data.read( "targets", targets );
+    if( targets.size() >= 1 ) actor->gun = std::move( targets[0] );
+    if( targets.size() >= 2 ) actor->mod = std::move( targets[1] );
+    return actor;
+}
+void gunmod_add_actor::start( player_activity &, Character & ) {}
+void gunmod_add_actor::do_turn( player_activity &act, Character &who ) {
+    act.id()->call_do_turn( &act, &static_cast<player &>( who ) );
+}
+void gunmod_add_actor::finish( player_activity &act, Character &who ) {
+    act.id()->call_finish( &act, &static_cast<player &>( who ) );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dispatch tables
+// ─────────────────────────────────────────────────────────────────────────────
+
 namespace activity_actors
 {
 
@@ -2736,8 +4029,16 @@ deserialize_functions = {
     { activity_id( "ACT_BUILD" ), &construction_activity_actor::deserialize },
     { activity_id( "ACT_CRAFT" ), &craft_activity_actor::deserialize },
     { activity_id( "ACT_DIG" ), &dig_activity_actor::deserialize },
+    { activity_id( "ACT_FIRSTAID" ), &firstaid_actor::deserialize },
+    { activity_id( "ACT_FETCH_REQUIRED" ), &fetch_required_actor::deserialize },
+    { activity_id( "ACT_FIELD_DRESS" ), &butcher_actor::deserialize },
+    { activity_id( "ACT_GUNMOD_ADD" ), &gunmod_add_actor::deserialize },
+    { activity_id( "ACT_MOVE_LOOT" ), &move_loot_activity_actor::deserialize },
+    { activity_id( "ACT_OPERATION" ), &operation_actor::deserialize },
     { activity_id( "ACT_DIG_CHANNEL" ), &dig_channel_activity_actor::deserialize },
     { activity_id( "ACT_DISASSEMBLE" ), &disassemble_activity_actor::deserialize },
+    { activity_id( "ACT_DISMEMBER" ), &butcher_actor::deserialize },
+    { activity_id( "ACT_DISSECT" ), &butcher_actor::deserialize },
     { activity_id( "ACT_DROP" ), &drop_activity_actor::deserialize },
     { activity_id( "ACT_HACKING" ), &hacking_activity_actor::deserialize },
     { activity_id( "ACT_HACKSAW" ), &hacksaw_activity_actor::deserialize },
@@ -2747,10 +4048,78 @@ deserialize_functions = {
     { activity_id( "ACT_TOGGLE_GATE" ), &toggle_gate_activity_actor::deserialize },
     { activity_id( "ACT_OXYTORCH" ), &oxytorch_activity_actor::deserialize },
     { activity_id( "ACT_PICKUP" ), &pickup_activity_actor::deserialize },
+    { activity_id( "ACT_READ" ), &read_activity_actor::deserialize },
+    { activity_id( "ACT_SHEAR" ), &shear_actor::deserialize },
+    { activity_id( "ACT_SOCIALIZE" ), &socialize_actor::deserialize },
+    { activity_id( "ACT_START_ENGINES" ), &start_engines_actor::deserialize },
+    { activity_id( "ACT_START_FIRE" ), &start_fire_actor::deserialize },
     { activity_id( "ACT_STASH" ), &stash_activity_actor::deserialize },
+    { activity_id( "ACT_STUDY_SPELL" ), &study_spell_actor::deserialize },
     { activity_id( "ACT_THROW" ), &throw_activity_actor::deserialize },
+    { activity_id( "ACT_TRAIN" ), &train_actor::deserialize },
     { activity_id( "ACT_ASSIST" ), &assist_activity_actor::deserialize },
-    { activity_id( "ACT_LONGSALVAGE" ), &salvage_activity_actor::deserialize }
+    { activity_id( "ACT_BLEED" ), &butcher_actor::deserialize },
+    { activity_id( "ACT_BUTCHER" ), &butcher_actor::deserialize },
+    { activity_id( "ACT_BUTCHER_FULL" ), &butcher_actor::deserialize },
+    { activity_id( "ACT_CLEAR_RUBBLE" ), &clear_rubble_actor::deserialize },
+    { activity_id( "ACT_FILL_LIQUID" ), &liquid_transfer_actor::deserialize },
+    { activity_id( "ACT_HAND_CRANK" ), &hand_crank_charge_actor::deserialize },
+    { activity_id( "ACT_HOTWIRE_CAR" ), &hotwire_car_actor::deserialize },
+    { activity_id( "ACT_LONGSALVAGE" ), &salvage_activity_actor::deserialize },
+    { activity_id( "ACT_MAKE_ZLAVE" ), &make_zlave_actor::deserialize },
+    { activity_id( "ACT_MILK" ), &milk_actor::deserialize },
+    { activity_id( "ACT_PLAY_WITH_PET" ), &play_with_pet_actor::deserialize },
+    { activity_id( "ACT_PULP" ), &pulp_actor::deserialize },
+    { activity_id( "ACT_QUARTER" ), &butcher_actor::deserialize },
+    { activity_id( "ACT_REPAIR_ITEM" ), &repair_actor::deserialize },
+    { activity_id( "ACT_SKIN" ), &butcher_actor::deserialize },
+    { activity_id( "ACT_TRAIN_PET" ), &train_pet_actor::deserialize },
+    { activity_id( "ACT_TREE_COMMUNION" ), &tree_communion_actor::deserialize },
+    { activity_id( "ACT_VEHICLE" ), &vehicle_work_actor::deserialize },
+    { activity_id( "ACT_WAIT_NPC" ), &wait_npc_actor::deserialize },
+    { activity_id( "ACT_WAIT_STAMINA" ), &wait_stamina_actor::deserialize },
+    { activity_id( "ACT_WEAR" ), &wear_actor::deserialize }
+};
+
+const std::unordered_map<activity_id, std::unique_ptr<activity_actor>( * )( const JsonObject & )>
+legacy_deserialize_functions = {
+    { activity_id( "ACT_CLEAR_RUBBLE" ), &clear_rubble_actor::legacy_deserialize },
+    { activity_id( "ACT_CRAFT" ), &craft_activity_actor::legacy_deserialize },
+    { activity_id( "ACT_FETCH_REQUIRED" ), &fetch_required_actor::legacy_deserialize },
+    { activity_id( "ACT_FIELD_DRESS" ), &butcher_actor::legacy_deserialize },
+    { activity_id( "ACT_FILL_LIQUID" ), &liquid_transfer_actor::legacy_deserialize },
+    { activity_id( "ACT_HAND_CRANK" ), &hand_crank_charge_actor::legacy_deserialize },
+    { activity_id( "ACT_MOVE_LOOT" ), &move_loot_activity_actor::legacy_deserialize },
+    { activity_id( "ACT_OPERATION" ), &operation_actor::legacy_deserialize },
+    { activity_id( "ACT_READ" ), &read_activity_actor::legacy_deserialize },
+    { activity_id( "ACT_REPAIR_ITEM" ), &repair_actor::legacy_deserialize },
+    { activity_id( "ACT_VEHICLE" ), &vehicle_work_actor::legacy_deserialize },
+    { activity_id( "ACT_WAIT_NPC" ), &wait_npc_actor::legacy_deserialize },
+    { activity_id( "ACT_WAIT_STAMINA" ), &wait_stamina_actor::legacy_deserialize },
+    { activity_id( "ACT_WEAR" ), &wear_actor::legacy_deserialize },
+    { activity_id( "ACT_FIRSTAID" ), &firstaid_actor::legacy_deserialize },
+    { activity_id( "ACT_GUNMOD_ADD" ), &gunmod_add_actor::legacy_deserialize },
+    { activity_id( "ACT_HOTWIRE_CAR" ), &hotwire_car_actor::legacy_deserialize },
+    { activity_id( "ACT_MAKE_ZLAVE" ), &make_zlave_actor::legacy_deserialize },
+    { activity_id( "ACT_MILK" ), &milk_actor::legacy_deserialize },
+    { activity_id( "ACT_PLAY_WITH_PET" ), &play_with_pet_actor::legacy_deserialize },
+    { activity_id( "ACT_PULP" ), &pulp_actor::legacy_deserialize },
+    { activity_id( "ACT_SHEAR" ), &shear_actor::legacy_deserialize },
+    { activity_id( "ACT_SOCIALIZE" ), &socialize_actor::legacy_deserialize },
+    { activity_id( "ACT_START_ENGINES" ), &start_engines_actor::legacy_deserialize },
+    { activity_id( "ACT_START_FIRE" ), &start_fire_actor::legacy_deserialize },
+    { activity_id( "ACT_STUDY_SPELL" ), &study_spell_actor::legacy_deserialize },
+    { activity_id( "ACT_TRAIN" ), &train_actor::legacy_deserialize },
+    { activity_id( "ACT_TRAIN_PET" ), &train_pet_actor::legacy_deserialize },
+    { activity_id( "ACT_TREE_COMMUNION" ), &tree_communion_actor::legacy_deserialize },
+    { activity_id( "ACT_BLEED" ), &butcher_actor::legacy_deserialize },
+    { activity_id( "ACT_BUTCHER" ), &butcher_actor::legacy_deserialize },
+    { activity_id( "ACT_BUTCHER_FULL" ), &butcher_actor::legacy_deserialize },
+    { activity_id( "ACT_DISMEMBER" ), &butcher_actor::legacy_deserialize },
+    { activity_id( "ACT_DISSECT" ), &butcher_actor::legacy_deserialize },
+    { activity_id( "ACT_FIELD_DRESS" ), &butcher_actor::legacy_deserialize },
+    { activity_id( "ACT_QUARTER" ), &butcher_actor::legacy_deserialize },
+    { activity_id( "ACT_SKIN" ), &butcher_actor::legacy_deserialize }
 };
 } // namespace activity_actors
 

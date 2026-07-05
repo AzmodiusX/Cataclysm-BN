@@ -18,6 +18,7 @@
 
 #include "action_time_scale.h"
 #include "action.h"
+#include "activity_actor_definitions.h"
 #include "activity_handlers.h"
 #include "addiction.h"
 #include "ammo.h"
@@ -1911,11 +1912,10 @@ int firestarter_actor::use( Character &p, item &it, bool t, const tripoint_abs_m
     // skill gains are handled by the activity, but stored here in the index field
     const int potential_skill_gain =
         moves_modifier + moves_cost_fast / 100.0 + 2;
-    p.assign_activity( ACT_START_FIRE, moves, potential_skill_gain,
-                       0, it.tname() );
+    auto fire_actor = std::make_unique<start_fire_actor>(
+        g->natural_light_level( pos.z() ), pos );
+    p.assign_activity( std::make_unique<player_activity>( std::move( fire_actor ) ) );
     p.activity->add_tool( &it );
-    p.activity->values.push_back( g->natural_light_level( pos.z() ) );
-    p.activity->placement = pos;
     // charges to use are handled by the activity
     return 0;
 }
@@ -2306,9 +2306,8 @@ int enzlave_actor::use( Character &p, item &it, bool t, const tripoint_abs_ms & 
     /** @EFFECT_FIRSTAID speeds up enzlavement */
     const int moves = difficulty * to_moves<int>( 12_seconds ) / p.get_skill_level( skill_firstaid );
 
-    p.assign_activity( ACT_MAKE_ZLAVE, moves );
-    p.activity->values.push_back( success );
-    p.activity->str_values.push_back( corpses[selected_corpse]->display_name() );
+    p.assign_activity( std::make_unique<player_activity>(
+        std::make_unique<make_zlave_actor>( success, corpses[selected_corpse]->display_name() ) ) );
 
     return cost >= 0 ? cost : it.ammo_required();
 }
@@ -3303,11 +3302,11 @@ int repair_item_actor::use( Character &p, item &it, bool, const tripoint_abs_ms 
         return 0;
     }
 
-    p.assign_activity( ACT_REPAIR_ITEM, 0, p.get_item_position( &it ), INT_MIN );
-    // We also need to store the repair actor subtype in the activity
-    p.activity->str_values.push_back( type );
-    // storing of item_location to support repairs by tools on the ground
-    p.activity->targets.emplace_back( &it );
+    p.assign_activity( std::make_unique<player_activity>(
+        std::make_unique<repair_actor>(
+            type, safe_reference<item>( &it ), p.get_item_position( &it )
+        )
+    ) );
     // All repairs are done in the activity, including charge cost and target item selection
     return 0;
 }
@@ -3920,9 +3919,9 @@ int heal_actor::use( Character &p, item &it, bool, const tripoint_abs_ms &pos ) 
     if( long_action && &patient == &p && !p.is_npc() ) {
         // Assign first aid long action.
         /** @EFFECT_FIRSTAID speeds up firstaid activity */
-        p.assign_activity( ACT_FIRSTAID, cost, 0, 0, it.tname() );
+        p.assign_activity( std::make_unique<player_activity>(
+        std::make_unique<firstaid_actor>( hpp.str() ) ) );
         p.activity->targets.emplace_back( &it );
-        p.activity->str_values.push_back( hpp.str() );
         p.moves = 0;
         return 0;
     }
@@ -6206,10 +6205,12 @@ auto hand_crank_actor::use( Character &p, item &it, bool, const tripoint_abs_ms 
         const auto required_duration = resolved_charge_interval * required_intervals;
         const auto moves = to_moves<int>( required_duration );
         const auto interval_turns = to_turns<int>( resolved_charge_interval );
-        p.assign_activity( ACT_HAND_CRANK, moves, -1, 0, activity_name );
+        p.assign_activity( std::make_unique<player_activity>(
+            std::make_unique<hand_crank_charge_actor>(
+                interval_turns, safe_charge_amount, fatigue_per_interval, ammo_type
+            )
+        ) );
         p.activity->add_tool( &it );
-        p.activity->values = { interval_turns, safe_charge_amount, fatigue_per_interval };
-        p.activity->str_values = { ammo_type.str(), fully_charged_message, exhausted_message };
     } else {
         p.add_msg_if_player( _( already_charged_message ), it.tname(), magazine->tname() );
     }

@@ -207,19 +207,24 @@ void player_activity::serialize( JsonOut &json ) const
         json.member( "actor", actor );
         json.member( "index", index );
         json.member( "position", position );
-        json.member( "coords", coords );
-        json.member( "coord_set", coord_set );
-        json.member( "name", name );
-        json.member( "targets", targets );
-        json.member( "placement", placement );
-        json.member( "values", values );
-        json.member( "str_values", str_values );
-        json.member( "auto_resume", auto_resume );
-        json.member( "monsters", monsters );
-        json.member( "tools", tools_ );
-        json.member( "moves_total", moves_total );
-        json.member( "moves_left", moves_left );
-        json.member( "assistants_ids", assistants_ids_ );
+        // Legacy fields — only written for non-actor activities (actor handles its own data)
+        if( !actor ) {
+            json.member( "coords", coords );
+            json.member( "coord_set", coord_set );
+            json.member( "name", name );
+            json.member( "targets", targets );
+            json.member( "placement", placement );
+            json.member( "values", values );
+            json.member( "str_values", str_values );
+            json.member( "monsters", monsters );
+            json.member( "tools", tools_ );
+            json.member( "moves_total", moves_total );
+            json.member( "moves_left", moves_left );
+            json.member( "assistants_ids", assistants_ids_ );
+        } else {
+            json.member( "moves_total", moves_total );
+            json.member( "moves_left", moves_left );
+        }
     }
     json.end_object();
 }
@@ -242,7 +247,24 @@ void player_activity::deserialize( JsonIn &jsin )
     // this may cause inconvenience but should avoid any lasting damage to npcs
     if( has_actor && type != ACT_MIGRATION_CANCEL ) {
         if( !data.has_member( "actor" ) || data.has_null( "actor" ) ) {
-            type = ACT_MIGRATION_CANCEL;
+            // Try legacy deserialization: construct actor from player_activity-level fields
+            bool migrated = false;
+            auto legacy_des = activity_actors::legacy_deserialize_functions.find( type );
+            if( legacy_des != activity_actors::legacy_deserialize_functions.end() ) {
+                // Read moves for progress tracking before constructing actor
+                data.read( "moves_total", moves_total );
+                int ml = data.get_int( "moves_left" );
+                if( ml > 0 ) {
+                    moves_left = ml;
+                    actor = legacy_des->second( data );
+                    if( actor ) {
+                        migrated = true;
+                    }
+                }
+            }
+            if( !migrated ) {
+                type = ACT_MIGRATION_CANCEL;
+            }
         } else {
             auto actor = data.get_object( "actor" );
             actor.allow_omitted_members();

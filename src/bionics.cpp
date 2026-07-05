@@ -2354,21 +2354,12 @@ bool Character::uninstall_bionic( const bionic_id &b_id, Character &installer, b
         perform_uninstall( b_id, difficulty, success, b_id->capacity, pl_skill );
         return true;
     }
-    assign_activity( ACT_OPERATION, to_moves<int>( difficulty * 20_minutes ) );
-
-    activity->values.push_back( difficulty );
-    activity->values.push_back( success );
-    activity->values.push_back( units::to_kilojoule( b_id->capacity ) );
-    activity->values.push_back( pl_skill );
-    activity->values.push_back( 0 );
-    activity->str_values.emplace_back( "uninstall" );
-    activity->str_values.push_back( b_id.str() );
-    activity->str_values.emplace_back( "" ); // installer_name is unused for uninstall
-    if( autodoc ) {
-        activity->str_values.emplace_back( "true" );
-    } else {
-        activity->str_values.emplace_back( "false" );
-    }
+    assign_activity( std::make_unique<player_activity>(
+        std::make_unique<operation_actor>(
+            "uninstall", b_id.str(), "", autodoc,
+            difficulty, success, units::to_kilojoule( b_id->capacity ), pl_skill
+        )
+    ) );
     const auto operation_duration = scaled_operation_duration( difficulty );
     for( const std::pair<const bodypart_str_id, int> &elem : b_id->occupied_bodyparts ) {
         add_effect( effect_under_op, operation_duration, elem.first, difficulty );
@@ -2644,22 +2635,15 @@ bool Character::install_bionics( const itype &type, Character &installer, bool a
                          bioid->canceled_mutations );
         return true;
     }
-    assign_activity( ACT_OPERATION, to_moves<int>( difficulty * 20_minutes ) );
-    activity->values.push_back( difficulty );
-    activity->values.push_back( success );
-    activity->values.push_back( units::to_joule( bioid->capacity ) );
-    activity->values.push_back( pl_skill );
-    activity->values.push_back( 0 );
-    activity->str_values.emplace_back( "install" );
-    activity->str_values.push_back( bioid.str() );
-
-    if( installer.has_trait( trait_PROF_MED ) || installer.has_trait( trait_PROF_AUTODOC ) ) {
-        activity->str_values.push_back( installer.disp_name( true ) );
-    } else {
-        activity->str_values.emplace_back( "NOT_MED" );
-    }
-    if( autodoc ) {
-        activity->str_values.emplace_back( "true" );
+    std::string installer_n = installer.has_trait( trait_PROF_MED )
+        || installer.has_trait( trait_PROF_AUTODOC )
+        ? installer.disp_name( true ) : "NOT_MED";
+    assign_activity( std::make_unique<player_activity>(
+        std::make_unique<operation_actor>(
+            "install", bioid.str(), installer_n, autodoc,
+            difficulty, success, units::to_joule( bioid->capacity ), pl_skill
+        )
+    ) );
     } else {
         activity->str_values.emplace_back( "false" );
     }

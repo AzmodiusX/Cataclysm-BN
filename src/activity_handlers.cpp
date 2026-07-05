@@ -17,6 +17,7 @@
 #include "pathfinding.h"
 #include "action.h"
 #include "action_time_scale.h"
+#include "activity_actor_definitions.h"
 #include "advanced_inv.h"
 #include "armor_layers.h"
 #include "avatar.h"
@@ -1166,6 +1167,15 @@ static void butchery_quarter( item *corpse_item, const player &p )
 
 void activity_handlers::butcher_finish( player_activity *act, player *p )
 {
+    // Bridge: populate legacy fields from actor when present
+    if( act->has_actor() && act->targets.empty() ) {
+        auto *ba = static_cast<butcher_actor *>( act->get_actor() );
+        if( safe_reference<item> *corpse = &ba->get_corpse(); *corpse ) {
+            act->targets.emplace_back( &**corpse );
+        }
+        act->index = true;
+    }
+
     // No targets means we are done
     if( act->targets.empty() ) {
         act->set_to_null();
@@ -2185,7 +2195,10 @@ static bool magic_train( player_activity *act, player *p )
     if( !p ) {
         return false;
     }
-    const spell_id &sp_id = spell_id( act->name );
+    const std::string name = act->has_actor()
+        ? static_cast<train_actor *>( act->get_actor() )->get_name()
+        : act->name;
+    const spell_id &sp_id = spell_id( name );
     if( sp_id.is_valid() ) {
         const bool knows = g->u.magic->knows_spell( sp_id );
         if( knows ) {
@@ -2211,7 +2224,10 @@ static bool magic_train( player_activity *act, player *p )
 
 void activity_handlers::train_finish( player_activity *act, player *p )
 {
-    const skill_id sk( act->name );
+    const std::string name = act->has_actor()
+        ? static_cast<train_actor *>( act->get_actor() )->get_name()
+        : act->name;
+    const skill_id sk( name );
     if( sk.is_valid() ) {
         const Skill &skill = sk.obj();
         std::string skill_name = skill.name();
@@ -2229,7 +2245,7 @@ void activity_handlers::train_finish( player_activity *act, player *p )
         return;
     }
 
-    const matype_id &ma_id = matype_id( act->name );
+    const matype_id &ma_id = matype_id( name );
     if( ma_id.is_valid() ) {
         const martialart &mastyle = ma_id.obj();
         // Trained martial arts,
@@ -2523,13 +2539,6 @@ namespace repair_activity_hack
 // never use `player_activity::coords`
 // and use `player::activity::values` with only one item.
 
-namespace
-{
-enum class hack_type_t : int {
-    vehicle = 0,
-    furniture = 1
-};
-
 std::optional<hack_type_t> get_hack_type( const player_activity &activity )
 {
     // Uses real tool
@@ -2641,8 +2650,6 @@ void discharge_real_power_source(
     }
 }
 
-} // namespace
-
 void patch_activity_for_vehicle(
     player_activity &activity,
     const tripoint_bub_ms &veh_part_position,
@@ -2661,14 +2668,11 @@ void patch_activity_for_vehicle(
     // This tells activity, that real item doesn't exists in inventory.
     activity.index = INT_MIN;
     // Data for lookup vehicle part
-    activity.coords = { bub_to_abs( veh_part_position ) };
-    activity.values = {
-        // Because we called only on start of repair
-        static_cast<int>( repeat_type::REPEAT_INIT ),
-        crafter_index,
-        static_cast<int>( hack_type_t::vehicle )
-    };
-    activity.str_values.emplace_back( static_cast<std::string>( it ) );
+    activity = player_activity(
+        std::make_unique<repair_actor>(
+            hack_type_t::vehicle, bub_to_abs( veh_part_position ), it, crafter_index
+        )
+    );
 }
 
 void patch_activity_for_furniture( player_activity &activity,
@@ -2685,14 +2689,11 @@ void patch_activity_for_furniture( player_activity &activity,
     // This tells activity, that real item doesn't exists in inventory.
     activity.index = INT_MIN;
     // Data for lookup furniture
-    activity.coords = { bub_to_abs( furniture_position ) };
-    activity.values = {
-        // Because we called only on start of repair
-        static_cast<int>( repeat_type::REPEAT_INIT ),
-        0, // Useless for us, set only to be compatible with vehicle
-        static_cast<int>( hack_type_t::furniture )
-    };
-    activity.str_values.emplace_back( static_cast<std::string>( itt ) );
+    activity = player_activity(
+        std::make_unique<repair_actor>(
+            hack_type_t::furniture, bub_to_abs( furniture_position ), itt, -1
+        )
+    );
 }
 
 } // namespace repair_activity_hack
@@ -2702,7 +2703,7 @@ void activity_handlers::train_skill_do_turn( player_activity *act, player *p )
 {
     namespace hack = activity_handlers::repair_activity_hack;
 
-    std::optional<hack::hack_type_t> hack_type = hack::get_hack_type( *act );
+    std::optional<hack_type_t> hack_type = hack::get_hack_type( *act );
     const tripoint_bub_ms hack_pos = hack_type ? hack::get_position( * act ) : tripoint_bub_ms{};
     int hack_original_charges = 0;
     item *main_tool = nullptr;
@@ -2787,11 +2788,28 @@ void activity_handlers::repair_item_finish( player_activity *act, player *p )
 {
     namespace hack = activity_handlers::repair_activity_hack;
 
+    // Bridge: populate legacy fields from actor when present (core path only)
+    if( act->has_actor() ) {
+        auto *ra = static_cast<repair_actor *>( act->get_actor() );
+        if( !ra->is_hack_path() ) {
+            if( act->targets.empty() ) {
+                act->targets.emplace_back( &*ra->get_tool() );
+            }
+            if( act->str_values.empty() ) {
+                act->str_values.push_back( ra->get_iuse_name() );
+            }
+            if( act->values.empty() ) {
+                act->values.push_back( 0 ); // REPEAT_INIT
+            }
+            act->index = ra->get_item_pos();
+        }
+    }
+
     const std::string iuse_name_string = act->get_str_value( 0, "repair_item" );
     repeat_type repeat = static_cast<repeat_type>( act->get_value( 0, REPEAT_INIT ) );
 
     // nullopt if used real tool
-    std::optional<hack::hack_type_t> hack_type = hack::get_hack_type( *act );
+    std::optional<hack_type_t> hack_type = hack::get_hack_type( *act );
     item *fake_tool = nullptr;
     // real tool if used.
     item *ploc = nullptr;
@@ -3070,23 +3088,30 @@ void activity_handlers::mend_item_finish( player_activity *act, player *p )
 void activity_handlers::gunmod_add_finish( player_activity *act, player *p )
 {
     act->set_to_null();
-    // first unpack all of our arguments
-    if( act->values.size() != 4 ) {
-        debugmsg( "Insufficient arguments to ACT_GUNMOD_ADD" );
-        return;
+
+    // Extract data from actor or legacy fields
+    int roll, risk, qty;
+    itype_id tool;
+    item *gun_ptr, *mod_ptr;
+
+    if( act->has_actor() ) {
+        auto &a = *static_cast<gunmod_add_actor *>( act->get_actor() );
+        roll = a.get_roll(); risk = a.get_risk(); qty = a.get_qty();
+        tool = itype_id( a.get_tool_name() );
+        gun_ptr = &*a.get_gun(); mod_ptr = &*a.get_mod();
+    } else {
+        if( act->values.size() != 4 ) {
+            debugmsg( "Insufficient arguments to ACT_GUNMOD_ADD" );
+            return;
+        }
+        roll = act->values[1]; risk = act->values[2]; qty = act->values[3];
+        tool = itype_id( act->name );
+        gun_ptr = &*act->targets.at( 0 );
+        mod_ptr = &*act->targets.at( 1 );
     }
 
-    item &gun = *act->targets.at( 0 );
-    item &mod = *act->targets.at( 1 );
-
-    // chance of success (%)
-    const int roll = act->values[1];
-    // chance of damage (%)
-    const int risk = act->values[2];
-
-    // any tool charges used during installation
-    const itype_id tool( act->name );
-    const int qty = act->values[3];
+    item &gun = *gun_ptr;
+    item &mod = *mod_ptr;
 
     if( !gun.is_gunmod_compatible( mod ).success() ) {
         debugmsg( "Invalid arguments in ACT_GUNMOD_ADD" );
@@ -3737,7 +3762,20 @@ void activity_handlers::try_sleep_finish( player_activity *act, player *p )
 void activity_handlers::operation_finish( player_activity *act, player *p )
 {
     map &here = get_map();
-    if( act->str_values[3] == "true" ) {
+    // Extract data from actor or legacy fields
+    std::string op_type, autodoc_str;
+    int success_val;
+    if( act->has_actor() ) {
+        auto &a = *static_cast<operation_actor *>( act->get_actor() );
+        op_type = a.get_op_type();
+        success_val = a.get_success();
+        autodoc_str = a.is_autodoc() ? "true" : "false";
+    } else {
+        op_type = act->str_values[0];
+        success_val = act->values[1];
+        autodoc_str = act->str_values[3];
+    }
+    if( autodoc_str == "true" ) {
         sound_event se;
         const std::list<tripoint_bub_ms> autodocs = here.find_furnitures_or_vparts_with_flag_in_radius(
                     p->bub_pos(),
@@ -3747,14 +3785,14 @@ void activity_handlers::operation_finish( player_activity *act, player *p )
         se.volume = 60;
         se.category = sounds::sound_t::music;
         se.id = "Autodoc";
-        if( act->values[1] > 0 ) {
+        if( success_val > 0 ) {
             add_msg( m_good,
                      _( "The Autodoc returns to its resting position after successfully performing the operation." ) );
             se.description = _( "a short upbeat jingle: \"Operation successful\"" );
             se.variant = "success";
         } else {
             se.variant = "failure";
-            if( act->str_values[0] == "install" ) {
+            if( op_type == "install" ) {
                 add_msg( m_warning,
                          _( "The Autodoc completes installation and activates bionic but reports about complications during operation." ) );
                 se.description =
@@ -3767,11 +3805,11 @@ void activity_handlers::operation_finish( player_activity *act, player *p )
         }
         sounds::sound( se );
     } else {
-        if( act->values[1] > 0 ) {
+        if( success_val > 0 ) {
             add_msg( m_good,
                      _( "The operation is a success." ) );
         } else {
-            if( act->str_values[0] == "install" ) {
+            if( op_type == "install" ) {
                 add_msg( m_warning,
                          _( "Bionic was installed and activated but a complication happened during operation!" ) );
             } else {

@@ -913,8 +913,8 @@ static void smash()
 
     if( should_pulp ) {
         // do activity forever. ACT_PULP stops itself
-        u.assign_activity( std::make_unique<player_activity>( ACT_PULP, calendar::INDEFINITELY_LONG, 0 ) );
-        u.activity->placement = bub_to_abs( smashp );
+        u.assign_activity( std::make_unique<player_activity>(
+            std::make_unique<pulp_actor>( bub_to_abs( smashp ) ) ) );
         return; // don't smash terrain if we've smashed a corpse
     }
 

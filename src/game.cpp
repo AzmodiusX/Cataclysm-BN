@@ -11936,28 +11936,36 @@ static void butcher_submenu( const std::vector<item *> &corpses, int corpse = -1
     smenu.query();
     switch( smenu.ret ) {
         case BUTCHER:
-            you.assign_activity( activity_id( "ACT_BUTCHER" ), 0, true );
+            you.assign_activity( std::make_unique<player_activity>(
+                std::make_unique<butcher_actor>( activity_id( "ACT_BUTCHER" ), safe_reference<item>() ) ) );
             break;
         case BUTCHER_FULL:
-            you.assign_activity( activity_id( "ACT_BUTCHER_FULL" ), 0, true );
+            you.assign_activity( std::make_unique<player_activity>(
+                std::make_unique<butcher_actor>( activity_id( "ACT_BUTCHER_FULL" ), safe_reference<item>() ) ) );
             break;
         case F_DRESS:
-            you.assign_activity( activity_id( "ACT_FIELD_DRESS" ), 0, true );
+            you.assign_activity( std::make_unique<player_activity>(
+                std::make_unique<butcher_actor>( activity_id( "ACT_FIELD_DRESS" ), safe_reference<item>() ) ) );
             break;
         case BLEED:
-            you.assign_activity( activity_id( "ACT_BLEED" ), 0, true );
+            you.assign_activity( std::make_unique<player_activity>(
+                std::make_unique<butcher_actor>( activity_id( "ACT_BLEED" ), safe_reference<item>() ) ) );
             break;
         case SKIN:
-            you.assign_activity( activity_id( "ACT_SKIN" ), 0, true );
+            you.assign_activity( std::make_unique<player_activity>(
+                std::make_unique<butcher_actor>( activity_id( "ACT_SKIN" ), safe_reference<item>() ) ) );
             break;
         case QUARTER:
-            you.assign_activity( activity_id( "ACT_QUARTER" ), 0, true );
+            you.assign_activity( std::make_unique<player_activity>(
+                std::make_unique<butcher_actor>( activity_id( "ACT_QUARTER" ), safe_reference<item>() ) ) );
             break;
         case DISMEMBER:
-            you.assign_activity( activity_id( "ACT_DISMEMBER" ), 0, true );
+            you.assign_activity( std::make_unique<player_activity>(
+                std::make_unique<butcher_actor>( activity_id( "ACT_DISMEMBER" ), safe_reference<item>() ) ) );
             break;
         case DISSECT:
-            you.assign_activity( activity_id( "ACT_DISSECT" ), 0, true );
+            you.assign_activity( std::make_unique<player_activity>(
+                std::make_unique<butcher_actor>( activity_id( "ACT_DISSECT" ), safe_reference<item>() ) ) );
             break;
         default:
             return;
@@ -13027,9 +13035,11 @@ void game::apply_movement_effects()
                 corpses.push_back( it );
             }
             if( !corpses.empty() ) {
-                u.assign_activity( activity_id( "ACT_BUTCHER" ), 0, true );
-                for( item *&it : corpses ) {
-                    u.activity->targets.emplace_back( it );
+                safe_reference<item> corpse( corpses.front() );
+                u.assign_activity( std::make_unique<player_activity>(
+                    std::make_unique<butcher_actor>( activity_id( "ACT_BUTCHER" ), std::move( corpse ) ) ) );
+                for( size_t i = 1; i < corpses.size(); ++i ) {
+                    u.activity->targets.emplace_back( corpses[i] );
                 }
             }
         } else if( pulp_butcher == "pulp" || pulp_butcher == "pulp_adjacent" ) {
@@ -13037,10 +13047,9 @@ void game::apply_movement_effects()
                 for( const auto &maybe_corpse : get_map().i_at( pos ) ) {
                     if( maybe_corpse->is_corpse() && maybe_corpse->can_revive() &&
                         !maybe_corpse->get_mtype()->bloodType().obj().has_acid ) {
-                        u.assign_activity( activity_id( "ACT_PULP" ), calendar::INDEFINITELY_LONG, 0 );
-                        u.activity->placement = bub_to_abs( pos );
+                        u.assign_activity( std::make_unique<player_activity>(
+                            std::make_unique<pulp_actor>( bub_to_abs( pos ), true ) ) );
                         u.activity->auto_resume = true;
-                        u.activity->str_values.emplace_back( "auto_pulp_no_acid" );
                         return;
                     }
                 }

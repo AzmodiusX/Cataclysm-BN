@@ -65,6 +65,7 @@
 #include "overmap.h"
 #include "player.h"
 #include "player_activity.h"
+#include "activity_actor_definitions.h"
 #include "recipe.h"
 #include "ret_val.h"
 #include "rng.h"
@@ -575,6 +576,7 @@ bool avatar::read( item *loc, const bool continuous )
     //reading only for fun
     std::map<npc *, std::string> fun_learners;
     std::map<npc *, std::string> nonlearners;
+    std::vector<read_activity_actor::npc_learner> npc_learners;
     auto candidates = character_funcs::get_crafting_helpers( *this );
     for( npc *elem : candidates ) {
         const int lvl = elem->get_skill_level( skill );
@@ -598,12 +600,10 @@ bool avatar::read( item *loc, const bool continuous )
         } else if( skill && lvl < type->level ) {
             const double penalty = static_cast<double>( time_taken ) / time_to_read( it, *reader, elem );
             learners.insert( {elem, elem == reader ? _( " (reading aloud to you)" ) : ""} );
-            act.values.push_back( elem->getID().get_value() );
-            act.str_values.push_back( std::to_string( penalty ) );
+            npc_learners.push_back( { elem->getID(), static_cast<float>( penalty ) } );
         } else {
             fun_learners.insert( {elem, elem == reader ? _( " (reading aloud to you)" ) : "" } );
-            act.values.push_back( elem->getID().get_value() );
-            act.str_values.emplace_back( "1" );
+            npc_learners.push_back( { elem->getID(), 1.0f } );
         }
     }
 
@@ -772,17 +772,21 @@ bool avatar::read( item *loc, const bool continuous )
     }
 
     // push an indentifier of martial art book to the action handling
+    bool is_martial_arts = false;
     if( it.type->use_methods.contains( "MA_MANUAL" ) ) {
 
         if( get_stamina() < get_stamina_max() / 10 ) {
             add_msg( m_info, _( "You are too exhausted to train martial arts." ) );
             return false;
         }
-        act.str_values.clear();
-        act.str_values.emplace_back( "martial_art" );
+        is_martial_arts = true;
     }
 
-    assign_activity( std::make_unique<player_activity>( std::move( act ) ) ) ;
+    assign_activity( std::make_unique<player_activity>(
+        std::make_unique<read_activity_actor>(
+            safe_reference<item>( &it ), std::move( npc_learners ), is_martial_arts
+        )
+    ) );
 
     // Reinforce any existing morale bonus/penalty, so it doesn't decay
     // away while you read more.

@@ -1256,6 +1256,11 @@ void Character::assign_stashed_activity()
 
 bool Character::check_outbounds_activity( player_activity &act )
 {
+    // Actor-based activities manage their own location validity
+    if( act.has_actor() ) {
+        return false;
+    }
+
     map &here = get_map();
     if( ( act.placement != tripoint_abs_ms::zero() && act.placement != tripoint_abs_ms::min() &&
           !here.inbounds( abs_to_bub( tripoint_abs_ms( act.placement ) ) ) ) || ( !act.coords.empty() &&

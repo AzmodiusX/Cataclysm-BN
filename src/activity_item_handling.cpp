@@ -963,34 +963,18 @@ static bool vehicle_activity( player &p, const tripoint_bub_ms &src_loc, int vpi
     } else if( type == 'o' ) {
         time_to_take = vp.removal_time( p );
     }
-    p.assign_activity( ACT_VEHICLE, time_to_take, static_cast<int>( type ) );
-    // so , NPCs can remove the last part on a position, then there is no vehicle there anymore,
-    // for someone else who stored that position at the start of their activity.
-    // so we may need to go looking a bit further afield to find it , at activities end.
-    for( const auto pt : veh->get_points( true ) ) {
-        p.activity->coord_set.insert( pt );
-    }
     const auto src_abs = bub_to_abs( src_loc );
-    // values[0]
-    p.activity->values.push_back( src_abs.x() );
-    // values[1]
-    p.activity->values.push_back( src_abs.y() );
-    // values[2]
-    p.activity->values.push_back( point_zero.x );
-    // values[3]
-    p.activity->values.push_back( point_zero.y );
-    // values[4]
-    p.activity->values.push_back( -point_zero.x );
-    // values[5]
-    p.activity->values.push_back( -point_zero.y );
-    // values[6]
-    p.activity->values.push_back( veh->index_of_part( &veh->part( vpindex ) ) );
-    p.activity->str_values.push_back( vp.get_id().str() );
-    // values[7]
-    p.activity->values.push_back( src_abs.z() );
-    // this would only be used for refilling tasks
-    p.activity->targets.emplace_back( );
-    p.activity->placement = src_abs;
+    std::unordered_set<tripoint_abs_ms> veh_points;
+    for( const auto pt : veh->get_points( true ) ) {
+        veh_points.insert( pt );
+    }
+    p.assign_activity( std::make_unique<player_activity>(
+        std::make_unique<vehicle_work_actor>(
+            type, src_abs, tripoint_mnt_veh( 0, 0, 0 ),
+            vp.get_id(), veh->index_of_part( &veh->part( vpindex ) ),
+            veh_points
+        )
+    ) );
     p.activity_vehicle_part_index = -1;
     return true;
 }
@@ -2308,8 +2292,9 @@ static bool butcher_corpse_activity( player &p, const tripoint_bub_ms &src_loc,
                 continue;
             }
             elem->set_var( "activity_var", p.name );
-            p.assign_activity( ACT_BUTCHER_FULL, 0, true );
-            p.activity->targets.emplace_back( elem );
+            p.assign_activity( std::make_unique<player_activity>(
+                std::make_unique<butcher_actor>(
+                    activity_id( "ACT_BUTCHER_FULL" ), safe_reference<item>( elem ) ) ) );
             p.activity->placement = bub_to_abs( src_loc );
             return true;
         }
