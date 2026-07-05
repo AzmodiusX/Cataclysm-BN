@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "action_time_scale.h"
+#include "activity_actor_definitions.h"
 #include "active_tile_data_def.h"
 #include "ammo.h"
 #include "ascii_art.h"
@@ -5083,8 +5084,10 @@ void item::handle_pickup_ownership( Character &c )
                 random_entry( witnesses )->set_attitude( NPCATT_RECOVER_GOODS );
                 // Notify the activity that we got a witness
                 if( c.activity && !c.activity->is_null() && c.activity->id() == ACT_PICKUP ) {
-                    c.activity->str_values.clear();
-                    c.activity->str_values.emplace_back( has_thievery_witness );
+                    auto *pick_actor = dynamic_cast<pickup_activity_actor *>( c.activity->get_actor() );
+                    if( pick_actor ) {
+                        pick_actor->set_thievery_witness();
+                    }
                 }
             }
             set_owner( c );

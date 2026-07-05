@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "pathfinding.h"
+#include "activity_actor_definitions.h"
 #include "action.h"
 #include "advanced_inv.h"
 #include "animation.h"
@@ -1476,7 +1477,9 @@ static void loot()
             add_msg( _( "Never mind." ) );
             break;
         case SortLoot:
-            u.assign_activity( ACT_MOVE_LOOT );
+            u.assign_activity( std::make_unique<player_activity>(
+                std::make_unique<move_loot_activity_actor>()
+            ) );
             break;
         case FertilizePlots:
             u.assign_activity( ACT_FERTILIZE_PLOT );

@@ -798,7 +798,7 @@ void Character::load( const JsonObject &data )
     }
 
     _skills->clear();
-    for( const JsonMember member : data.get_object( "skills" ) ) {
+    for( const JsonMember &member : data.get_object( "skills" ) ) {
         member.read( ( *_skills )[skill_id( member.name() )] );
     }
 
@@ -1165,7 +1165,7 @@ void avatar::store( JsonOut &json ) const
 
     json.member( "assigned_invlet" );
     json.start_array();
-    for( auto iter : inv.assigned_invlet ) {
+    for( auto &iter : inv.assigned_invlet ) {
         json.start_array();
         json.write( iter.first );
         json.write( iter.second );
@@ -1962,7 +1962,7 @@ void location_inventory::json_load_invcache( JsonIn &jsin )
         std::unordered_map<itype_id, std::string> map;
         for( JsonObject jo : jsin.get_array() ) {
             jo.allow_omitted_members();
-            for( const JsonMember member : jo ) {
+            for( const JsonMember &member : jo ) {
                 std::string invlets;
                 for( const int i : member.get_array() ) {
                     invlets.push_back( i );
@@ -2110,7 +2110,7 @@ auto monster::load( const JsonObject &data,
 
     // special_attacks indicates a save after the special_attacks refactor
     if( data.has_object( "special_attacks" ) ) {
-        for( const JsonMember member : data.get_object( "special_attacks" ) ) {
+        for( const JsonMember &member : data.get_object( "special_attacks" ) ) {
             JsonObject saobject = member.get_object();
             saobject.allow_omitted_members();
             auto &entry = special_attacks[member.name()];
@@ -4311,7 +4311,7 @@ void kill_tracker::deserialize( JsonIn &jsin )
 {
     JsonObject data = jsin.get_object();
     data.allow_omitted_members();
-    for( const JsonMember member : data.get_object( "kills" ) ) {
+    for( const JsonMember &member : data.get_object( "kills" ) ) {
         kills[mtype_id( member.name() )] = member.get_int();
     }
 
@@ -5096,7 +5096,7 @@ void uistatedata::deserialize( const JsonObject &jo )
     jo.read( "list_item_downvote_active", list_item_downvote_active );
     jo.read( "list_item_priority_active", list_item_priority_active );
 
-    for( const JsonMember member : jo.get_object( "input_history" ) ) {
+    for( const JsonMember &member : jo.get_object( "input_history" ) ) {
         std::vector<std::string> &v = gethistory( member.name() );
         v.clear();
         for( const std::string line : member.get_array() ) {

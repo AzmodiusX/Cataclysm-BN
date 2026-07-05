@@ -2754,16 +2754,12 @@ int learn_spell_actor::use( Character &p, item &, bool, const tripoint_abs_ms &p
         return 0;
     }
     const bool knows_spell = p.magic->knows_spell( spells[action] );
-    std::unique_ptr<player_activity> study_spell = std::make_unique<player_activity>( ACT_STUDY_SPELL,
-            p.magic->time_to_learn_spell( p, spells[action] ) );
-    study_spell->str_values = {
-        "", // reserved for "until you gain a spell level" option [0]
-        "learn"
-    }; // [1]
-    study_spell->values = { 0, 0, 0 };
+    const int study_total = p.magic->time_to_learn_spell( p, spells[action] );
+    std::string mode = knows_spell ? "study" : "learn";
+    std::string gain = "";
+    int study_time = study_total;
     if( knows_spell ) {
-        study_spell->str_values[1] = "study";
-        const int study_time = uilist( _( "Spend how long studying?" ), {
+        study_time = uilist( _( "Spend how long studying?" ), {
             { to_moves<int>( 30_minutes ), true, -1, _( "30 minutes" ) },
             { to_moves<int>( 1_hours ), true, -1, _( "1 hour" ) },
             { to_moves<int>( 2_hours ), true, -1, _( "2 hours" ) },
@@ -2774,16 +2770,15 @@ int learn_spell_actor::use( Character &p, item &, bool, const tripoint_abs_ms &p
         if( study_time <= 0 ) {
             return 0;
         }
-        study_spell->moves_total = study_time;
     }
-    study_spell->moves_left = study_spell->moves_total;
-    if( study_spell->moves_total == 10100 ) {
-        study_spell->str_values[0] = "gain_level";
-        study_spell->values[0] = 0; // reserved for xp
-        study_spell->values[1] = 0; // reserved for levels
+    if( study_time == 10100 ) {
+        gain = "gain_level";
+        study_time = study_total;
     }
-    study_spell->name = spells[action];
-    p.assign_activity( std::move( study_spell ), false );
+    auto actor = std::make_unique<study_spell_actor>( spells[action], mode, gain );
+    p.assign_activity( std::make_unique<player_activity>( std::move( actor ) ), false );
+    p.activity->moves_total = study_time;
+    p.activity->moves_left = study_time;
     return 0;
 }
 
@@ -3920,8 +3915,7 @@ int heal_actor::use( Character &p, item &it, bool, const tripoint_abs_ms &pos ) 
         // Assign first aid long action.
         /** @EFFECT_FIRSTAID speeds up firstaid activity */
         p.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<firstaid_actor>( hpp.str() ) ) );
-        p.activity->targets.emplace_back( &it );
+        std::make_unique<firstaid_actor>( hpp.str(), safe_reference<item>( &it ) ) ) );
         p.moves = 0;
         return 0;
     }
@@ -4187,8 +4181,9 @@ bodypart_str_id heal_actor::use_healing_item( Character &healer, Character &pati
             // Cancel and wait for activity completion.
             return healed;
         } else if( healer.activity->id() == ACT_FIRSTAID ) {
-            // Completed activity, extract body part from it.
-            healed = bodypart_str_id( healer.activity->str_values[0] );
+            // Completed activity, extract body part from the actor.
+            auto &firstaid_act = *static_cast<firstaid_actor *>( healer.activity->get_actor() );
+            healed = bodypart_str_id( firstaid_act.get_heal_type() );
         }
     } else {
         // Player healing NPC

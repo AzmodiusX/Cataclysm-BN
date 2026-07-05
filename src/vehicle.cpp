@@ -26,6 +26,7 @@
 
 #include "action_time_scale.h"
 #include "active_tile_data_def.h"
+#include "activity_actor_definitions.h"
 #include "avatar.h"
 #include "avatar_functions.h"
 #include "bionics.h"
@@ -242,10 +243,10 @@ class DefaultRemovePartHandler : public RemovePartHandler
             if( here.get_dimension_id() != player_character.get_dimension() ) {
                 return;
             }
-            if( act.id() == ACT_VEHICLE && act.moves_left > 0 && act.values.size() > 6 ) {
-                if( veh_pointer_or_null( here.veh_at( bub_to_abs( tripoint_bub_ms( act.values[0], act.values[1],
-                                                      player_character.bub_pos().z() ) ) ) ) == &veh ) {
-                    if( act.values[6] >= part ) {
+            if( act.id() == ACT_VEHICLE && act.moves_left > 0 && act.has_actor() ) {
+                const auto *vwa = static_cast<const vehicle_work_actor *>( act.get_actor() );
+                if( veh_pointer_or_null( here.veh_at( vwa->get_part_pos() ) ) == &veh ) {
+                    if( vwa->get_part_index() >= part ) {
                         player_character.cancel_activity();
                         add_msg( m_info, _( "The vehicle part you were working on has gone!" ) );
                     }

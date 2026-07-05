@@ -409,14 +409,15 @@ void monexamine::shear_animal( monster &z )
     const int moves = to_moves<int>( time_duration::from_minutes( 30 / you.max_quality(
                                          qual_shear ) ) );
 
-    you.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<shear_actor>( z.abs_pos() ) ) );
-    // pin the sheep in place if it isn't already
+    // Determine if we need to temp-tie the animal
+    std::string tied;
     if( !z.has_effect( effect_tied ) ) {
         z.add_effect( effect_tied, 1_turns );
-        you.activity->str_values.emplace_back( "temp_tie" );
+        tied = "temp_tie";
     }
-    you.activity->targets.emplace_back( you.best_quality_item( qual_shear ) );
+    safe_reference<item> best_shears( you.best_quality_item( qual_shear ) );
+    you.assign_activity( std::make_unique<player_activity>(
+        std::make_unique<shear_actor>( z.abs_pos(), tied, best_shears ) ) );
     add_msg( _( "You start shearing the %s." ), z.get_name() );
 }
 
@@ -1063,14 +1064,14 @@ void monexamine::milk_source( monster &source_mon )
     avatar &you = get_avatar();
     if( milkable_ammo->second > 0 ) {
         const int moves = to_moves<int>( time_duration::from_minutes( milkable_ammo->second / 2 ) );
-        you.assign_activity( std::make_unique<player_activity>(
-            std::make_unique<milk_actor>( source_mon.abs_pos() ) ) );
-        // pin the cow in place if it isn't already
-        bool temp_tie = !source_mon.has_effect( effect_tied );
-        if( temp_tie ) {
+        // Determine if we need to temp-tie the animal
+        std::string tied;
+        if( !source_mon.has_effect( effect_tied ) ) {
             source_mon.add_effect( effect_tied, 1_turns );
-            you.activity->str_values.emplace_back( "temp_tie" );
+            tied = "temp_tie";
         }
+        you.assign_activity( std::make_unique<player_activity>(
+            std::make_unique<milk_actor>( source_mon.abs_pos(), tied ) ) );
         add_msg( _( "You milk the %s." ), source_mon.get_name() );
     } else {
         add_msg( _( "The %s has no more milk." ), source_mon.get_name() );

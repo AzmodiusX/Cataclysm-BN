@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "activity_actor_definitions.h"
 #include "activity_type.h"
 #include "auto_pickup.h"
 #include "avatar.h"
@@ -1673,16 +1674,24 @@ void dialogue::gen_responses( const talk_topic &the_topic )
             }
         }
     } else if( topic == "TALK_TRAIN" ) {
-        if( !you.backlog.empty() && you.backlog.front()->id() == ACT_TRAIN &&
-            you.backlog.front()->index == p->getID().get_value() ) {
+        if( !you.backlog.empty() && you.backlog.front()->id() == ACT_TRAIN ) {
             player_activity &backlog = *you.backlog.front();
-            const skill_id skillt( backlog.name );
+            // Resolve trainer name: prefer actor fields, fall back to legacy
+            std::string backlog_name = backlog.name;
+            int backlog_trainer_id = backlog.index;
+            if( backlog.has_actor() ) {
+                auto *ta = static_cast<train_actor *>( backlog.get_actor() );
+                backlog_name = ta->get_name();
+                backlog_trainer_id = ta->get_trainer_id();
+            }
+            if( backlog_trainer_id == p->getID().get_value() ) {
+            const skill_id skillt( backlog_name );
             // TODO: This is potentially dangerous. A skill and a martial art
             // could have the same ident!
             if( !skillt.is_valid() ) {
-                const matype_id styleid = matype_id( backlog.name );
+                const matype_id styleid = matype_id( backlog_name );
                 if( !styleid.is_valid() ) {
-                    const spell_id &sp_id = spell_id( backlog.name );
+                    const spell_id &sp_id = spell_id( backlog_name );
                     if( p->magic->knows_spell( sp_id ) ) {
                         add_response( string_format( _( "Yes, let's resume training %s" ), sp_id->name ),
                                       "TALK_TRAIN_START", sp_id );
@@ -1695,6 +1704,7 @@ void dialogue::gen_responses( const talk_topic &the_topic )
             } else {
                 add_response( string_format( _( "Yes, let's resume training %s" ), skillt->name() ),
                               "TALK_TRAIN_START", skillt );
+            }
             }
         }
         std::vector<matype_id> styles = p->styles_offered_to( you );

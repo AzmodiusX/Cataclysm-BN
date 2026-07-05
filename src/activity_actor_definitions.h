@@ -369,12 +369,15 @@ class hacking_activity_actor : public activity_actor
 {
     private:
         bool using_bionic = false;
+        tripoint_abs_ms target_pos;
 
     public:
         struct use_bionic {};
 
         hacking_activity_actor() = default;
         hacking_activity_actor( use_bionic );
+        hacking_activity_actor( use_bionic, const tripoint_abs_ms &pos );
+        explicit hacking_activity_actor( const tripoint_abs_ms &pos );
 
         activity_id get_type() const override {
             return activity_id( "ACT_HACKING" );
@@ -386,6 +389,7 @@ class hacking_activity_actor : public activity_actor
 
         void serialize( JsonOut &jsout ) const override;
         static std::unique_ptr<activity_actor> deserialize( JsonIn &jsin );
+        static std::unique_ptr<activity_actor> legacy_deserialize( const JsonObject &data );
 };
 
 class hacksaw_activity_actor : public activity_actor
@@ -593,11 +597,14 @@ class pickup_activity_actor : public activity_actor
          */
         std::optional<tripoint_abs_ms> starting_pos;
 
+        bool thievery_witness = false;
+
     public:
         pickup_activity_actor( const std::vector<pickup::pick_drop_selection> &target_items,
                                const std::optional<tripoint_abs_ms> &starting_pos )
             : target_items( target_items )
             , starting_pos( starting_pos ) {}
+        void set_thievery_witness() { thievery_witness = true; }
 
         activity_id get_type() const override {
             return activity_id( "ACT_PICKUP" );
@@ -860,6 +867,17 @@ class vehicle_work_actor : public activity_actor
         const tripoint_abs_ms &get_part_pos() const { return part_pos; }
 };
 
+// Repeat type for repair activity
+enum repeat_type : int {
+    // REPEAT_INIT should be zero. In some scenarios (veh welder), activity value default to zero.
+    REPEAT_INIT = 0,    // Haven't found repeat value yet.
+    REPEAT_ONCE,        // Repeat just once
+    REPEAT_FOREVER,     // Repeat for as long as possible
+    REPEAT_FULL,        // Repeat until damage==0
+    REPEAT_EVENT,       // Repeat until something interesting happens
+    REPEAT_CANCEL,      // Stop repeating
+};
+
 class repair_actor : public activity_actor
 {
     private:
@@ -871,6 +889,8 @@ class repair_actor : public activity_actor
         std::string iuse_name;
         safe_reference<item> tool;
         int item_pos = 0;
+        int repeat = 0;                    // repeat_type enum
+        safe_reference<item> fix_target;   // item being repaired (targets[1])
 
         bool can_resume_with_internal( const activity_actor &other,
                                        const Character & ) const override {
@@ -899,6 +919,8 @@ class repair_actor : public activity_actor
         const std::string &get_iuse_name() const { return iuse_name; }
         safe_reference<item> &get_tool() { return tool; }
         int get_item_pos() const { return item_pos; }
+        int get_repeat() const { return repeat; }
+        safe_reference<item> &get_fix_target() { return fix_target; }
 
         activity_id get_type() const override { return activity_id( "ACT_REPAIR_ITEM" ); }
         void start( player_activity &act, Character &who ) override;
@@ -1061,6 +1083,9 @@ class read_activity_actor : public activity_actor
         safe_reference<item> book;
         std::vector<npc_learner> learners;
         bool is_martial_arts = false;
+        int stamina_at_start = 0;
+        int total_moves = 0;
+        int continuous_reader_id = 0;
 
         bool can_resume_with_internal( const activity_actor &other,
                                        const Character & ) const override {
@@ -1075,7 +1100,8 @@ class read_activity_actor : public activity_actor
         explicit read_activity_actor(
             safe_reference<item> book_ref,
             std::vector<npc_learner> npcs = {},
-            bool martial_arts = false
+            bool martial_arts = false,
+            int total_moves = 0
         );
 
         activity_id get_type() const override {
@@ -1096,6 +1122,7 @@ class move_loot_activity_actor : public activity_actor
     private:
         int items_processed = 0;
         int stage = 0;              // 0=INIT, 1=THINK, 2=DO
+        tripoint_abs_ms current_src;
         std::unordered_set<tripoint_abs_ms> zone_points;
 
     public:
@@ -1169,9 +1196,13 @@ class shear_actor : public activity_actor
 {
     private:
         tripoint_abs_ms target_pos;
+        std::string tied_state;
+        safe_reference<item> shears;
     public:
         shear_actor() = default;
-        explicit shear_actor( const tripoint_abs_ms &pos );
+        explicit shear_actor( const tripoint_abs_ms &pos,
+                              const std::string &tied = "",
+                              safe_reference<item> shears_ref = safe_reference<item>() );
         activity_id get_type() const override { return activity_id( "ACT_SHEAR" ); }
         void start( player_activity &act, Character &who ) override;
         void do_turn( player_activity &act, Character &who ) override;
@@ -1185,9 +1216,11 @@ class milk_actor : public activity_actor
 {
     private:
         tripoint_abs_ms target_pos;
+        std::string tied_state;
     public:
         milk_actor() = default;
-        explicit milk_actor( const tripoint_abs_ms &pos );
+        explicit milk_actor( const tripoint_abs_ms &pos,
+                             const std::string &tied = "" );
         activity_id get_type() const override { return activity_id( "ACT_MILK" ); }
         void start( player_activity &act, Character &who ) override;
         void do_turn( player_activity &act, Character &who ) override;
@@ -1202,9 +1235,11 @@ class pulp_actor : public activity_actor
     private:
         tripoint_abs_ms target_pos;
         bool auto_pulp_no_acid = false;
+        int num_corpses = 0;
     public:
         pulp_actor() = default;
-        explicit pulp_actor( const tripoint_abs_ms &pos, bool auto_no_acid = false );
+        explicit pulp_actor( const tripoint_abs_ms &pos, bool auto_no_acid = false,
+                             int num_corpses = 0 );
         activity_id get_type() const override { return activity_id( "ACT_PULP" ); }
         void start( player_activity &act, Character &who ) override;
         void do_turn( player_activity &act, Character &who ) override;
@@ -1253,9 +1288,11 @@ class start_fire_actor : public activity_actor
     private:
         int light_level = 0;
         tripoint_abs_ms placement;
+        int practice_difficulty = 0;
     public:
         start_fire_actor() = default;
-        explicit start_fire_actor( int light, const tripoint_abs_ms &pos );
+        explicit start_fire_actor( int light, const tripoint_abs_ms &pos,
+                                   int difficulty = 0 );
         activity_id get_type() const override { return activity_id( "ACT_START_FIRE" ); }
         void start( player_activity &act, Character &who ) override;
         void do_turn( player_activity &act, Character &who ) override;
@@ -1286,9 +1323,18 @@ class study_spell_actor : public activity_actor
 {
     private:
         std::string spell_type;
+        std::string study_mode;       // "study" or "learn"
+        std::string gain_level_flag;  // "gain_level" or ""
+        int total_xp = 0;
+        int total_levels = 0;
+        int dark = 0;                 // -1 = too dark, 0 = normal
+        int tick_counter = 0;
+        int xp_snapshot = 0;
     public:
         study_spell_actor() = default;
-        explicit study_spell_actor( const std::string &type );
+        explicit study_spell_actor( const std::string &type,
+                                    const std::string &mode = "learn",
+                                    const std::string &gain = "" );
         activity_id get_type() const override { return activity_id( "ACT_STUDY_SPELL" ); }
         void start( player_activity &act, Character &who ) override;
         void do_turn( player_activity &act, Character &who ) override;
@@ -1302,9 +1348,12 @@ class firstaid_actor : public activity_actor
 {
     private:
         std::string heal_type;
+        safe_reference<item> target_item;
     public:
         firstaid_actor() = default;
-        explicit firstaid_actor( const std::string &type );
+        explicit firstaid_actor( const std::string &type,
+                                 safe_reference<item> target = safe_reference<item>() );
+        const std::string &get_heal_type() const { return heal_type; }
         activity_id get_type() const override { return activity_id( "ACT_FIRSTAID" ); }
         void start( player_activity &act, Character &who ) override;
         void do_turn( player_activity &act, Character &who ) override;
@@ -1368,10 +1417,14 @@ class train_actor : public activity_actor
 {
     private:
         std::string skill_name;
+        int expert_multiplier = 0;
+        int trainer_id = -1;
     public:
         train_actor() = default;
-        explicit train_actor( const std::string &name );
+        explicit train_actor( const std::string &name, int expert = 0, int trainer = -1 );
         const std::string &get_name() const { return skill_name; }
+        int get_expert_multiplier() const { return expert_multiplier; }
+        int get_trainer_id() const { return trainer_id; }
         activity_id get_type() const override { return activity_id( "ACT_TRAIN" ); }
         void start( player_activity &act, Character &who ) override;
         void do_turn( player_activity &act, Character &who ) override;
@@ -1392,6 +1445,7 @@ class operation_actor : public activity_actor
         int success = 0;
         int capacity = 0;
         int pl_skill = 0;
+        int operation_attempted = 0; // tracks whether install/uninstall has been performed
     public:
         operation_actor() = default;
         explicit operation_actor( const std::string &type, const std::string &bid,
@@ -1414,7 +1468,10 @@ class butcher_actor : public activity_actor
     private:
         activity_id act_type;
         safe_reference<item> corpse;
+        std::vector<safe_reference<item>> extra_corpses;
     public:
+        bool ready_for_next = true;   // false = currently processing corpse, true = ready for next target
+
         butcher_actor() = default;
         explicit butcher_actor( const activity_id &type, safe_reference<item> corpse_ref );
         const activity_id &get_act_type() const { return act_type; }

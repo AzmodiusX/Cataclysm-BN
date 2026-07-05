@@ -16,6 +16,8 @@ class Character;
 class JsonIn;
 class JsonObject;
 class JsonOut;
+class monster;
+class npc;
 class player_activity;
 class inventory;
 

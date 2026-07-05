@@ -197,7 +197,9 @@ class avatar : public player
         /** Handles reading effects and returns true if activity started */
         bool read( item *loc, bool continuous = false );
         /** Completes book reading action. **/
-        void do_read( item *loc );
+        void do_read( item *loc,
+                      const std::vector<std::pair<character_id, float>> &learners = {},
+                      int continuous_reader = 0 );
         /** Note that we've read a book at least once. **/
         bool has_identified( const itype_id &item_id ) const;
 

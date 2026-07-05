@@ -13036,11 +13036,12 @@ void game::apply_movement_effects()
             }
             if( !corpses.empty() ) {
                 safe_reference<item> corpse( corpses.front() );
-                u.assign_activity( std::make_unique<player_activity>(
-                    std::make_unique<butcher_actor>( activity_id( "ACT_BUTCHER" ), std::move( corpse ) ) ) );
+                auto actor = std::make_unique<butcher_actor>( activity_id( "ACT_BUTCHER" ),
+                            std::move( corpse ) );
                 for( size_t i = 1; i < corpses.size(); ++i ) {
-                    u.activity->targets.emplace_back( corpses[i] );
+                    actor->extra_corpses.emplace_back( corpses[i] );
                 }
+                u.assign_activity( std::make_unique<player_activity>( std::move( actor ) ) );
             }
         } else if( pulp_butcher == "pulp" || pulp_butcher == "pulp_adjacent" ) {
             const auto pulp = [&]( const tripoint_bub_ms & pos ) {

@@ -1165,16 +1165,16 @@ static bool try_start_hacking( player &p, const tripoint_bub_ms &examp )
                 return false;
         }
     }
+    const tripoint_abs_ms hack_pos = bub_to_abs( examp );
     if( use_bionic ) {
         p.mod_power_level( -25_kJ );
         p.assign_activity( std::make_unique<player_activity>( std::make_unique<hacking_activity_actor>(
-                               hacking_activity_actor::use_bionic {} ) ) );
+                               hacking_activity_actor::use_bionic {}, hack_pos ) ) );
     } else {
         p.use_charges( itype_electrohack, 25 );
         p.assign_activity( std::make_unique<player_activity>
-                           ( std::make_unique<hacking_activity_actor>() ) );
+                           ( std::make_unique<hacking_activity_actor>( hack_pos ) ) );
     }
-    p.activity->placement = bub_to_abs( examp );
     return true;
 }
 

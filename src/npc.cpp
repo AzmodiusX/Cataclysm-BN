@@ -1125,16 +1125,15 @@ void npc::start_read( item &it, Character *pl )
 {
     item &chosen = it;
     const int time_taken = time_to_read( chosen, *pl );
-    const double penalty = static_cast<double>( time_taken ) / time_to_read( chosen, *pl );
-    std::unique_ptr<player_activity> act = std::make_unique<player_activity>( ACT_READ, time_taken, 0,
-                                           pl->getID().get_value() );
-    act->targets.emplace_back( it );
-    act->str_values.push_back( std::to_string( penalty ) );
-    // push an identifier of martial art book to the action handling
-    if( chosen.type->use_methods.contains( "MA_MANUAL" ) ) {
-        act->str_values.clear();
-        act->str_values.emplace_back( "martial_art" );
-    }
+    bool is_martial_arts = chosen.type->use_methods.contains( "MA_MANUAL" );
+    std::unique_ptr<player_activity> act = std::make_unique<player_activity>(
+        std::make_unique<read_activity_actor>(
+            safe_reference<item>( &chosen ),
+            std::vector<read_activity_actor::npc_learner>(),
+            is_martial_arts,
+            time_taken
+        )
+    );
     assign_activity( std::move( act ) );
 }
 

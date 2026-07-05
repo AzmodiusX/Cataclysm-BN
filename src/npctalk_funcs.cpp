@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "activity_actor_definitions.h"
 #include "auto_pickup.h"
 #include "avatar.h"
 #include "bionics.h"
@@ -211,7 +212,9 @@ void talk_function::start_trade( npc &p )
 
 void talk_function::sort_loot( npc &p )
 {
-    p.assign_activity( ACT_MOVE_LOOT );
+    p.assign_activity( std::make_unique<player_activity>(
+        std::make_unique<move_loot_activity_actor>()
+    ) );
 }
 
 void talk_function::do_construction( npc &p )
@@ -908,7 +911,7 @@ void talk_function::start_training( npc &p )
         return;
     }
     g->u.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<train_actor>( name ) ) );
+        std::make_unique<train_actor>( name, expert_multiplier, p.getID().get_value() ) ) );
 
     p.add_effect( effect_asked_to_train, 6_hours );
 }

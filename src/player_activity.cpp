@@ -224,82 +224,7 @@ void player_activity::get_assistants( const Character &who )
     }
 }
 
-static std::string craft_progress_message( const avatar &u, const player_activity &act )
-{
-    const item *craft = &*act.targets.front();
-    if( craft == nullptr ) {
-        // Should never happen (?)
-        return string_format( _( "%s…" ), act.get_verb().translated() );
-    }
-
-    // Horrid copypaste warning! TODO: Functions
-    const recipe &rec = craft->get_making();
-    const auto bench_pos = act.coords.front();
-    // Ugly
-    const auto bench_t = bench_type( act.values[craft_bench_type_idx] );
-
-    const bench_location bench{ bench_t, bench_pos };
-
-    const float light_mult = lighting_crafting_speed_multiplier( u, rec );
-    const float bench_mult = workbench_crafting_speed_multiplier( *craft, bench );
-    const float morale_mult = morale_crafting_speed_multiplier( u, rec );
-    const auto tools_mult = ( act.values.size() > craft_tools_mult_percent_idx )
-                            ? static_cast<float>( act.values[craft_tools_mult_percent_idx] ) / 100.0f
-                            : crafting_tools_speed_multiplier( u, rec );
-    const int assistants = u.available_assistant_count( craft->get_making() );
-    const float base_total_moves = std::max( 1, rec.batch_time( craft->charges, 1.0f, 0 ) );
-    const float assist_total_moves = std::max( 1, rec.batch_time( craft->charges, 1.0f, assistants ) );
-    const float assist_mult = base_total_moves / assist_total_moves;
-    const float speed_mult = u.get_speed() / 100.0f;
-    const float mutation_mult = u.mutation_value( "crafting_speed_modifier" );
-    const float game_opt_mult = get_option<int>( "CRAFTING_SPEED_MULT" ) == 0
-                                ? 9999
-                                : 100.0f / get_option<int>( "CRAFTING_SPEED_MULT" );
-
-    auto total_mult_without_enchant = bench_mult * assist_mult * tools_mult * light_mult * morale_mult *
-                                      mutation_mult * game_opt_mult;
-
-    const auto enchant_mult_add = u.bonus_from_enchantments( total_mult_without_enchant,
-                                  enchantment_value_id( "CRAFTING_SPEED" ) );
-
-    const float total_mult = total_mult_without_enchant + enchant_mult_add;
-
-    const auto enchant_mult = total_mult / total_mult_without_enchant;
-
-    const double remaining_percentage = 1.0 - craft->get_counter() / 10'000'000.0;
-    int remaining_turns = remaining_percentage * base_total_moves / 100 / std::max( 0.01f, total_mult );
-    std::string time_desc = string_format( _( "Time left: %s" ),
-                                           to_string( time_duration::from_turns( remaining_turns ) ) );
-
-    const std::array<std::pair<float, std::string>, 9> mults_with_data = { {
-            { total_mult, _( "Total" ) },
-            { speed_mult, _( "Speed" ) },
-            { light_mult, _( "Light" ) },
-            { bench_mult, _( "Workbench" ) },
-            { morale_mult, _( "Morale" ) },
-            { tools_mult, _( "Tools" ) },
-            { assist_mult, _( "Assistants" ) },
-            { mutation_mult, _( "Traits" ) },
-            { enchant_mult, _( "Misc" ) }
-        }
-    };
-    std::string mults_desc = _( "Crafting speed multipliers:\n" );
-    // Hack to make sure total always shows
-    bool first = true;
-    for( const std::pair<float, std::string> &p : mults_with_data ) {
-        int percent = static_cast<int>( p.first * 100 );
-        if( first || percent != 100 ) {
-            nc_color col = percent > 100 ? c_green : c_red;
-            std::string colorized = colorize( std::to_string( percent ) + '%', col );
-            mults_desc += string_format( _( "%s: %s\n" ), p.second, colorized );
-        }
-        first = false;
-    }
-
-    return string_format( _( "%s: %s\n\n%s\n\n%s" ), act.get_verb().translated(), craft->tname(),
-                          time_desc,
-                          mults_desc );
-}
+// craft_progress_message — removed (dead code, all ACT_CRAFT use actor's get_progress_message)
 
 static std::string format_spd( float level, std::string name, int indent = 0,
                                bool force_show = false )
@@ -438,7 +363,8 @@ std::optional<std::string> player_activity::get_progress_message( const avatar &
 
     std::string extra_info;
     if( type == ACT_CRAFT ) {
-        return craft_progress_message( u, *this );
+        // Actor's get_progress_message handles this — keep return nullopt here since no actor fallback
+        return std::nullopt;
     } else if( type == ACT_READ ) {
         if( const item *book = &*targets.front() ) {
             if( const auto &reading = book->type->book ) {

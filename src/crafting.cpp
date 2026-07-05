@@ -823,13 +823,15 @@ item *Character::start_craft( craft_command &command, const tripoint_bub_ms & )
                      command.get_batch_size(),
                      craft_in_world->get_counter(),
                      bench.position,
+                     bench.type,
+                     100,
+                     bench.position,
                      command.get_item_selections(),
                      command.get_tool_selections(),
                      craft_in_world->get_var( "craft_tools_fully_prepaid", 0 ) == 1,
                      command.is_long()
                  );
     auto craft_activity = std::make_unique<player_activity>( std::move( actor ) );
-    craft_activity->targets.emplace_back( craft_in_world );
     assign_activity( std::move( craft_activity ) );
 
     add_msg_player_or_npc(
