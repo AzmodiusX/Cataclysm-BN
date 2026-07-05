@@ -209,6 +209,7 @@ enum m_flag : int {
     MF_FACTION_MEMORY,      // This monster tracks anger separately per faction
     MF_COMBAT_MOUNT,        // This monster is trained for combat
     MF_CANT_TRAIN,            // This monster can't be trained for combat
+    MF_POLICE_EYEBOT,            // A drone capable of summoning reinforcements, see mattack::photograph
 
     MF_MAX                  // Sets the length of the flags - obviously must be LAST
 };
@@ -287,8 +288,8 @@ struct mtype {
         mtype_id id;
 
         std::map<itype_id, int> starting_ammo; // Amount of ammo the monster spawns with.
-        // Name of item group that is used to create item dropped upon death, or empty.
-        item_group_id death_drops;
+        // Names of item groups used to create items dropped upon death.
+        std::vector<item_group_id> death_drops;
 
         /** Stores effect data for effects placed on attack */
         std::vector<mon_effect_data> atk_effs;

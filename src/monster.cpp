@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -522,6 +524,15 @@ void monster::allow_upgrade()
 int monster::next_upgrade_time()
 {
     if( type->age_grow > 0 ) {
+        const int scaling = get_option<int>( "ANIMAL_LIFE_CYCLE_SCALING" );
+        if( type->has_flag( MF_ANIMAL ) && scaling == 0 ) {
+            return std::max( 1, static_cast<int>( std::ceil( type->age_grow *
+                                                  calendar::season_ratio() ) ) );
+        }
+        if( type->has_flag( MF_ANIMAL ) ) {
+            return std::max( 1, static_cast<int>( std::ceil( type->age_grow * scaling /
+                                                  100.0 ) ) );
+        }
         return type->age_grow;
     }
     const int scaled_half_life = type->half_life * get_option<float>( "MONSTER_UPGRADE_FACTOR" );
@@ -616,10 +627,21 @@ void monster::try_reproduce()
     if( !type->baby_timer ) {
         return;
     }
+    time_duration baby_timer_scaling = *type->baby_timer;
+    const int scaling = get_option<int>( "ANIMAL_LIFE_CYCLE_SCALING" );
+    if( type->has_flag( MF_ANIMAL ) && scaling == 0 ) {
+        baby_timer_scaling = time_duration::from_days( std::max( 1,
+                             static_cast<int>( std::ceil( to_days<int>( *type->baby_timer ) *
+                                               calendar::season_ratio() ) ) ) );
+    } else if( type->has_flag( MF_ANIMAL ) ) {
+        baby_timer_scaling = time_duration::from_days( std::max( 1,
+                             static_cast<int>( std::ceil( to_days<int>( *type->baby_timer ) *
+                                               scaling / 100.0 ) ) ) );
+    }
 
     if( !baby_timer ) {
         // Assume this is a freshly spawned monster (because baby_timer is not set yet), set the point when it reproduce to somewhere in the future.
-        baby_timer.emplace( calendar::turn + *type->baby_timer );
+        baby_timer.emplace( calendar::turn + baby_timer_scaling );
     }
 
     bool season_spawn = false;
@@ -657,7 +679,7 @@ void monster::try_reproduce()
         if( ( season_match && female && one_in( chance ) ) ) {
             reproduce();
         }
-        *baby_timer += *type->baby_timer;
+        *baby_timer += baby_timer_scaling;
     }
 }
 
@@ -3484,12 +3506,17 @@ void monster::drop_items_on_death()
     if( is_hallucination() ) {
         return;
     }
-    if( !type->death_drops ) {
+    if( type->death_drops.empty() ) {
         return;
     }
 
-    auto items = item_group::items_from( type->death_drops,
+    auto items = item_group::items_from( type->death_drops.front(),
                                          calendar::start_of_cataclysm );
+    for( const item_group_id &death_drop : type->death_drops | std::views::drop( 1 ) ) {
+        auto group_items = item_group::items_from( death_drop,
+                           calendar::start_of_cataclysm );
+        std::ranges::move( group_items, std::back_inserter( items ) );
+    }
 
     // Apply both global and category-specific spawn rates
     const auto global_spawn_rate = get_option<float>( "ITEM_SPAWNRATE" );

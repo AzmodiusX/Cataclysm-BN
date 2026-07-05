@@ -15,11 +15,12 @@
 
 #include "action_time_scale.h"
 #include "active_item_cache.h"
+#include "activity_actor_definitions.h"
 #include "activity_handlers.h"
 #include "creature_tracker.h"
 #include "bionics.h"
 #include "bodypart.h"
-#include "cata_algo.h"
+#include "utils/algo.h"
 #include "catalua_coord.h"
 #include "catalua_hooks.h"
 #include "catalua_sol.h"

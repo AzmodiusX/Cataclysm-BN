@@ -414,16 +414,17 @@ bool Creature::sees( const Creature &critter ) const
                  here.cheap_light_at( critter.abs_pos() ) <= LIGHT_AMBIENT_LOW ) ||
                ( target && critter.is_underwater() && !is_underwater() && target->is_divable() ) ||
                ( target && target->has_flag_ter_or_furn( TFLAG_HIDE_PLACE ) &&
-                 !( std::abs( bub_pos().x() - critter.bub_pos().x() ) <= 1 &&
-                    std::abs( bub_pos().y() - critter.bub_pos().y() ) <= 1 &&
-                    std::abs( bub_pos().z() - critter.bub_pos().z() ) <= 1 ) && !critter.has_flag( MF_FLIES ) &&
+                 !( std::abs( abs_pos().x() - critter.abs_pos().x() ) <= 1 &&
+                    std::abs( abs_pos().y() - critter.abs_pos().y() ) <= 1 &&
+                    std::abs( abs_pos().z() - critter.abs_pos().z() ) <= 1 ) && !critter.has_flag( MF_FLIES ) &&
                  critter.get_size() <= creature_size::medium ) ) {
         return false;
     }
     if( ch != nullptr ) {
-        if( ch->movement_mode_is( CMM_CROUCH ) ) {
+        if( ch->movement_mode_is( CMM_CROUCH ) || ch->movement_mode_is( CMM_PRONE ) ) {
             const int coverage = here.obstacle_coverage( abs_pos(), critter.abs_pos() );
-            if( coverage < 30 ) {
+            const int threshold = ch->movement_mode_is( CMM_PRONE ) ? 15 : 30;
+            if( coverage < threshold ) {
                 return sees( critter.abs_pos(), critter.is_avatar() ) && visible( ch );
             }
             float size_modifier = 1.0;

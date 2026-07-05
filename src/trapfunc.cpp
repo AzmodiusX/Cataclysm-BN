@@ -1567,6 +1567,58 @@ bool trapfunc::snake( const tripoint_abs_ms &p, Creature *c, item * )
     return true;
 }
 
+static bool lua_trap_can_trigger_check( const Character &target, const trap &trap,
+                                        const tripoint_abs_ms &loc )
+{
+    // Lua itrap can_trigger prevents triggering when returning false
+    if( const auto *itrap_cb = trap.lua_callbacks ) {
+        if( !itrap_cb->call_can_trigger( target, trap, loc ) ) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void lua_trap_on_trigger( Character &target, trap &trap, const tripoint_abs_ms &loc )
+{
+    // Lua itrap can_trigger prevents triggering when returning false
+    if( const auto *itrap_cb = trap.lua_callbacks ) {
+        itrap_cb->call_on_trigger( target, trap, loc );
+    }
+}
+
+static void lua_trap_on_trigger_aftermath( Character &target, trap &trap,
+        const tripoint_abs_ms &loc )
+{
+    // Lua itrap can_trigger prevents triggering when returning false
+    if( const auto *itrap_cb = trap.lua_callbacks ) {
+        itrap_cb->call_on_trigger_aftermath( target, trap, loc );
+    }
+}
+
+bool trapfunc::lua( const tripoint_abs_ms &p, Creature *target, item *trap_item )
+{
+    auto &here = trap_item && trap_item->has_position() ? trap_item->get_mapbuffer() : target->get_mapbuffer();
+    const auto character = target->as_character();
+    auto handle = abs_tile_handle::fetch( here, p );
+    if( !handle ) {
+        return false;
+    }
+    auto trap = handle->trap_obj();
+    if( !lua_trap_can_trigger_check( *character, trap, p ) ) {
+        return false;
+    }
+    lua_trap_on_trigger( *character, trap, p );
+
+    // This is to respect other json fields, like remove_on_trigger
+    trap.trigger_aftermath( here, p );
+
+    lua_trap_on_trigger_aftermath( *character, trap, p );
+    return true;
+}
+
+
+
 /**
  * Takes the name of a trap function and returns a function pointer to it.
  * @param function_name The name of the trapfunc function to find.
@@ -1610,7 +1662,8 @@ const trap_function &trap_function_from_string( const std::string &function_name
             { "map_regen", trapfunc::map_regen },
             { "drain", trapfunc::drain },
             { "spell", trapfunc::cast_spell },
-            { "snake", trapfunc::snake }
+            { "snake", trapfunc::snake },
+            { "lua", trapfunc::lua }
         }
     };
 

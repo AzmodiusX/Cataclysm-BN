@@ -89,6 +89,7 @@
 #include "rng.h"
 #include "skill.h"
 #include "sounds.h"
+#include "units.h"
 #include "magic/spell_targeting.h"
 #include "string_formatter.h"
 #include "string_id.h"
@@ -386,6 +387,7 @@ void activity_handlers::burrow_finish( player_activity *act, player *p )
         p->mod_stored_kcal( std::min( -1, -act_exertion / to_moves<int>( 45_seconds ) ) );
         p->mod_thirst( std::max( 1, act_exertion / to_moves<int>( 6_minutes ) ) );
         p->mod_fatigue( std::max( 1, act_exertion / to_moves<int>( 3_minutes ) ) );
+        p->mod_stamina( std::min( -1, -act_exertion / to_moves<int>( 5_seconds ) ) );
     }
     act->set_to_null();
     p->add_msg_if_player( m_good, _( "You finish burrowing." ) );
@@ -1209,6 +1211,7 @@ void activity_handlers::pickaxe_finish( player_activity *act, player *p )
         p->mod_stored_kcal( std::min( -1, -act_exertion / to_moves<int>( 45_seconds ) ) );
         p->mod_thirst( std::max( 1, act_exertion / to_moves<int>( 6_minutes ) ) );
         p->mod_fatigue( std::max( 1, act_exertion / to_moves<int>( 3_minutes ) ) );
+        p->mod_stamina( std::min( -1, -act_exertion / to_moves<int>( 5_seconds ) ) );
     }
     act->set_to_null();
     p->add_msg_player_or_npc( m_good,
@@ -1279,10 +1282,10 @@ void activity_handlers::reload_finish( player_activity *act, player *p )
                 msg = _( "You insert one %2$s into the %1$s." );
             }
         }
-        if( reloadable.type->gun->reload_noise_volume > 0 ) {
+        if( reloadable.type->gun->reload_noise_volume > 0_dB ) {
             sound_event se;
             se.origin = p->abs_pos();
-            se.volume = reloadable.type->gun->reload_noise_volume;
+            se.volume = units::to_decibel( reloadable.type->gun->reload_noise_volume );
             se.category = sounds::sound_t::activity;
             se.description = reloadable.type->gun->reload_noise;
             se.id = "reload";
@@ -1297,10 +1300,6 @@ void activity_handlers::reload_finish( player_activity *act, player *p )
     }
     add_msg( m_neutral, msg, reloadable.tname(), ammo_name );
 }
-
-// train_finish logic moved into train_actor::finish()
-
-// vehicle_finish — moved into vehicle_work_actor::finish()
 
 void activity_handlers::vibe_do_turn( player_activity *act, player *p )
 {
@@ -1570,6 +1569,7 @@ void activity_handlers::train_skill_do_turn( player_activity *act, player *p )
         int training_skill_fatigue = atoi( p->get_value( "training_iuse_skill_fatigue" ).c_str() );
 
         p->mod_fatigue( training_skill_fatigue );
+        p->mod_stamina( -training_skill_fatigue * 36 );
         if( skill_training_item.ammo_remaining() > 0 ) {
             skill_training_item.ammo_consume( 1 );
             if( hack_type.has_value() ) {
@@ -2263,6 +2263,7 @@ void activity_handlers::chop_tree_finish( player_activity *act, player *p )
     p->mod_stored_kcal( std::min( -1, -act_exertion / to_moves<int>( 80_seconds ) ) );
     p->mod_thirst( std::max( 1, act_exertion / to_moves<int>( 12_minutes ) ) );
     p->mod_fatigue( std::max( 1, act_exertion / to_moves<int>( 6_minutes ) ) );
+    p->mod_stamina( std::min( -1, -act_exertion / to_moves<int>( 10_seconds ) ) );
 
     resume_for_multi_activities( *p );
 }
@@ -2323,6 +2324,7 @@ void activity_handlers::chop_logs_finish( player_activity *act, player *p )
     p->mod_stored_kcal( std::min( -1, -act_exertion / to_moves<int>( 80_seconds ) ) );
     p->mod_thirst( std::max( 1, act_exertion / to_moves<int>( 12_minutes ) ) );
     p->mod_fatigue( std::max( 1, act_exertion / to_moves<int>( 6_minutes ) ) );
+    p->mod_stamina( std::min( -1, -act_exertion / to_moves<int>( 10_seconds ) ) );
 
     resume_for_multi_activities( *p );
 }
@@ -2395,6 +2397,7 @@ void activity_handlers::jackhammer_finish( player_activity *act, player *p )
         p->mod_stored_kcal( std::min( -1, -act_exertion / to_moves<int>( 45_seconds ) ) );
         p->mod_thirst( std::max( 1, act_exertion / to_moves<int>( 6_minutes ) ) );
         p->mod_fatigue( std::max( 1, act_exertion / to_moves<int>( 3_minutes ) ) );
+        p->mod_stamina( std::min( -1, -act_exertion / to_moves<int>( 5_seconds ) ) );
     }
     p->add_msg_player_or_npc( m_good,
                               _( "You finish drilling." ),
@@ -2448,6 +2451,7 @@ void activity_handlers::fill_pit_finish( player_activity *act, player *p )
     p->mod_stored_kcal( std::min( -1, -act_exertion / to_moves<int>( 20_seconds ) ) );
     p->mod_thirst( std::max( 1, act_exertion / to_moves<int>( 3_minutes ) ) );
     p->mod_fatigue( std::max( 1, act_exertion / to_moves<int>( 90_seconds ) ) );
+    p->mod_stamina( std::min( -1, -act_exertion / to_moves<int>( 15_seconds ) ) );
     p->add_msg_if_player( m_good, _( "You finish filling up %s." ), old_ter->name() );
     act->set_to_null();
 }

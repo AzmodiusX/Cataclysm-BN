@@ -887,7 +887,7 @@ void map::flood_fill_sound( const sound_event soundevent, const int zlev )
 void map::batch_flood_fill_sounds()
 {
     ZoneScoped;
-    // Read sounds from the bubble's simulated island — this is the island
+    // Read sounds from the bubble's simulated island � this is the island
     // containing the player's origin submap.  Out-of-bubble sounds are in
     // their own island queues and are not flood-filled here.
     auto *bubble_sounds = get_mapbuffer().island_sounds_for( get_abs_sub() );
@@ -1904,7 +1904,7 @@ void sounds::sound( const sound_event &soundevent )
     }
     // Bounds are checked at processing time (batch_flood_fill_sounds /
     // flood_fill_sound) via is_in_reality_bubble_bounds.  All sounds are
-    // allowed into the queue — out-of-bubble sounds get simple distance
+    // allowed into the queue � out-of-bubble sounds get simple distance
     // attenuation instead of terrain-aware flood fill.
 
     // Error out if volume is negative, or bail out if volume is less than 16dB.
@@ -2885,14 +2885,16 @@ void sounds::process_sound_markers( Character *who )
                                              element.sound.description;
 
             // don't print our own noise or things without descriptions
-            if( ( element.sound.from_monster || element.sound.from_player || element.sound.from_npc ) &&
-                ( element.sound.origin != who->abs_pos() ) &&
-                !get_map().pl_sees( abs_to_bub( element.sound.origin ), distance_to_sound ) ) {
-                if( !who->activity->is_distraction_ignored( distraction_type::noise ) &&
-                    !get_safemode().is_sound_safe( element.sound.description, distance_to_sound ) ) {
-                    const std::string final_description = ensure_punctuation( description, '!' );
-                    const std::string query = string_format( _( "Heard %s!" ), final_description );
-                    g->cancel_activity_or_ignore_query( distraction_type::noise, query );
+            if( !element.sound.from_player ) {
+                if( ( element.sound.from_monster || element.sound.from_npc ) &&
+                    ( element.sound.origin != who->abs_pos() ) &&
+                    !get_map().pl_sees( abs_to_bub( element.sound.origin ), distance_to_sound ) ) {
+                    if( !who->activity->is_distraction_ignored( distraction_type::noise ) &&
+                        !get_safemode().is_sound_safe( element.sound.description, distance_to_sound ) ) {
+                        const std::string final_description = ensure_punctuation( description, '!' );
+                        const std::string query = string_format( _( "Heard %s!" ), final_description );
+                        g->cancel_activity_or_ignore_query( distraction_type::noise, query );
+                    }
                 }
             }
 

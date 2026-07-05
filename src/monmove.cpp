@@ -40,6 +40,7 @@
 #include "line.h"
 #include "make_static.h"
 #include "map.h"
+#include "map/utils/map_functions.h"
 #include "map_iterator.h"
 #include "mapdata.h"
 #include "mattack_common.h"
@@ -2332,26 +2333,31 @@ bool monster::attack_at( const tripoint_abs_ms &p )
     if( has_flag( MF_PACIFIST ) ) {
         return false;
     }
+    auto &here = get_mapbuffer();
+    if( p.z() != abs_pos().z() && !map_funcs::physical_clear_path( {
+    .here = here,
+        .from = abs_pos(),
+        .to = p,
+        .range = rl_dist( abs_pos(), p ),
+        .cost_min = 0,
+        .cost_max = 100,
+        .require_clear_path = false,
+    } ) ) {
+        return false;
+    }
 
-    mapbuffer &buf = get_mapbuffer();
+    if( p == g->u.abs_pos() ) {
+        melee_attack( g->u );
+        return true;
+    }
 
-    // Z-level attacks: check floor between tiles (works both on and off-bubble)
-    if( p.z() != abs_pos().z() ) {
-        const auto upper_z = std::max( p.z(), abs_pos().z() );
-        const auto vehicle_floor_between =
-            buf.veh_at( tripoint_abs_ms( abs_pos().xy(), upper_z ) ).part_with_feature( "BOARDABLE",
-                    true ).has_value() ||
-            buf.veh_at( tripoint_abs_ms( p.xy(), upper_z ) ).part_with_feature( "BOARDABLE",
-                    true ).has_value();
-        if( buf.floor_between( abs_pos(), p ) || vehicle_floor_between ) {
+    if( const auto mon_ = g->critter_at<monster>( p, is_hallucination() ) ) {
+        monster &mon = *mon_;
+
+        // Don't attack yourself.
+        if( &mon == this ) {
             return false;
         }
-        // No floor between — attempt attack through open air
-        if( auto critter = buf.creature_at( p ) ) {
-            melee_attack( *critter );
-            return true;
-        }
-        return false;
     }
 
     // Player attacks only in bubble
@@ -2361,7 +2367,7 @@ bool monster::attack_at( const tripoint_abs_ms &p )
     }
 
     // Creature lookup via mapbuffer
-    const Creature *const cr = buf.creature_at( p, is_hallucination() );
+    const Creature *const cr = here.creature_at( p, is_hallucination() );
     if( cr != nullptr && cr != this && type->melee_dice > 0 ) {
         auto attitude = attitude_to( *cr );
         if( attitude == Attitude::A_HOSTILE || has_flag( MF_ATTACKMON ) ) {

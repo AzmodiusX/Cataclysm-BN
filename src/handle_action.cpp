@@ -870,7 +870,7 @@ static void smash()
         } else if( smashskill >= rng( bash_info.str_min, bash_info.str_max ) ) {
             sound_event se;
             se.origin = bub_to_abs( smashp );
-            se.volume = bash_info.sound_vol.value_or( 0 );
+            se.volume = units::to_decibel( bash_info.sound_vol.value_or( 0_dB ) );
             se.category = sounds::sound_t::combat;
             se.description = bash_info.sound.translated();
             se.id = "smash";
@@ -885,7 +885,7 @@ static void smash()
         } else {
             sound_event se;
             se.origin = bub_to_abs( smashp );
-            se.volume = bash_info.sound_fail_vol.value_or( 0 );
+            se.volume = units::to_decibel( bash_info.sound_fail_vol.value_or( 0_dB ) );
             se.category = sounds::sound_t::combat;
             se.description = bash_info.sound_fail.translated();
             se.id = "smash";
@@ -1663,7 +1663,8 @@ static void open_movement_mode_menu()
     as_m.entries.emplace_back( CMM_RUN, true, 'r', _( "Run" ) );
     as_m.entries.emplace_back( CMM_WALK, true, 'w', _( "Walk" ) );
     as_m.entries.emplace_back( CMM_CROUCH, true, 'c', _( "Crouch" ) );
-    as_m.entries.emplace_back( CMM_COUNT, true, '"', _( "Cycle move mode (run/walk/crouch)" ) );
+    as_m.entries.emplace_back( CMM_PRONE, true, 'p', _( "Prone" ) );
+    as_m.entries.emplace_back( CMM_COUNT, true, '"', _( "Cycle move mode" ) );
     as_m.selected = 1;
     as_m.query();
 
@@ -2114,6 +2115,10 @@ bool game::handle_action()
 
             case ACTION_TOGGLE_CROUCH:
                 u.toggle_crouch_mode();
+                break;
+
+            case ACTION_TOGGLE_PRONE:
+                u.toggle_prone_mode();
                 break;
 
             case ACTION_OPEN_MOVEMENT:

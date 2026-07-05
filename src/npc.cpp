@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "action_time_scale.h"
+#include "activity_actor_definitions.h"
 #include "auto_pickup.h"
 #include "avatar.h"
 #include "bodypart.h"
