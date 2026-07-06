@@ -1960,6 +1960,13 @@ auto mapbuffer::register_submap_vehicles(
         veh->set_dimension( dimension_id_ );
         loaded_vehicles_.insert( veh.get() );
         index_vehicle_footprint_unlocked( *veh );
+        if( const auto bubble_pos = active_reality_bubble_local( veh->abs_ms_location() ) ) {
+            map &here = get_map();
+            here.invalidate_max_populated_zlev( bubble_pos->z() );
+            auto &ch = here.get_cache( bubble_pos->z() );
+            ch.vehicle_list.insert( veh.get() );
+            here.add_vehicle_to_cache( veh.get() );
+        }
     }
 }
 
@@ -1968,6 +1975,21 @@ auto mapbuffer::unregister_submap_vehicles( const tripoint_abs_sm &p ) -> void
     for( auto iter = loaded_vehicles_.begin(); iter != loaded_vehicles_.end(); ) {
         const auto *const veh = *iter;
         if( veh == nullptr || veh->abs_sm_pos == p ) {
+            if( veh != nullptr ) {
+                if( const auto bubble_pos = active_reality_bubble_local( veh->abs_ms_location() ) ) {
+                    map &here = get_map();
+                    auto &ch = here.get_cache( bubble_pos->z() );
+                    ch.vehicle_list.erase( const_cast<vehicle *>( veh ) );
+                    ch.zone_vehicles.erase( const_cast<vehicle *>( veh ) );
+                    for( const vpart_reference &vpr : veh->get_all_parts() ) {
+                        if( !vpr.part().removed ) {
+                            const auto local_pos = veh->bub_part_location( vpr.part() );
+                            here.clear_vehicle_point_from_cache(
+                                const_cast<vehicle *>( veh ), local_pos );
+                        }
+                    }
+                }
+            }
             unindex_vehicle_footprint_unlocked( veh );
             iter = loaded_vehicles_.erase( iter );
         } else {
@@ -2093,6 +2115,14 @@ void mapbuffer::clear()
         simulated_islands_.clear();
         submaps.clear();
         pocket_info_.reset();
+
+        if( g != nullptr && g->m.get_bound_dimension() == dimension_id_ ) {
+            for( int z = -OVERMAP_DEPTH; z <= OVERMAP_HEIGHT; ++z ) {
+                g->m.clear_vehicle_list( z );
+                g->m.invalidate_map_cache( z );
+            }
+            g->m.clear_vehicle_cache();
+        }
     }
     std::lock_guard<std::mutex> pw_lk( pending_writes_mutex_ );
     pending_writes_.clear();
