@@ -950,8 +950,8 @@ static bool vehicle_activity( player &p, const tripoint_bub_ms &src_loc, int vpi
     return true;
 }
 
-void move_item( player &p, item &it, const int quantity, const tripoint_bub_ms &src,
-               const tripoint_bub_ms &dest, const activity_id &activity_to_restore = activity_id::NULL_ID() )
+void move_item( Character &p, item &it, const int quantity, const tripoint_bub_ms &src,
+               const tripoint_bub_ms &dest, const activity_id &activity_to_restore )
 {
     // Check that we can pick it up.
     if( it.made_of( LIQUID ) ) {
@@ -1389,7 +1389,7 @@ static auto blocking_item_name( const tripoint_bub_ms &src_loc ) -> std::string
     return ( *items.begin() )->display_name();
 }
 
-static void set_activity_failure_message( player &p, const std::string &msg,
+static void set_activity_failure_message( Character &p, const std::string &msg,
         bool *notice_sent = nullptr )
 {
     if( msg.empty() ) {
@@ -3037,8 +3037,9 @@ static bool generic_multi_activity_do( player &p, const activity_id &act_id,
     return true;
 }
 
-bool generic_multi_activity_handler( player_activity &act, player &p, bool check_only )
+bool generic_multi_activity_handler( player_activity &act, Character &who, bool check_only )
 {
+    player &p = static_cast<player &>( who );
     map &here = get_map();
     zone_manager &mgr = zone_manager::get_manager();
     const auto abspos = p.abs_pos();
@@ -3300,7 +3301,7 @@ static std::optional<tripoint_bub_ms> find_refuel_spot_trap( const std::vector<t
     return {};
 }
 
-bool find_auto_consume( player &p, const consume_type type )
+bool find_auto_consume( Character &p, const consume_type type )
 {
     // return false if there is no point searching again while the activity is still happening.
     if( p.is_npc() ) {
@@ -3366,7 +3367,9 @@ bool find_auto_consume( player &p, const consume_type type )
 
     auto stalest = mgr.get_near( consume_type_zone, pos, ACTIVITY_SEARCH_DISTANCE )
                    | views::filter( [&]( const auto & loc ) -> bool { return loc.z() == p.abs_pos().z(); } )
-                   | flat_map( map_funcs::get_items_at )
+                   | flat_map( []( const tripoint_abs_ms &loc ) {
+                       return map_funcs::get_items_at( get_map().get_mapbuffer(), loc );
+                   } )
                    | views::filter( ok_to_consume )
                    | min_by( &item::spoilage_sort_order );
     if( !stalest ) {
@@ -3387,7 +3390,7 @@ bool find_auto_consume( player &p, const consume_type type )
     return true;
 }
 
-void try_fuel_fire( player_activity &act, player &p, const bool starting_fire )
+void try_fuel_fire( player_activity &act, Character &p, const bool starting_fire )
 {
     const auto pos = p.bub_pos();
     auto adjacent = closest_points_first( pos, PICKUP_RANGE );

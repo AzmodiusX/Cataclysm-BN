@@ -1474,6 +1474,9 @@ class butcher_actor : public activity_actor
 
         butcher_actor() = default;
         explicit butcher_actor( const activity_id &type, safe_reference<item> corpse_ref );
+        void add_extra_corpse( safe_reference<item> corpse_ref ) {
+            extra_corpses.push_back( std::move( corpse_ref ) );
+        }
         const activity_id &get_act_type() const { return act_type; }
         safe_reference<item> &get_corpse() { return corpse; }
         activity_id get_type() const override { return act_type; }

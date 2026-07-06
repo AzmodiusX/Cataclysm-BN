@@ -142,7 +142,7 @@ int effective_dispersion( const Character &who, int dispersion );
 dispersion_sources get_weapon_dispersion( const Character &who, const item &obj );
 
 /** Returns whether the character can effectively use a heavy/MOUNTED_GUN weapon */
-bool can_use_heavy_weapon( const Character &who, const map &m, const tripoint_bub_ms &pos );
+bool can_use_heavy_weapon( const Character &who, const tripoint_abs_ms &pos );
 
 struct aim_type {
     std::string name;

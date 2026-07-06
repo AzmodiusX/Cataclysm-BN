@@ -2644,7 +2644,7 @@ bool Character::install_bionics( const itype &type, Character &installer, bool a
             difficulty, success, units::to_joule( bioid->capacity ), pl_skill
         )
     ) );
-    } else {
+    if( !autodoc ) {
         activity->str_values.emplace_back( "false" );
     }
     const auto operation_duration = scaled_operation_duration( difficulty );

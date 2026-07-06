@@ -8,6 +8,8 @@
 #include <vector>
 
 #include "pathfinding.h"
+#include "activity_actor.h"
+#include "activity_actor_definitions.h"
 #include "avatar.h"
 #include "avatar_action.h"
 #include "bodypart.h"

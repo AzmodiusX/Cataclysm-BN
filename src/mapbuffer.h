@@ -687,9 +687,6 @@ class mapbuffer
         auto get_submap( const tripoint_abs_sm &p,
         mapbuffer_lookup_options options = {} ) -> submap *;
 
-        // get_abs_tile, get_abs_submap_view, get_abs_omt_view,
-        // simulated_submap_views, and make_abs_tile_reader were removed
-        // in Phase 2.  Use abs_tile_handle::fetch() / for_each_submap_tile() instead.
         auto for_each_simulated_submap(
             const std::function<void( const tripoint_abs_sm &, submap & )> &fn ) -> void;
         auto simulated_submap_positions() const -> std::vector<tripoint_abs_sm>;

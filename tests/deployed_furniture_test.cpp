@@ -3,6 +3,7 @@
 #include "game.h"
 #include "item_stack.h"
 #include "map.h"
+#include "map_helpers.h"
 #include "map/utils/map_utils.h"
 #include "state_helpers.h"
 #include "type_id.h"

@@ -3165,6 +3165,16 @@ repair_actor::repair_actor(
   , crafter_part_index( cpart_idx )
 {}
 
+repair_actor::repair_actor(
+    const std::string &name,
+    safe_reference<item> tool_ref,
+    int pos
+) : is_hack( false )
+  , iuse_name( name )
+  , tool( tool_ref )
+  , item_pos( pos )
+{}
+
 void repair_actor::serialize( JsonOut &jsout ) const
 {
     jsout.start_object();

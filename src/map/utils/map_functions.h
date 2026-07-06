@@ -10,7 +10,7 @@ class mapbuffer;
 namespace map_funcs {
 
 struct physical_clear_path_opts {
-    const mapbuffer& here;
+    mapbuffer& here;
     tripoint_abs_ms from;
     tripoint_abs_ms to;
     int range = -1;

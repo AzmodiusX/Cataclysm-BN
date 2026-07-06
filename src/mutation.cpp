@@ -10,6 +10,8 @@
 #include <unordered_set>
 
 #include "avatar_action.h"
+#include "activity_actor.h"
+#include "activity_actor_definitions.h"
 #include "bionics.h"
 #include "catalua_icallback_actor.h"
 #include "character.h"

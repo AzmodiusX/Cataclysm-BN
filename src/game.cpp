@@ -13046,30 +13046,27 @@ void game::apply_movement_effects()
                 forage( dest + displace_XY( elem ) );
             }
         }
-        // Note: pulp/butcher uses get_map() for item stack access since the
-        // activity system requires bubble-coordinate item lookups.
         const std::string pulp_butcher = get_option<std::string>( "AUTO_PULP_BUTCHER" );
         if( pulp_butcher == "butcher" && u.max_quality( quality_id( "BUTCHER" ) ) > INT_MIN ) {
             std::vector<item *> corpses;
-            for( item * const &it : get_map().i_at( abs_to_bub( dest ) ) ) {
+            for( item * const &it : *here.get_items( dest ) ) {
                 corpses.push_back( it );
             }
             if( !corpses.empty() ) {
-                safe_reference<item> corpse( corpses.front() );
                 auto actor = std::make_unique<butcher_actor>( activity_id( "ACT_BUTCHER" ),
-                            std::move( corpse ) );
+                            safe_reference<item>( corpses[0] ) );
                 for( size_t i = 1; i < corpses.size(); ++i ) {
-                    actor->extra_corpses.emplace_back( corpses[i] );
+                    actor->add_extra_corpse( safe_reference<item>( corpses[i] ) );
                 }
                 u.assign_activity( std::make_unique<player_activity>( std::move( actor ) ) );
             }
         } else if( pulp_butcher == "pulp" || pulp_butcher == "pulp_adjacent" ) {
-            const auto pulp = [&]( const tripoint_bub_ms & pos ) {
-                for( const auto &maybe_corpse : get_map().i_at( pos ) ) {
+            const auto pulp = [&]( const tripoint_abs_ms & pos ) {
+                for( const auto &maybe_corpse : *here.get_items( pos ) ) {
                     if( maybe_corpse->is_corpse() && maybe_corpse->can_revive() &&
                         !maybe_corpse->get_mtype()->bloodType().obj().has_acid ) {
                         u.assign_activity( std::make_unique<player_activity>(
-                            std::make_unique<pulp_actor>( bub_to_abs( pos ), true ) ) );
+                            std::make_unique<pulp_actor>( pos, true ) ) );
                         u.activity->auto_resume = true;
                         return;
                     }
@@ -13077,10 +13074,10 @@ void game::apply_movement_effects()
             };
             if( pulp_butcher == "pulp_adjacent" ) {
                 for( auto &elem : adjacentDir ) {
-                    pulp( abs_to_bub( dest + displace_XY( elem ) ) );
+                    pulp( dest + displace_XY( elem ) );
                 }
             } else {
-                pulp( abs_to_bub( dest ) );
+                pulp( dest );
             }
         }
     }

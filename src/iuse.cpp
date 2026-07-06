@@ -9093,6 +9093,9 @@ int iuse::craft( Character *p, item *it, bool, const tripoint_abs_ms *pt )
                          it->charges,
                          it->get_counter(),
                          best_bench.position,
+                         best_bench.type,
+                         100,
+                         best_bench.position,
                          std::vector<comp_selection<item_comp>> {},
                          it->get_cached_tool_selections(),
                          it->get_var( "craft_tools_fully_prepaid", 0 ) == 1

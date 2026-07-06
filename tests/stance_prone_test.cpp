@@ -132,21 +132,21 @@ TEST_CASE("prone_stance_ranged_effects", "[stance][prone][ranged]") {
         WHEN("standing without mountable terrain nearby") {
             shooter.set_movement_mode(character_movemode::CMM_WALK);
             THEN("can_use_heavy_weapon returns false") {
-                REQUIRE_FALSE(ranged::can_use_heavy_weapon(shooter, get_map(), shooter.bub_pos()));
+                REQUIRE_FALSE(ranged::can_use_heavy_weapon(shooter, shooter.abs_pos()));
             }
         }
 
         WHEN("crouching without mountable terrain nearby") {
             shooter.set_movement_mode(character_movemode::CMM_CROUCH);
             THEN("can_use_heavy_weapon returns false") {
-                REQUIRE_FALSE(ranged::can_use_heavy_weapon(shooter, get_map(), shooter.bub_pos()));
+                REQUIRE_FALSE(ranged::can_use_heavy_weapon(shooter, shooter.abs_pos()));
             }
         }
 
         WHEN("prone") {
             shooter.set_movement_mode(character_movemode::CMM_PRONE);
             THEN("can_use_heavy_weapon returns true") {
-                REQUIRE(ranged::can_use_heavy_weapon(shooter, get_map(), shooter.bub_pos()));
+                REQUIRE(ranged::can_use_heavy_weapon(shooter, shooter.abs_pos()));
             }
         }
     }

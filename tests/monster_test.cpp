@@ -519,13 +519,13 @@ TEST_CASE("physical_clear_path_respects_vehicle_floors", "[map][z-level]") {
     clear_all_state();
     clear_map();
 
-    auto& here = get_map();
-    const auto lower_pos = tripoint_bub_ms{60, 60, 1};
-    const auto upper_pos = tripoint_bub_ms{60, 60, 2};
+    auto& here = get_map().get_mapbuffer();
+    const auto lower_pos = test_origin + tripoint_rel_ms::below();
+    const auto upper_pos = lower_pos + tripoint_rel_ms::below();
 
     SECTION("open air does not block physical paths") {
         CHECK(map_funcs::physical_clear_path({
-            .m = here,
+            .here = here,
             .from = lower_pos,
             .to = upper_pos,
             .require_clear_path = false,
@@ -533,10 +533,10 @@ TEST_CASE("physical_clear_path_respects_vehicle_floors", "[map][z-level]") {
     }
 
     SECTION("terrain floors block physical paths") {
-        here.ter_set(upper_pos, ter_id("t_floor"));
+        here.set_ter(upper_pos, ter_id("t_floor"));
 
         CHECK_FALSE(map_funcs::physical_clear_path({
-            .m = here,
+            .here = here,
             .from = lower_pos,
             .to = upper_pos,
             .require_clear_path = false,
@@ -549,10 +549,10 @@ TEST_CASE("physical_clear_path_respects_vehicle_floors", "[map][z-level]") {
         REQUIRE(veh != nullptr);
         veh->install_part(tripoint_mnt_veh::zero(), vpart_id("frame_vertical"));
         veh->install_part(tripoint_mnt_veh::zero(), vpart_id("seat"));
-        here.add_vehicle_to_cache(veh);
+        here.register_vehicle(veh);
 
         CHECK_FALSE(map_funcs::physical_clear_path({
-            .m = here,
+            .here = here,
             .from = lower_pos,
             .to = upper_pos,
             .require_clear_path = false,
@@ -560,17 +560,17 @@ TEST_CASE("physical_clear_path_respects_vehicle_floors", "[map][z-level]") {
     }
 
     SECTION("vehicle obstacles block physical paths") {
-        const auto obstacle_pos = tripoint_bub_ms{61, 60, 2};
+        const auto obstacle_pos = tripoint_abs_ms{1, 0, 2};
         auto* veh = here.add_vehicle(vproto_id("none"), obstacle_pos, 0_degrees, 0, 0);
 
         REQUIRE(veh != nullptr);
         veh->install_part(tripoint_mnt_veh::zero(), vpart_id("frame_vertical"));
         veh->install_part(tripoint_mnt_veh::zero(), vpart_id("windshield"));
-        here.add_vehicle_to_cache(veh);
+        here.register_vehicle(veh);
 
         CHECK(here.veh_at(obstacle_pos).obstacle_at_part().has_value());
         CHECK_FALSE(map_funcs::physical_clear_path({
-            .m = here,
+            .here = here,
             .from = obstacle_pos + tripoint_west,
             .to = obstacle_pos + tripoint_east,
             .require_clear_path = false,
@@ -578,7 +578,7 @@ TEST_CASE("physical_clear_path_respects_vehicle_floors", "[map][z-level]") {
     }
 
     SECTION("lower-z paths cannot enter helicopter cabins through open air") {
-        const auto helicopter_pos = tripoint_bub_ms{60, 60, 2};
+        const auto helicopter_pos = tripoint_abs_ms{0, 0, 2};
         auto* const helicopter =
             here.add_vehicle(vproto_id("2seater2"), helicopter_pos, 0_degrees, 0, 0);
 
@@ -586,11 +586,11 @@ TEST_CASE("physical_clear_path_respects_vehicle_floors", "[map][z-level]") {
         const auto seat_part =
             helicopter->part_with_feature(tripoint_mnt_veh::zero(), "SEAT", true);
         REQUIRE(seat_part != -1);
-        const auto seat_pos = helicopter->bub_part_location(seat_part);
+        const auto seat_pos = helicopter->abs_part_location(seat_part);
 
         CHECK(here.veh_at(seat_pos)->is_inside());
         CHECK_FALSE(map_funcs::physical_clear_path({
-            .m = here,
+            .here = here,
             .from = seat_pos + tripoint_below + tripoint_east * 4,
             .to = seat_pos,
             .require_clear_path = false,
@@ -603,8 +603,8 @@ TEST_CASE("zombie_technician_pull_through_helicopter_windshield_is_blocked", "[m
     clear_map();
 
     avatar& you = get_avatar();
-    auto& here = get_map();
-    const auto helicopter_pos = tripoint_bub_ms{60, 60, 2};
+    auto& here = you.get_mapbuffer();
+    const auto helicopter_pos = tripoint_abs_ms{0, 0, 2};
     const auto pipe_id = itype_id("pipe");
     auto* const helicopter =
         here.add_vehicle(vproto_id("2seater2"), helicopter_pos, 0_degrees, 0, 0);
@@ -612,7 +612,7 @@ TEST_CASE("zombie_technician_pull_through_helicopter_windshield_is_blocked", "[m
     REQUIRE(helicopter != nullptr);
     const auto seat_part = helicopter->part_with_feature(tripoint_mnt_veh::zero(), "SEAT", true);
     REQUIRE(seat_part != -1);
-    const auto seat_pos = helicopter->bub_part_location(seat_part);
+    const auto seat_pos = helicopter->abs_part_location(seat_part);
     const auto windshield_pos = seat_pos + tripoint_east;
     const auto technician_pos = windshield_pos + tripoint_east;
 
@@ -623,8 +623,8 @@ TEST_CASE("zombie_technician_pull_through_helicopter_windshield_is_blocked", "[m
     you.wield(item::spawn(pipe_id));
     REQUIRE(you.primary_weapon().typeId() == pipe_id);
 
-    monster& technician = spawn_test_monster("mon_zombie_technician", technician_pos);
-    technician.set_goal(you.bub_pos());
+    monster& technician = spawn_test_monster("mon_zombie_technician", abs_to_bub(technician_pos));
+    technician.set_goal(you.abs_pos());
     REQUIRE(technician.sees(you));
 
     CHECK_FALSE(mattack::pull_metal_weapon(&technician));
@@ -645,8 +645,8 @@ TEST_CASE("zombie_technician_pull_uses_physical_clear_path", "[monster][z-level]
     clear_map();
 
     avatar& you = get_avatar();
-    auto& here = get_map();
-    const auto target_pos = tripoint_bub_ms{60, 60, 2};
+    auto& here = you.get_mapbuffer();
+    const auto target_pos = tripoint_abs_ms{0, 0, 2};
     const auto technician_pos = target_pos + tripoint_below;
     const auto flaregun_id = itype_id("flaregun");
 
@@ -656,8 +656,8 @@ TEST_CASE("zombie_technician_pull_uses_physical_clear_path", "[monster][z-level]
     you.wield(item::spawn(flaregun_id));
     REQUIRE(you.primary_weapon().typeId() == flaregun_id);
 
-    monster& technician = spawn_test_monster("mon_zombie_technician", technician_pos);
-    technician.set_goal(you.bub_pos());
+    monster& technician = spawn_test_monster("mon_zombie_technician", abs_to_bub(technician_pos));
+    technician.set_goal(you.abs_pos());
 
     SECTION("open air allows metal pulls") {
         CHECK(mattack::pull_metal_weapon(&technician));
@@ -670,7 +670,7 @@ TEST_CASE("zombie_technician_pull_uses_physical_clear_path", "[monster][z-level]
         REQUIRE(veh != nullptr);
         veh->install_part(tripoint_mnt_veh::zero(), vpart_id("frame_vertical"));
         veh->install_part(tripoint_mnt_veh::zero(), vpart_id("seat"));
-        here.add_vehicle_to_cache(veh);
+        here.register_vehicle(veh);
 
         CHECK_FALSE(mattack::pull_metal_weapon(&technician));
         CHECK(you.primary_weapon().typeId() == flaregun_id);
