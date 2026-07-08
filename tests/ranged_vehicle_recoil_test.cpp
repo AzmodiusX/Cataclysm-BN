@@ -24,7 +24,7 @@ TEST_CASE("firing_from_a_vehicle_applies_recoil_to_the_vehicle", "[vehicle][gun]
     auto& player_character = get_avatar();
     auto& here = player_character.get_mapbuffer();
 
-    auto* const veh = get_map().add_vehicle(vproto_id("bicycle"), bub_test_origin(), 0_degrees, 0, 0);
+    auto* const veh = here.add_vehicle(vproto_id("bicycle"), test_origin, 0_degrees, 0, 0);
     REQUIRE(veh != nullptr);
 
     player_character.setpos(test_origin);

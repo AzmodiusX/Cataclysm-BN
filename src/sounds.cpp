@@ -4123,7 +4123,7 @@ int sfx::get_heard_volume( const tripoint_bub_ms &local_source, const short &ori
     const auto &lev_cache = get_map().get_cache_ref( ploc.z() );
     const auto &absorp_cache = lev_cache.absorption_cache;
     const auto &avg_t_absorp = static_cast<short>( std::round( 0.5 * ( absorp_cache[lev_cache.idx(
-                                   ploc.x(), ploc.y() )] + absorp_cache[lev_cache.idx( source.x(), source.y() )] ) ) );
+                                   ploc.x(), ploc.y() )] + absorp_cache[lev_cache.idx( local_source.x(), local_source.y() )] ) ) );
     const auto &o_vol = ( in_mdB ) ? origin_volume : dBspl_to_mdBspl( origin_volume );
     // We are currently working in mdB spl. We will need to convert this to our sfx volume, which is 0 - 100.
     int heard_volume = std::max( 0, o_vol - get_cumulative_vol_dist_loss( 1, distance,

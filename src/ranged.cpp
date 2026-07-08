@@ -2453,7 +2453,7 @@ int ranged::time_to_attack( const Character &p, const item &firing, const item *
 
 static void cycle_action( item &weap, const tripoint_abs_ms &pos )
 {
-    auto &here = g->u.get_mapbuffer();
+    auto &here = weap.get_mapbuffer();
     // eject casings and linkages in random direction avoiding walls using player position as fallback
     auto tiles = closest_points_first( pos, 1 );
     tiles.erase( tiles.begin() );
@@ -2486,9 +2486,10 @@ static void cycle_action( item &weap, const tripoint_abs_ms &pos )
                 vp->vehicle().add_item( *cargo.front(), item::spawn( casing ) );
             }
             // Take the dB volume of ejecting to be 60.
-            sfx::play_variant_sound( "fire_gun", "brass_eject", sfx::get_heard_volume( abs_to_bub( eject ),
-                                     60 ),
-                                     sfx::get_heard_angle( abs_to_bub( eject ) ) );
+            if( here.get_dimension_id() == g->u.get_dimension() ) {
+                sfx::play_variant_sound( "fire_gun", "brass_eject", sfx::get_heard_volume( abs_to_bub( eject ),
+                                         60 ), sfx::get_heard_angle( abs_to_bub( eject ) ) );
+            }
         }
     }
 
