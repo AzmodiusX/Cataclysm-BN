@@ -50,6 +50,8 @@ bool player_has_item_of_type(const std::string& type) {
 
 void clear_character(player& dummy, bool debug_storage) {
     character_funcs::normalize(dummy);
+    dummy.in_vehicle = false;
+    dummy.controlling_vehicle = false;
 
     // Remove first worn item until there are none left.
     std::vector<detached_ptr<item>> temp;

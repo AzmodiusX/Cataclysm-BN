@@ -15,6 +15,7 @@
 #include "submap.h"
 #include "vehicle.h"
 #include "vehicle_part.h"
+#include "vpart_range.h"
 
 #include <vector>
 
@@ -111,8 +112,10 @@ static void clear_grid_connections(map& m) {
 }
 
 static grid_setup set_up_grid(map& m) {
+    [[maybe_unused]] const scoped_map_context map_context( m );
     // TODO: clear_grids()
     clear_grid_connections(m);
+    m.load(m.get_abs_sub(), true);
 
     const auto z = g->u.abs_pos().z();
     const auto vehicle_local_pos = tripoint_bub_ms(10, 10, z);
@@ -120,24 +123,52 @@ static grid_setup set_up_grid(map& m) {
     const auto battery_local_pos = tripoint_bub_ms(14, 10, z);
     const auto connector_abs_pos = tripoint_abs_ms(map_local_to_abs(m, connector_local_pos));
     const auto battery_abs_pos = tripoint_abs_ms(map_local_to_abs(m, battery_local_pos));
+    m.furn_set(connector_local_pos, f_null);
+    m.furn_set(battery_local_pos, f_null);
     m.furn_set(connector_local_pos, f_cable_connector);
     m.furn_set(battery_local_pos, f_battery);
-    vehicle* veh = m.add_vehicle(vproto_id("car"), vehicle_local_pos, 0_degrees, 0, 0, false);
+    vehicle* veh = m.get_mapbuffer().add_vehicle(
+        vproto_id("car"), map_local_to_abs(m, vehicle_local_pos), 0_degrees, 0, 0, true);
+    REQUIRE(veh);
+    for( const auto part_index : veh->battery_parts ) {
+        veh->part( part_index ).ammo_set( itype_battery, 0 );
+    }
     vehicle_connector_tile* grid_connector = active_tiles::furn_at<vehicle_connector_tile>(
         connector_abs_pos);
     battery_tile* battery = active_tiles::furn_at<battery_tile>(battery_abs_pos);
 
     CAPTURE(connector_abs_pos);
     CAPTURE(battery_abs_pos);
-    REQUIRE(veh);
     REQUIRE(grid_connector);
     REQUIRE(battery);
 
     connect_grid_vehicle(*veh, *grid_connector, connector_abs_pos);
 
+    // Installing the cable refreshes the vehicle's derived part indexes.
+    // Re-establish the empty battery state after that refresh so this fixture
+    // starts with the vehicle discharged.
+    for( const auto part_index : veh->battery_parts ) {
+        auto &part = veh->part( part_index );
+        part.get_base().set_damage( 0 );
+        part.ammo_set( itype_battery, 0 );
+    }
+
     distribution_grid& grid = get_distribution_grid_tracker().grid_at(connector_abs_pos);
     REQUIRE(!grid.empty());
     REQUIRE(&grid == &get_distribution_grid_tracker().grid_at(battery_abs_pos));
+
+    // Grid construction may synchronize a small existing charge through the
+    // newly installed cable.  The fixture starts with both storage endpoints
+    // empty so each scenario controls its own initial energy state.
+    battery->mod_resource( -battery->get_resource() );
+    grid.mod_resource( -grid.get_resource() );
+    veh->discharge_battery( veh->fuel_left( itype_battery, false ), false );
+    for( const auto part_index : veh->battery_parts ) {
+        auto &part = veh->part( part_index );
+        part.get_base().set_damage( 0 );
+        part.ammo_set( itype_battery, 0 );
+    }
+    REQUIRE( veh->fuel_left( itype_battery, false ) == 0 );
     return grid_setup{grid, *veh, *battery};
 }
 
@@ -193,6 +224,8 @@ static S set_up_grid_with_consumer(map& m, const furn_str_id& act_tile_id) {
     const auto battery_local_pos = tripoint_bub_ms(14, 10, z);
     const auto act_abs_pos = tripoint_abs_ms(map_local_to_abs(m, act_local_pos));
     const auto battery_abs_pos = tripoint_abs_ms(map_local_to_abs(m, battery_local_pos));
+    m.furn_set(act_local_pos, f_null);
+    m.furn_set(battery_local_pos, f_null);
     m.furn_set(act_local_pos, act_tile_id);
     m.furn_set(battery_local_pos, f_battery);
     T* act_tile = active_tiles::furn_at<T>(act_abs_pos);
@@ -378,8 +411,9 @@ TEST_CASE("grid_furn_transform_queue_in_bubble", "[grids]") {
     const auto z = g->u.abs_pos().z();
     auto& here = g->u.get_mapbuffer();
     move_player_out_of_the_way();
+    get_map().load(get_map().get_abs_sub(), true);
 
-    const auto pos_abs = tripoint_abs_ms(22, 7, z);
+    const auto pos_abs = map_local_to_abs( get_map(), tripoint_bub_ms(22, 7, z) );
 
     grid_furn_transform_queue tf_queue;
     tf_queue.add(pos_abs, f_floor_lamp_on, "");
@@ -388,7 +422,7 @@ TEST_CASE("grid_furn_transform_queue_in_bubble", "[grids]") {
     REQUIRE(here.furn(pos_abs)->id() != f_floor_lamp_on);
     REQUIRE(active_tiles::furn_at<active_tile_data>(pos_abs) == nullptr);
 
-    tf_queue.apply(MAPBUFFER, get_distribution_grid_tracker(), get_player_character());
+    tf_queue.apply(here, get_distribution_grid_tracker(), get_player_character());
 
     REQUIRE(here.furn(pos_abs)->id() == f_floor_lamp_on);
     REQUIRE(active_tiles::furn_at<steady_consumer_tile>(pos_abs) != nullptr);

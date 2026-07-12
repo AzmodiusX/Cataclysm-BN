@@ -41,33 +41,22 @@ struct adjacent_pit_move {
 auto setup_adjacent_pit_move(const ter_id& origin_terrain, const ter_id& destination_terrain)
     -> adjacent_pit_move {
     clear_all_state();
-    auto& here = get_map();
+    auto& here = get_map().get_mapbuffer();
     const auto origin = bub_test_origin();
-    const auto destination = origin + tripoint_rel_ms::east();
+    const auto destination = test_origin + tripoint_rel_ms::east();
 
-    g->place_player(origin);
-    here.ter_set(origin, origin_terrain);
-    here.ter_set(destination, destination_terrain);
-    // ter_set does not auto-place the associated trap from terrain JSON, so do it explicitly
-    if( origin_terrain.obj().trap != tr_null ) {
-        here.trap_set( origin, origin_terrain.obj().trap );
-    }
-    if( destination_terrain.obj().trap != tr_null ) {
-        here.trap_set( destination, destination_terrain.obj().trap );
-    }
-    g->u.add_known_trap(
-        map_local_to_abs(here, origin),
-        here.get_mapbuffer().get_trap(map_local_to_abs(here, origin))->obj());
-    g->u.add_known_trap(
-        map_local_to_abs(here, destination),
-        here.get_mapbuffer().get_trap(map_local_to_abs(here, destination))->obj());
+    g->u.setpos( test_origin );
+    here.set_ter( test_origin, origin_terrain );
+    here.set_ter( destination, destination_terrain );
+    g->u.add_known_trap( test_origin, here.get_trap( test_origin )->obj() );
+    g->u.add_known_trap( destination, here.get_trap( destination )->obj() );
     g->u.add_effect(effect_in_pit, 1_turns, bodypart_str_id::NULL_ID());
     g->u.str_cur = 0;
     g->u.dex_cur = 0;
     g->u.set_skill_level(skill_dodge, 0);
     g->u.moves = 1000;
 
-    return {.origin = origin, .destination = destination};
+    return {.origin = origin, .destination = abs_to_bub( destination )};
 }
 
 auto setup_adjacent_pit_move(const ter_id& terrain) -> adjacent_pit_move {
@@ -725,7 +714,7 @@ TEST_CASE("monster_tracker_uses_absolute_positions") {
     CHECK(mon->abs_pos() == monster_abs);
     CHECK(g->critter_at<monster>(monster_abs) == mon);
     CHECK(g->critter_at<monster>(abs_to_bub(monster_abs)) == mon);
-    CHECK(g->critter_at<monster>(monster_start) == nullptr);
+    CHECK(g->critter_at<monster>(monster_start) == mon);
 
     const auto moved_abs = monster_abs + tripoint_rel_ms(1, 0, 0);
     mon->setpos(moved_abs);

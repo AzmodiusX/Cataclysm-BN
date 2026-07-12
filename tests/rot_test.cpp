@@ -3,6 +3,7 @@
 #include "catch/catch.hpp"
 #include "coordinates.h"
 #include "crafting.h"
+#include "debug.h"
 #include "enums.h"
 #include "game.h" // Just for get_convection_temperature(), TODO: Remove
 #include "item.h"
@@ -49,8 +50,9 @@ static auto make_storage(const vpart_id& storage_part, const bool enabled)
     
     auto& map = get_map();
     auto& here = map.get_mapbuffer();
-    map.set_temperature(bub_test_origin(), 100);
-    auto* veh = map.add_vehicle(vproto_id("none"), bub_test_origin(), 0_degrees, 0, 0);
+    const auto pos = test_origin;
+    REQUIRE(here.set_temperature(pos, 100));
+    auto* veh = here.add_vehicle(vproto_id("none"), pos, 0_degrees, 0, 0);
     REQUIRE(veh != nullptr);
     REQUIRE(veh->install_part(tripoint_mnt_veh::zero(), vpart_id("frame_vertical"), true) >= 0);
     const auto part_index = veh->install_part(tripoint_mnt_veh::zero(), storage_part, true);
@@ -59,7 +61,7 @@ static auto make_storage(const vpart_id& storage_part, const bool enabled)
     map.add_vehicle_to_cache(veh);
     map.build_map_cache(0, true);
 
-    return {.veh = veh, .part_index = part_index, .pos = test_origin};
+    return {.veh = veh, .part_index = part_index, .pos = pos};
 }
 
 static auto add_food_to_vehicle_part(vehicle& veh, const int part_index, const itype_id& food_type)
@@ -424,18 +426,14 @@ TEST_CASE("Items rot away") {
     }
 
     SECTION("Item on map rots away") {
-        weather_manager weather;
         const tripoint_bub_ms loc;
 
         if (calendar::turn <= calendar::start_of_cataclysm) {
             calendar::turn = calendar::start_of_cataclysm + 1_minutes;
         }
 
-        detached_ptr<item> test_item = item::process(
-            item::spawn("meat_cooked"), nullptr, false,
-            temperature_flag::TEMP_HEATER, weather);
         map& m = get_map();
-        m.add_item_or_charges(loc, std::move(test_item), false);
+        m.add_item_or_charges(loc, item::spawn("meat_cooked"), false);
 
         REQUIRE(m.i_at(loc).size() == 1);
 
@@ -444,6 +442,33 @@ TEST_CASE("Items rot away") {
         m.process_items();
 
         CHECK(m.i_at(loc).empty());
+    }
+
+    SECTION("processing map and vehicle food keeps location context") {
+        prepare_map_storage_test();
+        auto& here = get_map();
+        const auto map_pos = bub_test_origin();
+
+        add_food_to_map(map_pos, itype_id("offal_canned"));
+        calendar::turn += 20_minutes;
+        CHECK(capture_debugmsg_during([&here]() {
+            here.process_items();
+        }).empty());
+
+        auto outer = item::spawn("bag_canvas");
+        outer->put_in(item::spawn("sashimi"));
+        here.add_item(map_pos + point_rel_ms(1, 0), std::move(outer));
+        calendar::turn += 20_minutes;
+        CHECK(capture_debugmsg_during([&here]() {
+            here.process_items();
+        }).empty());
+
+        auto fixture = make_storage(vpart_id("box"), true);
+        add_food_to_vehicle_part(*fixture.veh, fixture.part_index, itype_id("bread"));
+        calendar::turn += 20_minutes;
+        CHECK(capture_debugmsg_during([]() {
+            get_map().process_items();
+        }).empty());
     }
 }
 
@@ -747,15 +772,21 @@ TEST_CASE("Vehicle storage temperature controls food rot") {
 
 TEST_CASE("Contained item keeps parent location while temporarily detached") {
     prepare_map_storage_test();
+    const auto pos = bub_test_origin();
 
     auto container = item::spawn("bag_plastic");
     REQUIRE(container->is_container());
     REQUIRE(container->contents.insert_item(item::spawn("sashimi")).success());
+    get_map().add_item(pos, std::move(container));
+
+    auto items = get_map().i_at(pos);
+    REQUIRE(items.size() == 1);
+    item& stored_container = items.only_item();
 
     auto checked = false;
-    container->contents.remove_top_items_with([&](detached_ptr<item>&& it) {
+    stored_container.contents.remove_top_items_with([&](detached_ptr<item>&& it) {
         checked = true;
-        CHECK(it->parent_item() == &*container);
+        CHECK(it->parent_item() == &stored_container);
         CHECK(rot::temp::for_location(*it) == temperature_flag::TEMP_NORMAL);
         return std::move(it);
     });

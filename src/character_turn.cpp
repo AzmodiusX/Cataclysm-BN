@@ -921,12 +921,12 @@ void Character::process_items()
         return item::process( std::move( ptr ), as_player(), false );
     };
     if( primary_weapon().needs_processing() ) {
-        primary_weapon().attempt_detach( process_item );
+        primary_weapon().game_object<item>::attempt_detach( process_item );
     }
 
     std::vector<item *> inv_active = inv.active_items();
     for( item *tmp_it : inv_active ) {
-        tmp_it->attempt_detach( process_item );
+        tmp_it->game_object<item>::attempt_detach( process_item );
     }
 
     // worn items

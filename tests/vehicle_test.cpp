@@ -511,13 +511,10 @@ TEST_CASE("damage_vehicle_oob") {
     g->place_player(test_origin + tripoint_east * SEEX);
 
     // Check the vehicle is still there.
-    optional_vpart_position part_pos = get_map().veh_at(bub_test_origin());
+    optional_vpart_position part_pos = get_map().get_mapbuffer().veh_at(vehicle_origin);
     REQUIRE(part_pos);
 
-    // TODO: vehicle is at origin so tripoint_west == bubble pos; use parts_at_relative(
-    // point(-1,0), true ) directly
-    auto parts =
-        veh_ptr->parts_at_relative(veh_ptr->abs_to_mount(tripoint_abs_ms(tripoint_west)), true);
+    const auto parts = veh_ptr->parts_at_relative( cargo_part->mount, true );
     REQUIRE(!parts.empty());
     for (int part : parts) {
         // We aren't actually smashing each chosen part in turn here

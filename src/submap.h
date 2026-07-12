@@ -220,8 +220,8 @@ class submap : maptile_soa<SEEX, SEEY>
         };
 
         const data_vars::data_set &get_furn_vars( const point_sm_ms &p ) const {
-            const auto it = ter_vars.find( p );
-            if( it == ter_vars.end() ) {
+            const auto it = frn_vars.find( p );
+            if( it == frn_vars.end() ) {
                 return EMPTY_VARS;
             }
             return it->second;

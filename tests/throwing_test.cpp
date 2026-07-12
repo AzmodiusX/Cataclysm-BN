@@ -191,7 +191,7 @@ TEST_CASE("flung creatures take damage when they slam into a wall", "[throwing][
     here.set_ter(target, ter_id("t_floor"));
     here.set_ter(landing, ter_id("t_floor"));
     here.set_ter(wall, ter_id("t_test_indestructible_wall"));
-    REQUIRE(!here.passable(wall));
+    REQUIRE(here.passable(wall) == false);
     REQUIRE_FALSE(here.is_bashable(wall));
 
     auto& zombie = spawn_test_monster("mon_zombie", abs_to_bub(target));
@@ -209,8 +209,8 @@ TEST_CASE("flung creatures stop at the reality bubble edge", "[throwing][bubble]
     
     auto& map = get_map();
     auto& here = map.get_mapbuffer();
-    const auto bubble_edge_x = SEEX * T_BUBBLE_SIZE - 1;
-    const auto bubble_mid_y = SEEY * T_BUBBLE_SIZE / 2;
+    const auto bubble_edge_x = g_mapsize_x - 1;
+    const auto bubble_mid_y = g_mapsize_y / 2;
     const auto start = bub_to_abs(tripoint_bub_ms{bubble_edge_x - 1, bubble_mid_y, 0});
     const auto edge = bub_to_abs(tripoint_bub_ms{bubble_edge_x, bubble_mid_y, 0});
 

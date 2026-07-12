@@ -45,6 +45,16 @@ auto count_items_at(const tripoint_bub_ms& pos, const itype_id& type) -> int {
     });
 }
 
+auto count_items_at(const tripoint_abs_ms& pos, const itype_id& type) -> int {
+    const auto *const items = get_map().get_mapbuffer().get_items(pos);
+    if( items == nullptr ) {
+        return 0;
+    }
+    return std::ranges::count_if(*items, [&type](const auto* it) {
+        return it->typeId() == type;
+    });
+}
+
 } // namespace
 
 TEST_CASE("extended monster death drops append to inherited drops", "[monster][death_drops]") {
@@ -63,11 +73,15 @@ TEST_CASE("extended monster death drops append to inherited drops", "[monster][d
     const auto monster_pos = tripoint_bub_ms(60, 60, 0);
     here.i_clear(monster_pos);
 
-    auto& test_monster = spawn_test_monster("mon_test_death_drops_append", monster_pos);
+    auto* const test_monster_ptr = here.get_mapbuffer().place_critter_at(
+        mtype_id("mon_test_death_drops_append"), map_local_to_abs(here, monster_pos));
+    REQUIRE(test_monster_ptr != nullptr);
+    auto& test_monster = *test_monster_ptr;
     test_monster.drop_items_on_death();
 
-    CHECK(count_items_at(monster_pos, itype_id("rock")) == 1);
-    CHECK(count_items_at(monster_pos, itype_id("stick")) == 1);
+    const auto monster_abs = map_local_to_abs(here, monster_pos);
+    CHECK(count_items_at(monster_abs, itype_id("rock")) == 1);
+    CHECK(count_items_at(monster_abs, itype_id("stick")) == 1);
 }
 
 TEST_CASE("empty top-level monster death drops replace inherited drops", "[monster][death_drops]") {
@@ -80,10 +94,16 @@ TEST_CASE("empty top-level monster death drops replace inherited drops", "[monst
     const auto monster_pos = tripoint_bub_ms(60, 60, 0);
     here.i_clear(monster_pos);
 
-    auto& test_monster = spawn_test_monster("mon_test_death_drops_clear", monster_pos);
+    auto* const test_monster_ptr = here.get_mapbuffer().place_critter_at(
+        mtype_id("mon_test_death_drops_clear"), map_local_to_abs(here, monster_pos));
+    REQUIRE(test_monster_ptr != nullptr);
+    auto& test_monster = *test_monster_ptr;
     test_monster.drop_items_on_death();
 
-    CHECK(here.i_at(monster_pos).empty());
+    const auto *const dropped_items =
+        here.get_mapbuffer().get_items(map_local_to_abs(here, monster_pos));
+    REQUIRE(dropped_items != nullptr);
+    CHECK(dropped_items->empty());
 }
 
 TEST_CASE("hallucination_monsters_do_not_open_real_doors", "[monster][hallucination]") {
@@ -466,40 +486,42 @@ TEST_CASE("monster_vertical_melee_respects_floors", "[monster][z-level]") {
     clear_map();
 
     avatar& you = get_avatar();
-    auto& here = get_map();
-    const auto avatar_pos = tripoint_bub_ms{60, 60, 2};
-    const auto zombie_pos = tripoint_bub_ms{60, 60, 1};
+    auto& here = get_map().get_mapbuffer();
+    auto &map = get_map();
+    const auto avatar_pos = bub_to_abs( tripoint_bub_ms{60, 60, 2} );
+    const auto zombie_pos = avatar_pos + tripoint_rel_ms::below();
     you.setpos(avatar_pos);
 
-    monster& grabber = spawn_test_monster("mon_zombie_grabber", zombie_pos);
+    monster& grabber = spawn_test_monster( "mon_zombie_grabber", abs_to_bub( zombie_pos ) );
 
     SECTION("open air does not block vertical melee") {
-        CHECK_FALSE(here.floor_between(zombie_pos, avatar_pos));
+        CHECK_FALSE( here.floor_between( zombie_pos, avatar_pos ) );
         CHECK(grabber.attack_at(you.abs_pos()));
     }
 
     SECTION("terrain floors block vertical melee") {
-        here.ter_set(avatar_pos, ter_id("t_floor"));
+        here.set_ter( avatar_pos, ter_id( "t_floor" ) );
 
-        CHECK(here.floor_between(zombie_pos, avatar_pos));
+        CHECK( here.floor_between( zombie_pos, avatar_pos ) );
         CHECK_FALSE(grabber.attack_at(you.abs_pos()));
     }
 
     SECTION("vehicle floors block vertical melee") {
         const vpart_id vpart_frame_vertical("frame_vertical");
         const vpart_id vpart_seat("seat");
-        auto* veh = here.add_vehicle(vproto_id("none"), avatar_pos, 0_degrees, 0, 0);
+        auto* veh = here.add_vehicle( vproto_id( "none" ), avatar_pos, 0_degrees, 0, 0 );
 
         REQUIRE(veh != nullptr);
         veh->install_part(tripoint_mnt_veh::zero(), vpart_frame_vertical);
         veh->install_part(tripoint_mnt_veh::zero(), vpart_seat);
-        here.add_vehicle_to_cache(veh);
+        map.add_vehicle_to_cache(veh);
+        here.refresh_vehicle_footprint(veh);
 
         CHECK_FALSE(grabber.attack_at(you.abs_pos()));
     }
 
     SECTION("grabber below player on blimp cannot attack through the floor") {
-        auto* blimp = here.add_vehicle(vproto_id("blimp"), avatar_pos, 0_degrees, 0, 0);
+        auto* blimp = here.add_vehicle( vproto_id( "blimp" ), avatar_pos, 0_degrees, 0, 0 );
 
         REQUIRE(blimp != nullptr);
         const auto cockpit_part =
@@ -510,7 +532,8 @@ TEST_CASE("monster_vertical_melee_respects_floors", "[monster][z-level]") {
         you.setpos(blimp_tile);
         grabber.setpos(blimp_tile + tripoint_below);
 
-        CHECK(here.veh_at(you.abs_pos()).part_with_feature("BOARDABLE", true).has_value());
+        CHECK( here.veh_at( you.abs_pos() ).part_with_feature(
+                   "BOARDABLE", true ).has_value() );
         CHECK_FALSE(grabber.attack_at(you.abs_pos()));
     }
 }
@@ -524,6 +547,8 @@ TEST_CASE("physical_clear_path_respects_vehicle_floors", "[map][z-level]") {
     const auto upper_pos = lower_pos + tripoint_rel_ms::below();
 
     SECTION("open air does not block physical paths") {
+        here.set_ter(lower_pos, ter_id("t_open_air"));
+        here.set_ter(upper_pos, ter_id("t_open_air"));
         CHECK(map_funcs::physical_clear_path({
             .here = here,
             .from = lower_pos,
@@ -549,6 +574,7 @@ TEST_CASE("physical_clear_path_respects_vehicle_floors", "[map][z-level]") {
         REQUIRE(veh != nullptr);
         veh->install_part(tripoint_mnt_veh::zero(), vpart_id("frame_vertical"));
         veh->install_part(tripoint_mnt_veh::zero(), vpart_id("seat"));
+        here.refresh_vehicle_footprint(veh);
         here.register_vehicle(veh);
 
         CHECK_FALSE(map_funcs::physical_clear_path({

@@ -1670,20 +1670,20 @@ bool map::displace_vehicle( vehicle &veh, const tripoint_rel_ms &dp )
 
             // Place passenger on the new part location.  Z must include mount
             // and terrain-topology offsets — precalc[1] is XY-only.
-            auto psgp = abs_to_map_local( *this, dest + tripoint_rel_ms( veh_part.precalc[1].x(),
-                                          veh_part.precalc[1].y(),
-                                          veh_part.mount.z() + veh_part.z_terrain[1] ) );
+            const auto passenger_abs_pos = dest + tripoint_rel_ms( veh_part.precalc[1].x(),
+                                            veh_part.precalc[1].y(),
+                                            veh_part.mount.z() + veh_part.z_terrain[1] );
             // someone is in the way so try again
-            if( g->critter_at( psgp ) ) {
+            if( g->critter_at( passenger_abs_pos ) ) {
                 complete = false;
                 continue;
             }
             if( psg->is_avatar() ) {
                 need_update = true;
-                z_change = psgp.z() != part_pos.z();
+                z_change = passenger_abs_pos.z() != part_pos.z();
             }
 
-            psg->setpos( psgp );
+            psg->setpos( passenger_abs_pos );
             r.moved = true;
         }
     }
@@ -5368,7 +5368,7 @@ static bool process_map_items( item *item_ref, const tripoint_bub_ms &location,
                                const temperature_flag flag )
 {
     ZoneScopedN( "process_map_items" );
-    return item_ref->attempt_detach( [&location, &flag]( detached_ptr<item> &&it ) {
+    return item_ref->game_object<item>::attempt_detach( [&location, &flag]( detached_ptr<item> &&it ) {
         return item::process( std::move( it ), nullptr, false, flag );
     } );
 }
@@ -8890,6 +8890,10 @@ void map::build_map_cache( const int zlev, bool skip_lightmap )
     }
     if( skip_lightmap && use_sdl_gpu_compute && gpu_transparency_dirty ) {
         cata_gpu::invalidate_lighting_transparency_levels( gpu_transparency_dirty_levels );
+    }
+    if( skip_lightmap && use_sdl_gpu_compute &&
+        ( gpu_floor_dirty || gpu_vehicle_floor_dirty || gpu_vehicle_obscured_dirty ) ) {
+        cata_gpu::invalidate_lighting_floor_inputs();
     }
 #endif
     TracyPlot( "Map GPU Transparency Dirty Levels",

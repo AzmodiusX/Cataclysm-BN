@@ -24,6 +24,7 @@
 #include <iomanip>
 #include <list>
 #include <memory>
+#include <ranges>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -56,6 +57,12 @@ static void full_map_test(
     Character& player_character = get_player_character();
     player_character.setpos( test_origin );
     get_weather().weather_id = weather_type_id("clear");
+    calendar::turn = time;
+    g->reset_light_level();
+    // Reconcile the loaded-grid origin even when setpos() did not cross a
+    // submap boundary.  The fixture below is written in absolute space, so
+    // the cache frame must be synchronized to this player position first.
+    g->update_map( player_character );
     g->reset_light_level();
 
     if (!!(flags & vision_test_flags::crouching)) {
@@ -69,8 +76,6 @@ static void full_map_test(
     REQUIRE(!player_character.has_effect(effect_narcosis));
 
     player_character.recalc_sight_limits();
-
-    calendar::turn = time;
 
     int height = setup.size();
     REQUIRE(height > 0);
@@ -146,7 +151,7 @@ static void full_map_test(
                     // Already handled above
                     break;
                 case 'C':
-                    veh = map.add_vehicle(vproto_id(vehicle_id), abs_to_bub(p), vehicle_rotation, 0, 0);
+                    veh = here.add_vehicle(vproto_id(vehicle_id), p, vehicle_rotation, 0, 0);
                     REQUIRE(veh != nullptr);
                     for (const vpart_reference& vp : veh->get_avail_parts("OPENABLE")) {
                         veh->close(vp.part_index());
@@ -162,7 +167,8 @@ static void full_map_test(
     // player's vision_threshold is based on the previous lighting level (so
     // they might, for example, have poor nightvision due to having just been
     // in daylight)
-    for (int z = -OVERMAP_DEPTH; z <= OVERMAP_HEIGHT; ++z) {
+    for (const auto z : std::views::iota(-OVERMAP_DEPTH, OVERMAP_HEIGHT + 1)) {
+        map.set_floor_cache_dirty(z);
         map.invalidate_map_cache(z);
     }
     map.build_map_cache(origin.z());
@@ -176,6 +182,37 @@ static void full_map_test(
     const level_cache& cache = map.access_cache(origin.z());
     const level_cache& above_cache = map.access_cache(origin.z() + 1);
     const visibility_variables& vvcache = map.get_visibility_variables_cache();
+
+    std::ostringstream vehicle_cache;
+    std::ostringstream vehicle_floor;
+    auto vehicle_abs_position = tripoint_abs_ms::zero();
+    auto vehicle_bub_position = tripoint_bub_ms::zero();
+    if( veh != nullptr ) {
+        vehicle_abs_position = veh->abs_ms_location();
+        vehicle_bub_position = veh->bub_ms_location();
+        const auto origin_bub = abs_to_bub( origin );
+        for( const auto y : std::views::iota( 0, height ) ) {
+            for( const auto x : std::views::iota( 0, width ) ) {
+                const auto p = origin_bub + point_rel_ms( x, y );
+                if( !map.inbounds( p ) ) {
+                    vehicle_cache << "- ";
+                    vehicle_floor << "- ";
+                    continue;
+                }
+                const auto idx = cache.idx( p.x(), p.y() );
+                const auto obscured = ( cache.vehicle_obscured_cache[idx].nw ? 1 : 0 ) |
+                                      ( cache.vehicle_obscured_cache[idx].ne ? 2 : 0 );
+                vehicle_cache << obscured << ' ';
+                vehicle_floor << static_cast<int>( cache.vehicle_floor_cache[idx] ) << ' ';
+            }
+            vehicle_cache << '\n';
+            vehicle_floor << '\n';
+        }
+    }
+    INFO( "vehicle absolute position: " << vehicle_abs_position );
+    INFO( "vehicle bubble position: " << vehicle_bub_position );
+    INFO( "vehicle obscured cache:\n" << vehicle_cache.str() );
+    INFO( "vehicle floor cache:\n" << vehicle_floor.str() );
 
     std::ostringstream fields;
     std::ostringstream transparency;
@@ -256,6 +293,33 @@ static void full_map_test(
         observed << '\n';
         expected << '\n';
     }
+
+    const auto player_abs = player_character.abs_pos();
+    const auto player_bub = player_character.bub_pos();
+    const auto player_above = player_abs + tripoint_above;
+    const auto player_idx = cache.idx(player_bub.x(), player_bub.y());
+    const auto above_idx = above_cache.idx(player_bub.x(), player_bub.y());
+    INFO("map loaded-grid origin: " << map.get_abs_sub());
+    INFO("player reality-bubble origin: " << player_reality_bubble_origin());
+    INFO("player absolute position: " << player_abs);
+    INFO("player bubble position: " << player_bub);
+    INFO("player terrain is z-transparent: "
+         << here.has_flag(TFLAG_Z_TRANSPARENT, player_abs));
+    INFO("player-above terrain is z-transparent: "
+         << here.has_flag(TFLAG_Z_TRANSPARENT, player_above));
+    INFO("player tile is outside: " << map.is_outside(player_bub));
+    INFO("player cache floor: " << static_cast<int>(cache.floor_cache[player_idx]));
+    INFO("player-above cache floor: "
+         << static_cast<int>(above_cache.floor_cache[above_idx]));
+    INFO("player cache outside: " << static_cast<int>(cache.outside_cache[player_idx]));
+    INFO("natural light level z0: " << g->natural_light_level(0));
+    std::ostringstream upper_floors;
+    for (const auto z : std::views::iota(1, OVERMAP_HEIGHT + 1)) {
+        const auto &level = map.get_cache_ref(z);
+        upper_floors << z << ':' << static_cast<int>(level.floor_cache[above_idx]) << ' ';
+    }
+    INFO("player-column floor cache above z0: " << upper_floors.str());
+    INFO("player cache lightmap: " << cache.lm[player_idx]);
 
     INFO("observed:\n" << observed.str());
     INFO("expected:\n" << expected.str());

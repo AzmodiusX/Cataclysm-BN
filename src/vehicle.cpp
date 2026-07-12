@@ -4213,7 +4213,7 @@ int vehicle::fuel_left( const itype_id &ftype, bool recurse ) const
         }
         // As do any other engine flagged as perpetual
         //TODO!: push up
-    } else if( item::spawn_temporary( ftype )->has_flag( flag_PERPETUAL ) ) {
+    } else if( ftype != fuel_type_battery && item::spawn_temporary( ftype )->has_flag( flag_PERPETUAL ) ) {
         fl += 10;
     }
 

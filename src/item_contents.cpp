@@ -104,8 +104,9 @@ bool item_contents::spill_contents( const tripoint_bub_ms &pos )
 
 bool item_contents::spill_contents( const tripoint_abs_ms &pos )
 {
+    auto &here = owner->get_mapbuffer();
     for( detached_ptr<item> &it : clear_items() ) {
-        it->get_mapbuffer().add_item_or_charges( pos, std::move( it ) );
+        here.add_item_or_charges( pos, std::move( it ) );
     }
     return true;
 }

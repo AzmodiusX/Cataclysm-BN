@@ -30,14 +30,21 @@ auto for_location( const item &loc ) -> temperature_flag
     if( !loc.has_position() ) {
         return temperature_flag::TEMP_NORMAL;
     }
-    auto &here = loc.get_mapbuffer();
 
     switch( loc.where() ) {
         case item_location_type::character:
             return temperature_flag::TEMP_NORMAL;
         case item_location_type::monster:
             return temperature_flag::TEMP_NORMAL;
+        case item_location_type::container: {
+            const auto parent = loc.parent_item();
+            if( parent == nullptr ) {
+                return temperature_flag::TEMP_NORMAL;
+            }
+            return for_location( *parent );
+        }
         case item_location_type::map: {
+            auto &here = loc.get_mapbuffer();
             const auto pos = loc.abs_pos();
             return for_tile( {
                 .root_cellar = here.ter( pos ) == t_rootcellar,
@@ -46,7 +53,8 @@ auto for_location( const item &loc ) -> temperature_flag
             } );
         }
         case item_location_type::vehicle: {
-            auto pos = loc.abs_pos();
+            auto &here = loc.get_mapbuffer();
+            const auto pos = loc.abs_pos();
             optional_vpart_position veh = here.veh_at( pos );
             if( !veh ) {
                 debugmsg( "Expected vehicle at %d, %d, %d, but couldn't find any", pos.x(), pos.y(), pos.z() );
@@ -57,13 +65,6 @@ auto for_location( const item &loc ) -> temperature_flag
                 return temperature_flag::TEMP_NORMAL;
             }
             return for_part( veh->vehicle(), cargo_index );
-        }
-        case item_location_type::container: {
-            const auto parent = loc.parent_item();
-            if( parent == nullptr ) {
-                return temperature_flag::TEMP_NORMAL;
-            }
-            return for_location( *parent );
         }
         default:
             debugmsg( "Invalid item location %d", static_cast<int>( loc.where() ) );

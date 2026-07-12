@@ -106,10 +106,12 @@ void vehicle_part::copy_static_from( const vehicle_part &source )
 vehicle_part::vehicle_part( const vehicle_part &source, vehicle *veh ) : vehicle_part( veh )
 {
     copy_static_from( source );
+    hack_id = veh->get_next_hack_id();
     base = item::spawn( *source.base );
     for( const item * const &it : source.items ) {
         items.push_back( item::spawn( *it ) );
     }
+    refresh_locations_hack( veh );
 }
 
 vehicle_part::vehicle_part( vehicle_part &&source ) : vehicle_part()

@@ -1,4 +1,5 @@
 #include "active_item_cache.h"
+#include "avatar.h"
 #include "calendar.h"
 #include "catch/catch.hpp"
 #include "coordinates.h"
@@ -90,15 +91,13 @@ TEST_CASE("stack_iterator_item_removal_updates_active_item_cache", "[item]") {
         item::spawn("firecracker_act", calendar::start_of_cataclysm, item::default_charges_tag());
     active->activate();
     REQUIRE(active->needs_processing());
+    auto *const active_ptr = &*active;
 
     here.add_item(test_origin, std::move(active));
     REQUIRE(here.get_submaps_with_active_items().contains(project_to<coords::sm>(test_origin)));
 
-    auto &stack = *here.get_items(test_origin);
-    detached_ptr<item> removed;
-    const auto next = stack.erase(stack.begin(), &removed);
+    auto removed = here.remove_item(test_origin, active_ptr);
     REQUIRE(removed != nullptr);
-    CHECK(next == stack.end());
     CHECK_FALSE(here.get_submaps_with_active_items().contains(project_to<coords::sm>(test_origin)));
     CHECK(get_map().check_submap_active_item_consistency().empty());
 }
@@ -116,8 +115,7 @@ TEST_CASE("stack_clear_updates_active_item_cache", "[item]") {
     here.add_item(test_origin, std::move(active));
     REQUIRE(here.get_submaps_with_active_items().contains(project_to<coords::sm>(test_origin)));
 
-    auto &stack = *here.get_items(test_origin);
-    auto removed = stack.clear();
+    auto removed = here.clear_items(test_origin);
     REQUIRE(removed.size() == 1);
     CHECK_FALSE(here.get_submaps_with_active_items().contains(project_to<coords::sm>(test_origin)));
     CHECK(get_map().check_submap_active_item_consistency().empty());
@@ -205,9 +203,10 @@ TEST_CASE("content_removal_helpers_invalidate_processing_cache", "[item]") {
         active->activate();
         backpack->put_in(std::move(active));
 
-        REQUIRE(backpack->needs_processing());
-        backpack->contents.spill_contents(test_origin);
-        CHECK_FALSE(backpack->needs_processing());
+        auto& carried_backpack = get_avatar().i_add(std::move(backpack));
+        REQUIRE(carried_backpack.needs_processing());
+        carried_backpack.contents.spill_contents(test_origin);
+        CHECK_FALSE(carried_backpack.needs_processing());
     }
 
     SECTION("handle casings") {

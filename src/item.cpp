@@ -10361,11 +10361,21 @@ void item::update_rot_from_location( const temperature_flag temperature )
 
 auto item::update_rot( const temperature_flag flag, const weather_manager &weather ) -> void
 {
+    if( !is_loaded() || !has_position() ) {
+        update_rot( {
+            .position = tripoint_abs_ms::zero(),
+            .temperature = flag,
+            .weather = &weather,
+        } );
+        return;
+    }
+
+    const auto pos = abs_pos();
     update_rot( {
-        .position = abs_pos(),
+        .position = pos,
         .temperature = flag,
         .weather = &weather,
-        .local_temperature = g && !g->new_game ? get_mapbuffer().get_temperature( abs_pos() ).value_or( 0 ) : 0,
+        .local_temperature = g && !g->new_game ? get_mapbuffer().get_temperature( pos ).value_or( 0 ) : 0,
     } );
 }
 
@@ -11143,7 +11153,7 @@ detached_ptr<item> item::process( detached_ptr<item> &&self, Character *carrier,
             if( !content_item ) {
                 continue;
             }
-            content_item->attempt_detach( [&]( detached_ptr<item> &&nested ) {
+            content_item->game_object<item>::attempt_detach( [&]( detached_ptr<item> &&nested ) {
                 return process_content( process_content, std::move( nested ), {
                     .parent_preserves = content_preserves,
                     .parent_seals = content_seals
@@ -11163,7 +11173,7 @@ detached_ptr<item> item::process( detached_ptr<item> &&self, Character *carrier,
         if( !content_item ) {
             continue;
         }
-        content_item->attempt_detach( [&]( detached_ptr<item> &&it ) {
+        content_item->game_object<item>::attempt_detach( [&]( detached_ptr<item> &&it ) {
             return process_content( process_content, std::move( it ), {
                 .parent_preserves = preserves,
                 .parent_seals = seals
@@ -11251,10 +11261,11 @@ detached_ptr<item> item::process_internal( detached_ptr<item> &&self, Character 
     }
 
     auto &here = it.get_mapbuffer();
+    const auto abs_pos = it.abs_pos();
     if( !it.type->emits.empty() ) {
         ZoneScopedN( "item_process_emits" );
         for( const emit_id &e : it.type->emits ) {
-            here.emit_field( it.abs_pos(), e );
+            here.emit_field( abs_pos, e );
         }
     }
 
@@ -11337,7 +11348,7 @@ detached_ptr<item> item::process_internal( detached_ptr<item> &&self, Character 
         // If the item has rotted away, then self becomes a null pointer.
         if( !self && removed_snapshot ) {
             here.handle_rotten_away_item(
-            it.abs_pos(), *removed_snapshot, {
+            abs_pos, *removed_snapshot, {
                 .mode = mapbuffer_lookup_mode::resident_only,
             } );
         }

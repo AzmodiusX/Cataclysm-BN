@@ -372,7 +372,7 @@ bool avatar_action::move( avatar &you, const tripoint_rel_ms &d )
     if( d.z() == 0 && you.has_effect( effect_stunned ) ) {
         dest_loc.x() = rng( you.abs_pos().x() - 1, you.abs_pos().x() + 1 );
         dest_loc.y() = rng( you.abs_pos().y() - 1, you.abs_pos().y() + 1 );
-        dest_loc.z() = you.bub_pos().z();
+        dest_loc.z() = you.abs_pos().z();
     } else {
         dest_loc = you.abs_pos() + d;
     }
@@ -746,7 +746,7 @@ bool avatar_action::move( avatar &you, const tripoint_rel_ms &d )
     // Invalid move
     const bool waste_moves = ( you.is_blind() && you.clairvoyance() < 1 ) ||
                              you.has_effect( effect_stunned );
-    if( waste_moves || dest_loc.z() != you.bub_pos().z() ) {
+    if( waste_moves || dest_loc.z() != you.abs_pos().z() ) {
         add_msg( _( "You bump into the %s!" ), here.obstacle_name( dest_loc ) );
         // Only lose movement if we're blind
         if( waste_moves ) {

@@ -3541,7 +3541,7 @@ void monster::drop_items_on_death()
         return;
     }
 
-    g->m.spawn_items( bub_pos(), std::move( items ) );
+    get_mapbuffer().spawn_items( abs_pos(), std::move( items ) );
 }
 
 void monster::drop_monster_weapon()
@@ -3582,7 +3582,7 @@ void monster::drop_monster_weapon()
         return;
     }
 
-    g->m.spawn_items( bub_pos(), std::move( items ) );
+    get_mapbuffer().spawn_items( abs_pos(), std::move( items ) );
 }
 
 void monster::process_one_effect( effect &it, bool is_new )

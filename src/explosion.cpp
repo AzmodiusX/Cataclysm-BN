@@ -664,7 +664,13 @@ void ExplosionProcess::project_shrapnel( const tripoint_bub_ms position )
     projectile fragment = shrapnel.value();
     fragment.add_effect( ammo_effect_NULL_SOURCE );
 
-    auto critter = g->critter_at( position );
+    auto critter = here.get_mapbuffer().creature_at( bub_to_abs( position ) );
+    if( critter == nullptr ) {
+        // Keep detached map views usable while a reality-bubble shift is being
+        // finalized.  The event is bubble-space, but the active map's local
+        // origin can briefly differ from the player's current bubble origin.
+        critter = here.get_mapbuffer().creature_at( map_local_to_abs( here, position ) );
+    }
     if( critter && !is_dead_for_explosion( *critter ) ) {
         int damage_taken = 0;
         const auto bps = critter->get_all_body_parts( true );

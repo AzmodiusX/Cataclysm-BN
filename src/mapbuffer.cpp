@@ -7126,9 +7126,25 @@ auto mapbuffer::has_floor_or_support( const tripoint_abs_ms &p,
     if( !tile ) {
         return false;
     }
-    // Check terrain/furniture has_floor property + submap floor cache fallback
-    // has_floor is a property derived from the terrain type and floor cache
-    return !tile->ter_obj().has_flag( TFLAG_NO_FLOOR );
+    if( !tile->ter_obj().has_flag( TFLAG_NO_FLOOR ) ) {
+        return true;
+    }
+    if( p.z() <= -OVERMAP_DEPTH ) {
+        return false;
+    }
+
+    const auto below = p + tripoint_rel_ms::below();
+    const auto below_tile = abs_tile_handle::fetch_terrain_only( *this, below );
+    if( !below_tile ) {
+        return false;
+    }
+    if( below_tile->ter_obj().movecost == 0 ) {
+        return true;
+    }
+    if( below_tile->furn_obj().movecost < 0 ) {
+        return true;
+    }
+    return veh_at( below, options ).has_value();
 }
 
 auto mapbuffer::has_floor( const tripoint_abs_ms &p, bool visible_only,

@@ -2308,6 +2308,12 @@ craft_activity_actor::craft_activity_actor(
 auto craft_activity_actor::find_in_progress_craft( const player_activity &act,
         Character &who ) const -> item * // *NOPAD*
 {
+    for( const auto &target : act.targets ) {
+        if( target && target->is_craft() && &target->get_making() == rec ) {
+            return target.get();
+        }
+    }
+
     item *result = nullptr;
     who.visit_items( [&]( item * it ) {
         if( it->is_craft() && &it->get_making() == rec ) {

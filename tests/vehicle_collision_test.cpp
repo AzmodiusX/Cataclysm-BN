@@ -84,7 +84,7 @@ TEST_CASE("hallucination_monsters_do_not_shove_vehicles", "[vehicle][monster][ha
     hallucination.shove_vehicle(veh_pos + tripoint_north, veh_pos);
 
     CHECK(veh_ptr->velocity == 0);
-    CHECK(here.veh_at(veh_pos).has_value());
+    CHECK(here.get_mapbuffer().veh_at(veh_ptr->abs_ms_location()).has_value());
 }
 
 TEST_CASE("vehicle_collision_with_hallucination_terminates", "[vehicle]") {

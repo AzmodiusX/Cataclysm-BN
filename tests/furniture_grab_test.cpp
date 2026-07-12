@@ -9,12 +9,15 @@
 #include "map.h"
 #include "map_helpers.h"
 #include "mapdata.h"
+#include "options_helpers.h"
 #include "state_helpers.h"
 #include "type_id.h"
 
 #include <array>
 
-static auto grabbed_ramp_x() -> int { return g_half_mapsize_x + SEEX / 2; }
+static auto grabbed_ramp_abs_x() -> int {
+    return test_origin.x() + 30;
+}
 
 static auto set_ramp_for_furniture(const int transit_x, const bool use_ramp, const bool up)
     -> void {
@@ -32,27 +35,31 @@ static auto set_ramp_for_furniture(const int transit_x, const bool use_ramp, con
         const auto max_x = T_MAPSIZE_X - 1;
         const auto max_y = T_MAPSIZE_Y - 1;
 
-        for (const auto& handle : simulated_tiles_in_rectangle(here,
-                 tripoint_abs_ms(0, 0, -1), tripoint_abs_ms(transit_x - 1, max_y, 1))) {
-            auto pos = handle.abs_pos();
-            if ((up && pos.z() == upper_zlevel) || (!up && pos.z() == lower_zlevel)) {
-                here.set_ter(pos, ter_id("t_pavement"));
-            } else if (up) {
-                here.set_ter(pos, ter_id("t_rock"));
-            } else {
-                here.set_ter(pos, ter_id("t_open_air"));
+        for (const auto z : std::array{-1, 0, 1}) {
+            for (const auto& handle : simulated_tiles_in_rectangle(here,
+                     tripoint_abs_ms(0, 0, z), tripoint_abs_ms(transit_x, max_y, z))) {
+                auto pos = handle.abs_pos();
+                if ((up && pos.z() == upper_zlevel) || (!up && pos.z() == lower_zlevel)) {
+                    here.set_ter(pos, ter_id("t_pavement"));
+                } else if (up) {
+                    here.set_ter(pos, ter_id("t_rock"));
+                } else {
+                    here.set_ter(pos, ter_id("t_open_air"));
+                }
             }
         }
 
-        for (const auto& handle : simulated_tiles_in_rectangle(here,
-                 tripoint_abs_ms(transit_x + 2, 0, -1), tripoint_abs_ms(max_x, max_y, 1))) {
-            auto pos = handle.abs_pos();
-            if (pos.z() == 0) {
-                here.set_ter(pos, ter_id("t_pavement"));
-            } else if (pos.z() > 0) {
-                here.set_ter(pos, ter_id("t_open_air"));
-            } else {
-                here.set_ter(pos, ter_id("t_rock"));
+        for (const auto z : std::array{-1, 0, 1}) {
+            for (const auto& handle : simulated_tiles_in_rectangle(here,
+                     tripoint_abs_ms(transit_x + 2, 0, z), tripoint_abs_ms(max_x, max_y, z))) {
+                auto pos = handle.abs_pos();
+                if (pos.z() == 0) {
+                    here.set_ter(pos, ter_id("t_pavement"));
+                } else if (pos.z() > 0) {
+                    here.set_ter(pos, ter_id("t_open_air"));
+                } else {
+                    here.set_ter(pos, ter_id("t_rock"));
+                }
             }
         }
 
@@ -117,7 +124,8 @@ static auto check_avatar_still_grabs_furniture(
 
 TEST_CASE("grabbed_furniture_can_be_pulled_up_ramp", "[furniture][ramp][grab]") {
     clear_all_state();
-    const auto ramp_x = grabbed_ramp_x();
+    const auto dangerous_prompt = override_option("DANGEROUS_TERRAIN_WARNING_PROMPT", "IGNORE");
+    const auto ramp_x = grabbed_ramp_abs_x();
     set_ramp_for_furniture(ramp_x, true, true);
     
     auto& player_character = get_avatar();
@@ -140,7 +148,8 @@ TEST_CASE("grabbed_furniture_can_be_pulled_up_ramp", "[furniture][ramp][grab]") 
 
 TEST_CASE("grabbed_furniture_can_be_pushed_up_ramp", "[furniture][ramp][grab]") {
     clear_all_state();
-    const auto ramp_x = grabbed_ramp_x();
+    const auto dangerous_prompt = override_option("DANGEROUS_TERRAIN_WARNING_PROMPT", "IGNORE");
+    const auto ramp_x = grabbed_ramp_abs_x();
     set_ramp_for_furniture(ramp_x, true, true);
 
     auto& player_character = get_avatar();
@@ -168,7 +177,8 @@ TEST_CASE("grabbed_furniture_can_be_pushed_up_ramp", "[furniture][ramp][grab]") 
 
 TEST_CASE("grabbed_furniture_can_be_pulled_down_ramp", "[furniture][ramp][grab]") {
     clear_all_state();
-    const auto ramp_x = grabbed_ramp_x();
+    const auto dangerous_prompt = override_option("DANGEROUS_TERRAIN_WARNING_PROMPT", "IGNORE");
+    const auto ramp_x = grabbed_ramp_abs_x();
     set_ramp_for_furniture(ramp_x, true, false);
 
     auto& player_character = get_avatar();
@@ -191,7 +201,8 @@ TEST_CASE("grabbed_furniture_can_be_pulled_down_ramp", "[furniture][ramp][grab]"
 
 TEST_CASE("grabbed_furniture_can_be_pushed_down_ramp", "[furniture][ramp][grab]") {
     clear_all_state();
-    const auto ramp_x = grabbed_ramp_x();
+    const auto dangerous_prompt = override_option("DANGEROUS_TERRAIN_WARNING_PROMPT", "IGNORE");
+    const auto ramp_x = grabbed_ramp_abs_x();
     set_ramp_for_furniture(ramp_x, true, false);
     
     auto& player_character = get_avatar();

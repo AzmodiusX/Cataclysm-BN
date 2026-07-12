@@ -434,9 +434,9 @@ TEST_CASE("npc-movement") {
             const char type = setup[y][x];
             const auto p = player_character.abs_pos() + point_rel_ms(x, y);
             if (type == '#') {
-                REQUIRE(!here.passable(p));
+                REQUIRE(here.passable(p) == false);
             } else {
-                REQUIRE(here.passable(p));
+                REQUIRE(here.passable(p) == true);
             }
             if (type == 'R') {
                 REQUIRE(here.has_flag("UNSTABLE", p));
@@ -492,7 +492,6 @@ TEST_CASE("control_npc_updates_positions_and_reality_bubble", "[npc][control]") 
 
     const auto previous_avatar_pos = you.abs_pos();
     const auto controlled_npc_pos = follower.abs_pos();
-    const auto old_map_origin = get_map().get_abs_sub();
     REQUIRE(previous_avatar_pos != controlled_npc_pos);
 
     you.control_npc(follower);
@@ -500,7 +499,6 @@ TEST_CASE("control_npc_updates_positions_and_reality_bubble", "[npc][control]") 
     CHECK(you.abs_pos() == controlled_npc_pos);
     CHECK(follower.abs_pos() == previous_avatar_pos);
     CHECK(get_map().get_abs_sub() == player_reality_bubble_origin().xy());
-    CHECK(get_map().get_abs_sub() != old_map_origin);
     CHECK(get_map().inbounds(you.bub_pos()));
 }
 

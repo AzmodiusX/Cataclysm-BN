@@ -17,6 +17,8 @@
 TEST_CASE("vehicle_split_section") {
     clear_all_state();
     Character& player_character = get_player_character();
+    player_character.in_vehicle = false;
+    player_character.controlling_vehicle = false;
     auto& here = player_character.get_mapbuffer();
     for (units::angle dir = 0_degrees; dir < 360_degrees; dir += 15_degrees) {
         CHECK(!player_character.in_vehicle);
@@ -44,6 +46,9 @@ TEST_CASE("vehicle_split_section") {
         // destroying the center frame results in 4 new vehicles
         CHECK(vehs.size() == 4);
         if (vehs.size() == 4) {
+            std::ranges::sort(vehs_copy, [](const vehicle *lhs, const vehicle *rhs) {
+                return lhs->part_count() > rhs->part_count();
+            });
             // correct number of parts
             CHECK(vehs_copy[0]->part_count() == 12);
             CHECK(vehs_copy[1]->part_count() == 12);
