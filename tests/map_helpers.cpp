@@ -106,7 +106,7 @@ void clear_fields(const int zlevel) {
 
 void clear_items(const int zlevel) {
     const int mapsize = g->m.getmapsize() * SEEX;
-    auto &here = get_map();
+    auto& here = get_map();
     for (int x = 0; x < mapsize; ++x) {
         for (int y = 0; y < mapsize; ++y) { here.i_clear(tripoint_bub_ms{x, y, zlevel}); }
     }
@@ -115,13 +115,13 @@ void clear_items(const int zlevel) {
 void clear_overmap() {
     MAPBUFFER.clear();
     ACTIVE_OVERMAP_BUFFER.clear();
-    g->m.bind_dimension( g->m.get_bound_dimension() );
+    g->m.bind_dimension(g->m.get_bound_dimension());
 }
 
 void clear_map() {
     // Clearing all z-levels is rather slow, so just clear the ones I know the
     // tests use for now.
-    g->update_map( g->u );
+    g->update_map(g->u);
     for (int z = -2; z <= 0; ++z) { clear_fields(z); }
     wipe_map_terrain();
     clear_npcs();
@@ -135,7 +135,7 @@ void clear_map() {
 
     // Ensure simulated islands exist so simulated_tiles_in_radius and
     // for_each_simulated_submap work for tests that use this map.
-    ensure_simulated_islands_for( test_origin );
+    ensure_simulated_islands_for(test_origin);
 }
 
 void put_player_underground() {
@@ -145,8 +145,7 @@ void put_player_underground() {
 
 auto move_player_out_of_the_way() -> void {
     g->u.setpos(map_local_to_abs(
-        get_map(),
-        tripoint_bub_ms::zero() + tripoint_rel_ms::below() * g->u.abs_pos().z()));
+        get_map(), tripoint_bub_ms::zero() + tripoint_rel_ms::below() * g->u.abs_pos().z()));
 }
 
 monster& spawn_test_monster(const std::string& monster_type, const tripoint_bub_ms& start) {
@@ -163,56 +162,53 @@ monster& spawn_test_monster(const std::string& monster_type, const tripoint_bub_
 void build_test_map(const ter_id& terrain) {
     clear_vehicles();
     MAPBUFFER.clear();
-    g->m.set_abs_sub( bub_abs_sub() );
+    g->m.set_abs_sub(bub_abs_sub());
 
     // Step 1: create uniform submaps for ALL z-levels.
     //   z=0: uniform terrain (overwritten per-tile below)
     //   z<0: uniform t_rock
     //   z>0: uniform t_open_air
-    for( int z = -OVERMAP_DEPTH; z <= OVERMAP_HEIGHT; ++z ) {
-        const ter_id z_terrain = z == 0 ? terrain
-                                : z < 0 ? ter_id( "t_rock" )
-                                : ter_id( "t_open_air" );
-        for( int smx = 0; smx < T_MAPSIZE; ++smx ) {
-            for( int smy = 0; smy < T_MAPSIZE; ++smy ) {
-                const tripoint_abs_sm abs_sm(
-                    g->m.get_abs_sub() + point_rel_sm( smx, smy ), z );
-                auto sm = std::make_unique<submap>( abs_sm, g->m.get_bound_dimension() );
+    for (int z = -OVERMAP_DEPTH; z <= OVERMAP_HEIGHT; ++z) {
+        const ter_id z_terrain = z == 0 ? terrain : z < 0 ? ter_id("t_rock") : ter_id("t_open_air");
+        for (int smx = 0; smx < T_MAPSIZE; ++smx) {
+            for (int smy = 0; smy < T_MAPSIZE; ++smy) {
+                const tripoint_abs_sm abs_sm(g->m.get_abs_sub() + point_rel_sm(smx, smy), z);
+                auto sm = std::make_unique<submap>(abs_sm, g->m.get_bound_dimension());
                 sm->is_uniform = true;
-                sm->set_all_ter( z_terrain );
+                sm->set_all_ter(z_terrain);
                 sm->last_touched = calendar::turn;
-                MAPBUFFER.add_submap( abs_sm, sm );
+                MAPBUFFER.add_submap(abs_sm, sm);
             }
         }
     }
 
     // Step 2: per-tile setup for z=0 (terrain, furniture, traps, items).
-    for( const tripoint_bub_ms &p : g->m.points_in_rectangle(
-             tripoint_bub_ms::zero(), tripoint_bub_ms( T_MAPSIZE_X, T_MAPSIZE_Y, 0 ) ) ) {
-        g->m.furn_set( p, furn_id( "f_null" ) );
-        g->m.ter_set( p, terrain );
-        g->m.trap_set( p, trap_id( "tr_null" ) );
-        g->m.i_clear( p );
+    for (const tripoint_bub_ms& p : g->m.points_in_rectangle(
+             tripoint_bub_ms::zero(), tripoint_bub_ms(T_MAPSIZE_X, T_MAPSIZE_Y, 0))) {
+        g->m.furn_set(p, furn_id("f_null"));
+        g->m.ter_set(p, terrain);
+        g->m.trap_set(p, trap_id("tr_null"));
+        g->m.i_clear(p);
     }
 
     // Step 3: rebind dimension — triggers refresh_active_submap_view which
     // now finds the load region and delegates to its internal view.
-    g->m.bind_dimension( g->m.get_bound_dimension() );
-    g->m.invalidate_map_cache( 0 );
-    g->m.build_map_cache( 0, true );
+    g->m.bind_dimension(g->m.get_bound_dimension());
+    g->m.invalidate_map_cache(0);
+    g->m.build_map_cache(0, true);
 
     // Step 4: register simulated columns.
-    const tripoint_abs_ms center = map_local_to_abs( g->m, tripoint_bub_ms(
-                                       T_MAPSIZE_X - 1, T_MAPSIZE_Y - 1, 0 ) );
-    const point_abs_sm center_sm = project_to<coords::sm>( center ).xy();
+    const tripoint_abs_ms center =
+        map_local_to_abs(g->m, tripoint_bub_ms(T_MAPSIZE_X - 1, T_MAPSIZE_Y - 1, 0));
+    const point_abs_sm center_sm = project_to<coords::sm>(center).xy();
     const int radius = HALF_MAPSIZE + 1;
     std::unordered_set<point_abs_sm> columns;
-    for( int dx = -radius; dx <= radius; ++dx ) {
-        for( int dy = -radius; dy <= radius; ++dy ) {
-            columns.insert( center_sm + point_rel_sm( dx, dy ) );
+    for (int dx = -radius; dx <= radius; ++dx) {
+        for (int dy = -radius; dy <= radius; ++dy) {
+            columns.insert(center_sm + point_rel_sm(dx, dy));
         }
     }
-    MAPBUFFER.set_simulated_submaps( columns );
+    MAPBUFFER.set_simulated_submaps(columns);
 
     // Step 5: sync with submap_loader for consistent entity registration.
     submap_loader.update();
@@ -251,11 +247,9 @@ void set_time(const time_point& time) {
 }
 
 
-tripoint_bub_ms bub_test_origin() {
-    return abs_to_bub(test_origin);
-}
+tripoint_bub_ms bub_test_origin() { return abs_to_bub(test_origin); }
 
 
 point_abs_sm bub_abs_sub() {
-    return reality_bubble_origin_from_player( test_origin, T_BUBBLE_SIZE ).xy();
+    return reality_bubble_origin_from_player(test_origin, T_BUBBLE_SIZE).xy();
 }

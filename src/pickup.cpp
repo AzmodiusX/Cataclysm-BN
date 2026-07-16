@@ -633,8 +633,8 @@ auto pick_up_from_items( const std::vector<item_stack::iterator> &here, const in
         return;
     }
     const std::optional<tripoint_abs_ms> starting_pos_abs = starting_pos ?
-                                                            bub_to_abs( *starting_pos ) :
-                                                            std::optional<tripoint_abs_ms>( std::nullopt );
+            bub_to_abs( *starting_pos ) :
+            std::optional<tripoint_abs_ms>( std::nullopt );
 
     // Not many items, just grab them
     if( static_cast<int>( here.size() ) <= min && min != -1 ) {

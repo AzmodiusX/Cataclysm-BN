@@ -38,8 +38,8 @@ TEST_CASE("firing_from_a_vehicle_applies_recoil_to_the_vehicle", "[vehicle][gun]
 
     REQUIRE(veh->velocity == 0);
 
-    const auto shots_fired = ranged::fire_gun(
-        player_character, test_origin + tripoint_rel_ms(5, 0, 0), 1);
+    const auto shots_fired =
+        ranged::fire_gun(player_character, test_origin + tripoint_rel_ms(5, 0, 0), 1);
 
     REQUIRE(shots_fired == 1);
     CHECK(veh->velocity != 0);
@@ -50,7 +50,7 @@ TEST_CASE("vehicle gun recoil scaling factor can disable vehicle thrust", "[vehi
     rng_set_engine_seed(0);
 
     override_option vehicle_gun_recoil_factor("VEHICLE_GUN_RECOIL_FACTOR", "0.0");
-    
+
     auto& player_character = get_avatar();
     auto& map = get_map();
     auto& here = player_character.get_mapbuffer();
@@ -69,8 +69,8 @@ TEST_CASE("vehicle gun recoil scaling factor can disable vehicle thrust", "[vehi
 
     REQUIRE(veh->velocity == 0);
 
-    const auto shots_fired = ranged::fire_gun(
-        player_character, test_origin + tripoint_rel_ms(5, 0, 0), 1);
+    const auto shots_fired =
+        ranged::fire_gun(player_character, test_origin + tripoint_rel_ms(5, 0, 0), 1);
 
     REQUIRE(shots_fired == 1);
     CHECK(veh->velocity == 0);
@@ -82,8 +82,8 @@ TEST_CASE("brake hold toggles parked braking drag", "[vehicle][drag]") {
     auto& here = get_map();
     auto* const bicycle =
         here.add_vehicle(vproto_id("bicycle"), bub_test_origin(), 0_degrees, 0, 0);
-    auto* const shopping_cart =
-        here.add_vehicle(vproto_id("shopping_cart"), bub_test_origin() + point_rel_ms(10, 0), 0_degrees, 0, 0);
+    auto* const shopping_cart = here.add_vehicle(
+        vproto_id("shopping_cart"), bub_test_origin() + point_rel_ms(10, 0), 0_degrees, 0, 0);
 
     REQUIRE(bicycle != nullptr);
     REQUIRE(shopping_cart != nullptr);
@@ -104,7 +104,7 @@ TEST_CASE(
     rng_set_engine_seed(0);
 
     override_option vehicle_gun_recoil_factor("VEHICLE_GUN_RECOIL_FACTOR", "10.0");
-    
+
     auto& player_character = get_avatar();
     auto& map = get_map();
     auto& here = player_character.get_mapbuffer();
@@ -115,7 +115,8 @@ TEST_CASE(
         here.set_furn(tripoint_abs_ms(x, test_origin.y(), test_origin.z()), furn_id("f_null"));
     }
 
-    auto* const veh = map.add_vehicle(vproto_id("swivel_chair"), bub_test_origin(), 0_degrees, 0, 0);
+    auto* const veh =
+        map.add_vehicle(vproto_id("swivel_chair"), bub_test_origin(), 0_degrees, 0, 0);
     REQUIRE(veh != nullptr);
 
     veh->toggle_brake_hold();
@@ -131,8 +132,8 @@ TEST_CASE(
 
     const auto starting_pos = veh->abs_ms_location();
 
-    const auto shots_fired = ranged::fire_gun(
-        player_character, test_origin + tripoint_rel_ms(5, 0, 0), 1);
+    const auto shots_fired =
+        ranged::fire_gun(player_character, test_origin + tripoint_rel_ms(5, 0, 0), 1);
 
     REQUIRE(shots_fired == 1);
     REQUIRE(veh->velocity != 0);
@@ -152,12 +153,13 @@ TEST_CASE(
     "[vehicle][gun]") {
     clear_all_state();
     rng_set_engine_seed(0);
-    
+
     auto& player_character = get_avatar();
     auto& map = get_map();
     auto& here = player_character.get_mapbuffer();
 
-    auto* const veh = map.add_vehicle(vproto_id("shopping_cart"), bub_test_origin(), 0_degrees, 0, 0);
+    auto* const veh =
+        map.add_vehicle(vproto_id("shopping_cart"), bub_test_origin(), 0_degrees, 0, 0);
     REQUIRE(veh != nullptr);
 
     REQUIRE(veh->install_part(tripoint_mnt_veh::zero(), vpart_id("turret_mount_manual_steel"), true)
@@ -205,12 +207,11 @@ TEST_CASE(
     };
 
     const auto fire_recoil =
-        [&](
-            const vproto_id& vehicle_type, const units::angle facing, const tripoint_abs_ms& target,
+        [&](const vproto_id& vehicle_type, const units::angle facing, const tripoint_abs_ms& target,
             const std::optional<tripoint_abs_ms>& shot_origin) -> recoil_result {
         clear_all_state();
         rng_set_engine_seed(0);
-        
+
         auto& player_character = get_avatar();
         auto& map = get_map();
         auto& here = player_character.get_mapbuffer();
@@ -245,11 +246,10 @@ TEST_CASE(
     };
 
     const auto forward_result = fire_recoil(
-        vproto_id("shopping_cart"), 180_degrees,
-        test_origin + tripoint_rel_ms(-5, 0, 0), std::nullopt);
+        vproto_id("shopping_cart"), 180_degrees, test_origin + tripoint_rel_ms(-5, 0, 0),
+        std::nullopt);
     const auto offset_lateral_result = fire_recoil(
-        vproto_id("grocery_cart"), -90_degrees,
-        test_origin + tripoint_rel_ms(-6, 0, 0),
+        vproto_id("grocery_cart"), -90_degrees, test_origin + tripoint_rel_ms(-6, 0, 0),
         test_origin + tripoint_rel_ms(-1, 0, 0));
 
     CHECK(forward_result.skidding);

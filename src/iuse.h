@@ -236,7 +236,8 @@ class iuse_actor
         virtual ~iuse_actor() = default;
         virtual void load( const JsonObject &jo ) = 0;
         virtual int use( Character &, item &, bool, const tripoint_abs_ms & ) const = 0;
-        virtual ret_val<bool> can_use( const Character &, const item &, bool, const tripoint_abs_ms & ) const;
+        virtual ret_val<bool> can_use( const Character &, const item &, bool,
+                                       const tripoint_abs_ms & ) const;
         virtual void info( const item &, std::vector<iteminfo> & ) const {}
         /**
          * Returns a deep copy of this object. Example implementation:

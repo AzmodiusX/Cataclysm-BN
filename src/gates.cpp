@@ -286,7 +286,7 @@ void gates::toggle_gate( const tripoint_abs_ms &pos, Character &who )
     who.add_msg_if_player( gate.pull_message );
     who.assign_activity( std::make_unique<player_activity>
                          ( std::make_unique<toggle_gate_activity_actor>(
-                           gate.moves, pos ) ) );
+                               gate.moves, pos ) ) );
 }
 
 // Doors namespace

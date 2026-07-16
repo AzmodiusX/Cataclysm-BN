@@ -317,7 +317,8 @@ deserialize_functions;
  * (which has "values", "coords", "str_values", etc.) and returns
  * a fully constructed actor, or nullptr if the legacy data is invalid.
  */
-extern const std::unordered_map<activity_id, std::unique_ptr<activity_actor>( * )( const JsonObject & )>
+extern const
+std::unordered_map<activity_id, std::unique_ptr<activity_actor>( * )( const JsonObject & )>
 legacy_deserialize_functions;
 
 } // namespace activity_actors

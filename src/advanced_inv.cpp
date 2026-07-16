@@ -1146,8 +1146,8 @@ void advanced_inventory::start_activity( const aim_location destarea,
             }
         }
         g->u.assign_activity( std::make_unique<player_activity>(
-            std::make_unique<wear_actor>( std::move( to_wear ) )
-        ) );
+                                  std::make_unique<wear_actor>( std::move( to_wear ) )
+                              ) );
     } else {
         // Find target items and quantities thereof for the new activity
         std::vector<item *> target_items;
@@ -1238,8 +1238,8 @@ bool advanced_inventory::action_move_item( advanced_inv_listitem *sitem,
             std::vector<wear_actor::wear_target> to_wear;
             to_wear.push_back( { safe_reference<item>( sitem->items.front() ), amount_to_move } );
             g->u.assign_activity( std::make_unique<player_activity>(
-                std::make_unique<wear_actor>( std::move( to_wear ) )
-            ) );
+                                      std::make_unique<wear_actor>( std::move( to_wear ) )
+                                  ) );
         } else {
             item *itm = &g->u.i_at( sitem->idx );
 

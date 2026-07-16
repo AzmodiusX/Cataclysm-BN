@@ -413,24 +413,27 @@ static std::string colorized_field_description_at( mapbuffer &here, const tripoi
 static std::string colorized_trap_name_at( mapbuffer &here, const tripoint_abs_ms &point );
 static std::string colorized_ter_name_flags_at( mapbuffer &here, const tripoint_abs_ms &point,
         const std::vector<std::string> &flags = {}, const std::vector<ter_str_id> &ter_whitelist = {} );
-static std::string colorized_feature_description_at( mapbuffer &here, const tripoint_abs_ms &center_point,
+static std::string colorized_feature_description_at( mapbuffer &here,
+        const tripoint_abs_ms &center_point,
         bool &item_found,
         const units::volume &min_visible_volume );
 
 static std::string colorized_item_name( item &item );
 static std::string colorized_item_description( item &item );
 static item &get_top_item_at_point( mapbuffer &here, const tripoint_abs_ms &point,
-        const units::volume &min_visible_volume );
+                                    const units::volume &min_visible_volume );
 
 static std::string effects_description_for_creature( Creature *creature, std::string &pose,
         const std::string &pronoun_sex );
 
-static object_names_collection enumerate_objects_around_point( mapbuffer &here, const tripoint_abs_ms &point,
+static object_names_collection enumerate_objects_around_point( mapbuffer &here,
+        const tripoint_abs_ms &point,
         int radius, const tripoint_abs_ms &bounds_center_point, int bounds_radius,
         const tripoint_abs_ms &camera_pos, const units::volume &min_visible_volume, bool create_figure_desc,
         std::unordered_set<tripoint_abs_ms> &ignored_points,
         std::unordered_set<const vehicle *> &vehicles_recorded );
-static extended_photo_def photo_def_for_camera_point( mapbuffer &here, const tripoint_abs_ms &aim_point,
+static extended_photo_def photo_def_for_camera_point( mapbuffer &here,
+        const tripoint_abs_ms &aim_point,
         const tripoint_abs_ms &camera_pos,
         std::vector<monster *> &monster_vec, std::vector<Character *> &character_vec );
 
@@ -725,7 +728,7 @@ int iuse::meth( Character *p, item *it, bool, const tripoint_abs_ms *pt )
         // breathe out some smoke
         for( int i = 0; i < 3; i++ ) {
             here.add_field( {p->abs_pos().x() + rng( -2, 2 ), p->abs_pos().y() + rng( -2, 2 ), p->abs_pos().z()},
-                            {fd_methsmoke, 2} );
+            {fd_methsmoke, 2} );
         }
     } else {
         p->add_msg_if_player( _( "You snort some crystal meth." ) );
@@ -1709,7 +1712,7 @@ int good_fishing_spot( mapbuffer &here, const tripoint_abs_ms &pos )
     int fishable_locations = here.get_fishable_locations( 60, pos ).size();
     const oter_id &cur_omt =
         get_overmapbuffer( here.get_dimension_id() ).ter(
-                           tripoint_abs_omt( project_to<coords::omt>( pos ) ) );
+            tripoint_abs_omt( project_to<coords::omt>( pos ) ) );
     std::string om_id = cur_omt.id().c_str();
     if( fishable_locations < 100 && !here.has_flag( "CURRENT", pos ) &&
         om_id.find( "river_" ) == std::string::npos && !cur_omt->is_lake() &&
@@ -2599,7 +2602,8 @@ static digging_moves_and_byproducts dig_pit_moves_and_byproducts( Character *p, 
     auto &here = p->get_mapbuffer();
     auto ter = here.ter( pos )->obj();
     int dig_minutes = channel ? 60 : ter.digging_results.num_minutes;
-    int moves = to_moves<int>( std::max( 10_minutes, time_duration::from_minutes( dig_minutes * attr ) / quality ) );
+    int moves = to_moves<int>( std::max( 10_minutes,
+                                         time_duration::from_minutes( dig_minutes * attr ) / quality ) );
     // Channel can be assumed to always be moving water because it doesn't create magic terraforming in theory.
     ter_id result_terrain = channel ? ter_id( "t_water_moving_sh" ) : ter.digging_results.result_ter;
 
@@ -2635,7 +2639,8 @@ int iuse::dig( Character *p, item *it, bool t, const tripoint_abs_ms *pt )
     }
     const bool grave = here.ter( dig_point ) == t_grave;
 
-    if( !( p->crafting_inventory().max_quality( qual_DIG ) >= handle->ter()->digging_results.dig_min ) ) {
+    if( !( p->crafting_inventory().max_quality( qual_DIG ) >=
+           handle->ter()->digging_results.dig_min ) ) {
         if( grave ) {
             p->add_msg_if_player( _( "You can't exhume a grave without a better digging tool." ) );
             return 0;
@@ -2686,7 +2691,7 @@ int iuse::dig( Character *p, item *it, bool t, const tripoint_abs_ms *pt )
     }
 
     digging_moves_and_byproducts moves_and_byproducts = dig_pit_moves_and_byproducts(
-                                                        p, it, dig_point, false );
+                p, it, dig_point, false );
 
     const std::vector<npc *> helpers = character_funcs::get_crafting_helpers( *p, 3 );
     for( const npc *np : helpers ) {
@@ -2759,7 +2764,7 @@ int iuse::dig_channel( Character *p, item *it, bool t, const tripoint_abs_ms *pt
     }
 
     digging_moves_and_byproducts moves_and_byproducts = dig_pit_moves_and_byproducts(
-                                                        p, it, dig_point, true );
+                p, it, dig_point, true );
 
     const std::vector<npc *> helpers = character_funcs::get_crafting_helpers( *p, 3 );
     for( const npc *np : helpers ) {
@@ -2942,7 +2947,7 @@ int iuse::jackhammer( Character *p, item *it, bool, const tripoint_abs_ms *pt )
         return 0;
     }
 
-    
+
     const std::optional<tripoint_bub_ms> pnt_ = choose_adjacent( _( "Drill where?" ) );
     if( !pnt_ ) {
         return 0;
@@ -3026,7 +3031,7 @@ int iuse::pickaxe( Character *p, item *it, bool, const tripoint_abs_ms *pt )
         p->add_msg_if_player( m_info, _( "You can't do that while underwater." ) );
         return 0;
     }
-    
+
     const std::optional<tripoint_bub_ms> pnt_ = choose_adjacent( _( "Mine where?" ) );
     if( !pnt_ ) {
         return 0;
@@ -3387,7 +3392,8 @@ int iuse::debug_grenade_act( Character *p, item *it, bool t, const tripoint_abs_
                 }
                 for( const auto &dest : simulated_tiles_in_radius( here, it->abs_pos(), explosion_radius ) ) {
                     auto creat = here.creature_at( dest.abs_pos(), true );
-                    if( creat && creat->is_monster() && ( creat->as_monster()->type->in_species( INSECT ) || creat->is_hallucination() ) ) {
+                    if( creat && creat->is_monster() && ( creat->as_monster()->type->in_species( INSECT ) ||
+                                                          creat->is_hallucination() ) ) {
                         creat->as_monster()->die_in_explosion( nullptr );
                     }
                 }
@@ -3523,7 +3529,7 @@ int iuse::debug_grenade_act( Character *p, item *it, bool t, const tripoint_abs_
                 }
                 for( const auto &dest : simulated_tiles_in_radius( here, it->abs_pos(), explosion_radius ) ) {
                     if( one_in( 5 ) && !here.creature_at( dest.abs_pos() ) ) {
-                       here.place_critter_at( mon_duck, dest.abs_pos() );
+                        here.place_critter_at( mon_duck, dest.abs_pos() );
                     }
                 }
                 break;
@@ -3957,7 +3963,8 @@ static std::string get_music_description()
     return _( "a sweet guitar solo!" );
 }
 
-void play_music( Character &p, const tripoint_abs_ms &source, const int volume, const int max_morale )
+void play_music( Character &p, const tripoint_abs_ms &source, const int volume,
+                 const int max_morale )
 {
     // TODO: what about other "player", e.g. when a NPC is listening or when the PC is listening,
     // the other characters around should be able to profit as well.
@@ -4852,7 +4859,7 @@ auto iuse::mop( Character *p, item *it, bool, const tripoint_abs_ms *pt ) -> int
     const auto xs = closest_points_first( p->abs_pos(), 1 );
 
     const int mopped_tiles = std::count_if( xs.begin(), xs.end(),
-    [&here, &mop]( const tripoint_abs_ms &pos ) {
+    [&here, &mop]( const tripoint_abs_ms & pos ) {
         return mop( here, pos );
     } );
 
@@ -6573,7 +6580,7 @@ static std::string colorized_item_description( item &item )
 }
 
 static item &get_top_item_at_point( mapbuffer &here, const tripoint_abs_ms &point,
-        const units::volume &min_visible_volume )
+                                    const units::volume &min_visible_volume )
 {
     auto items = here.get_items( point );
     // iterate from topmost item down to ground
@@ -6630,7 +6637,8 @@ static std::string colorized_ter_name_flags_at( mapbuffer &here, const tripoint_
     return std::string();
 }
 
-static std::string colorized_feature_description_at( mapbuffer &here, const tripoint_abs_ms &center_point,
+static std::string colorized_feature_description_at( mapbuffer &here,
+        const tripoint_abs_ms &center_point,
         bool &item_found,
         const units::volume &min_visible_volume )
 {
@@ -6776,13 +6784,15 @@ struct object_names_collection {
     std::string obj_nearby_text;
 };
 
-static object_names_collection enumerate_objects_around_point( mapbuffer &here, const tripoint_abs_ms &point,
+static object_names_collection enumerate_objects_around_point( mapbuffer &here,
+        const tripoint_abs_ms &point,
         const int radius, const tripoint_abs_ms &bounds_center_point, const int bounds_radius,
         const tripoint_abs_ms &camera_pos, const units::volume &min_visible_volume, bool create_figure_desc,
         std::unordered_set<tripoint_abs_ms> &ignored_points,
         std::unordered_set<const vehicle *> &vehicles_recorded )
 {
-    const tripoint_range<tripoint_abs_ms> bounds = points_in_radius( bounds_center_point, bounds_radius );
+    const tripoint_range<tripoint_abs_ms> bounds = points_in_radius( bounds_center_point,
+            bounds_radius );
     const auto points_in_radius = simulated_tiles_in_radius( here, point, radius );
     int dist = rl_dist( camera_pos, point );
 
@@ -6919,7 +6929,8 @@ static object_names_collection enumerate_objects_around_point( mapbuffer &here, 
     return ret_obj;
 }
 
-static extended_photo_def photo_def_for_camera_point( mapbuffer &here, const tripoint_abs_ms &aim_point,
+static extended_photo_def photo_def_for_camera_point( mapbuffer &here,
+        const tripoint_abs_ms &aim_point,
         const tripoint_abs_ms &camera_pos,
         std::vector<monster *> &monster_vec, std::vector<Character *> &character_vec )
 {
@@ -7008,7 +7019,8 @@ static extended_photo_def photo_def_for_camera_point( mapbuffer &here, const tri
             figure_effects = effects_description_for_creature( creature, pose, pronoun_sex );
             description_figures_appearance[ figure_name ] = figure_appearance;
 
-            object_names_collection obj_collection = enumerate_objects_around_point( here, current, 1, aim_point, 2,
+            object_names_collection obj_collection = enumerate_objects_around_point( here, current, 1,
+                    aim_point, 2,
                     camera_pos, min_visible_volume, true,
                     ignored_points, vehicles_recorded );
             std::string figure_text = pose + obj_collection.figure_text;
@@ -7037,7 +7049,7 @@ static extended_photo_def photo_def_for_camera_point( mapbuffer &here, const tri
 
     bool found_item_aim_point;
     std::string furn_desc = colorized_feature_description_at( here, aim_point,
-                                                              found_item_aim_point, 0_ml );
+                            found_item_aim_point, 0_ml );
     item &item = get_top_item_at_point( here, aim_point, 0_ml );
     const std::string trap_name = colorized_trap_name_at( here, aim_point );
     std::string ter_name = colorized_ter_name_flags_at( here, aim_point, {}, {} );
@@ -7145,7 +7157,7 @@ static extended_photo_def photo_def_for_camera_point( mapbuffer &here, const tri
 
     const oter_id &cur_ter =
         get_overmapbuffer( here.get_dimension_id() ).ter(
-        project_to<coords::omt>( aim_point ) );
+            project_to<coords::omt>( aim_point ) );
     std::string overmap_desc = string_format( _( "In the background you can see a %s" ),
                                colorize( cur_ter->get_name(), cur_ter->get_color() ) );
     if( outside_tiles_num == total_tiles_num ) {
@@ -7518,7 +7530,8 @@ int iuse::camera( Character *p, item *it, bool, const tripoint_abs_ms *pt )
                 std::vector<extended_photo_def> extended_photos;
                 std::vector<monster *> monster_vec;
                 std::vector<Character *> character_vec;
-                extended_photo_def photo = photo_def_for_camera_point( here, trajectory_point, p->abs_pos(), monster_vec,
+                extended_photo_def photo = photo_def_for_camera_point( here, trajectory_point, p->abs_pos(),
+                                           monster_vec,
                                            character_vec );
                 photo.quality = photo_quality;
 
@@ -7950,7 +7963,7 @@ int iuse::radiocaron( Character *p, item *it, bool t, const tripoint_abs_ms *pt 
  */
 static void emit_radio_signal( Character &p, const flag_id &signal )
 {
-    const auto visitor = [&]( item & it, const tripoint_abs_ms& loc ) -> VisitResponse {
+    const auto visitor = [&]( item & it, const tripoint_abs_ms & loc ) -> VisitResponse {
         if( it.has_flag( flag_RADIO_ACTIVATION ) && it.has_flag( signal ) )
         {
             sound_event se;
@@ -8068,7 +8081,7 @@ int iuse::radiocontrol( Character *p, item *it, bool t, const tripoint_abs_ms *p
             for( size_t i = 0; i < rc_pairs.size(); i++ ) {
                 pick_rc.addentry( i, true, MENU_AUTOASSIGN, rc_pairs[i].second->display_name() );
                 auto bub = abs_to_bub( rc_pairs[i].first );
-                if ( get_map().inbounds( bub ) ) {
+                if( get_map().inbounds( bub ) ) {
                     locations.push_back( abs_to_bub( rc_pairs[i].first ) );
                 }
             }
@@ -9283,7 +9296,7 @@ int iuse::report_grid_connections( Character *p, item *, bool, const tripoint_ab
 }
 
 auto iuse::report_fluid_grid_connections( Character *p, item *, bool,
-                                          const tripoint_abs_ms *pos ) -> int
+        const tripoint_abs_ms *pos ) -> int
 {
     const auto pos_abs = project_to<coords::omt>( *pos );
     const auto connections = fluid_grid::grid_connectivity_at( pos_abs );
@@ -9428,7 +9441,7 @@ int iuse::modify_grid_connections( Character *p, item *it, bool, const tripoint_
 }
 
 auto iuse::modify_fluid_grid_connections( Character *p, item *it, bool,
-                                          const tripoint_abs_ms *pos ) -> int
+        const tripoint_abs_ms *pos ) -> int
 {
     const auto pos_abs = project_to<coords::omt>( *pos );
     const auto connections = fluid_grid::grid_connectivity_at( pos_abs );

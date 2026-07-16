@@ -553,8 +553,8 @@ void player_activity::do_turn( player &p )
         }
         auto_resume = true;
         p.assign_activity( std::make_unique<player_activity>(
-            std::make_unique<wait_stamina_actor>( 200 + p.get_stamina_max() / 3 )
-        ) );
+                               std::make_unique<wait_stamina_actor>( 200 + p.get_stamina_max() / 3 )
+                           ) );
         return;
     }
 

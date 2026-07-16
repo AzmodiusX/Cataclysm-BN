@@ -206,7 +206,7 @@ TEST_CASE("flung creatures take damage when they slam into a wall", "[throwing][
 TEST_CASE("flung creatures stop at the reality bubble edge", "[throwing][bubble]") {
     clear_all_state();
     clear_map();
-    
+
     auto& map = get_map();
     auto& here = map.get_mapbuffer();
     const auto bubble_edge_x = g_mapsize_x - 1;

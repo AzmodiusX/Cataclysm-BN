@@ -604,7 +604,7 @@ void dig_activity_actor::finish( player_activity &act, Character &who )
                                       calendar::turn );
         here.place_items( item_group_id( "grave" ), 25, location, location, false, calendar::turn );
         here.place_items( item_group_id( "jewelry_front" ), 20, location, location, false,
-                               calendar::turn );
+                          calendar::turn );
         for( item * const &it : dropped ) {
             if( it->is_armor() ) {
                 it->set_damage( rng( 1, it->max_damage() - 1 ) );
@@ -1545,7 +1545,7 @@ void boltcutting_activity_actor::finish( player_activity &act, Character &who )
         return;
     }
     const activity_data_common *data;
-    
+
     if( handle->furn() != f_null ) {
         const furn_id furn_type = handle->furn();
         if( !furn_type->boltcut->valid() ) {
@@ -1867,7 +1867,7 @@ std::optional<tripoint_abs_ms> lockpick_activity_actor::select_location( avatar 
 
     const std::optional<tripoint_bub_ms> target_ = choose_adjacent_highlight(
                 _( "Use your lockpick where?" ), _( "There is nothing to lockpick nearby." ), [&here]
-                ( const tripoint_bub_ms &p ) { return is_pickable( here, bub_to_abs( p ) ); }, false );
+    ( const tripoint_bub_ms & p ) { return is_pickable( here, bub_to_abs( p ) ); }, false );
     if( !target_ ) {
         return std::nullopt;
     }
@@ -1928,7 +1928,7 @@ void oxytorch_activity_actor::start( player_activity &act, Character &who )
         act.set_to_null();
         return;
     }
-    
+
     if( handle->furn() != f_null ) {
         const furn_id furn_type = handle->furn();
         if( !furn_type->oxytorch->valid() ) {
@@ -2003,7 +2003,7 @@ void oxytorch_activity_actor::finish( player_activity &act, Character &who )
         return;
     }
     const activity_data_common *data;
-    
+
     if( handle->furn() != f_null ) {
         const furn_id furn_type = handle->furn();
         if( !furn_type->oxytorch->valid() ) {
@@ -2855,11 +2855,11 @@ liquid_transfer_actor::liquid_transfer_actor(
     const tripoint_abs_ms &tgt_pos,
     safe_reference<item> tgt_container
 ) : source_type( src_type )
-  , source_pos( src_pos )
-  , source_part_index( src_part_index )
-  , target_type( tgt_type )
-  , target_pos( tgt_pos )
-  , target_container( std::move( tgt_container ) )
+    , source_pos( src_pos )
+    , source_part_index( src_part_index )
+    , target_type( tgt_type )
+    , target_pos( tgt_pos )
+    , target_container( std::move( tgt_container ) )
 {}
 
 void liquid_transfer_actor::serialize( JsonOut &jsout ) const
@@ -2934,11 +2934,12 @@ std::unique_ptr<activity_actor> liquid_transfer_actor::legacy_deserialize( const
 void liquid_transfer_actor::start( player_activity &, Character & ) {}
 void liquid_transfer_actor::do_turn( player_activity &act, Character &who )
 {
-    
+
     map &here = get_map();
     try {
 
-        auto transfer = [this, &here]( const std::function < detached_ptr<item>( detached_ptr<item> &&it ) > & cb ) {
+        auto transfer = [this, &here]( const std::function < detached_ptr<item>
+        ( detached_ptr<item> &&it ) > & cb ) {
             static const units::volume volume_per_second = units::from_liter( 4.0F / 6.0F );
             int charges;
             detached_ptr<item> source;
@@ -3183,9 +3184,9 @@ repair_actor::repair_actor(
     const itype_id &ttool,
     int cpart_idx
 ) : hack_type( htype )
-  , target_pos( tpos )
-  , tool_type( ttool )
-  , crafter_part_index( cpart_idx )
+    , target_pos( tpos )
+    , tool_type( ttool )
+    , crafter_part_index( cpart_idx )
 {}
 
 repair_actor::repair_actor(
@@ -3193,9 +3194,9 @@ repair_actor::repair_actor(
     safe_reference<item> tool_ref,
     int pos
 ) : is_hack( false )
-  , iuse_name( name )
-  , tool( tool_ref )
-  , item_pos( pos )
+    , iuse_name( name )
+    , tool( tool_ref )
+    , item_pos( pos )
 {}
 
 void repair_actor::serialize( JsonOut &jsout ) const
@@ -3221,7 +3222,8 @@ std::unique_ptr<activity_actor> repair_actor::deserialize( JsonIn &jsin )
     data.read( "progress", actor->activity_actor::progress );
     if( data.has_member( "hack_type" ) ) {
         actor->is_hack = true;
-        int ht = 0; data.read( "hack_type", ht );
+        int ht = 0;
+        data.read( "hack_type", ht );
         actor->hack_type = static_cast<hack_type_t>( ht );
         data.read( "target_pos", actor->target_pos );
         data.read( "tool_type", actor->tool_type );
@@ -3245,17 +3247,17 @@ std::unique_ptr<activity_actor> repair_actor::legacy_deserialize( const JsonObje
         // Hack path
         auto actor = std::make_unique<repair_actor>();
         actor->is_hack = true;
-        if( values.size() >= 2 ) actor->crafter_part_index = values[1];
+        if( values.size() >= 2 ) { actor->crafter_part_index = values[1]; }
         actor->hack_type = static_cast<hack_type_t>( values[2] );
 
         // tool_type from str_values[1]
         auto str_values = data.get_string_array( "str_values" );
-        if( str_values.size() >= 2 ) actor->tool_type = itype_id( str_values[1] );
+        if( str_values.size() >= 2 ) { actor->tool_type = itype_id( str_values[1] ); }
 
         // target_pos from coords[0]
         auto coords = std::vector<tripoint_abs_ms>();
         data.read( "coords", coords );
-        if( !coords.empty() ) actor->target_pos = coords[0];
+        if( !coords.empty() ) { actor->target_pos = coords[0]; }
         return actor;
     }
 
@@ -3263,10 +3265,10 @@ std::unique_ptr<activity_actor> repair_actor::legacy_deserialize( const JsonObje
     auto actor = std::make_unique<repair_actor>();
     actor->is_hack = false;
     auto str_values = data.get_string_array( "str_values" );
-    if( !str_values.empty() ) actor->iuse_name = str_values[0];
+    if( !str_values.empty() ) { actor->iuse_name = str_values[0]; }
     auto targets = std::vector<safe_reference<item>>();
     data.read( "targets", targets );
-    if( !targets.empty() ) actor->tool = std::move( targets[0] );
+    if( !targets.empty() ) { actor->tool = std::move( targets[0] ); }
     actor->item_pos = data.get_int( "index", -1 );
     return actor;
 }
@@ -3297,9 +3299,9 @@ static repeat_type repeat_menu( const std::string &title, repeat_type last_selec
 }
 
 static item *get_fake_tool_for_repair( hack_type_t hack_type,
-                                        const tripoint_bub_ms &position,
-                                        const itype_id &tool_type,
-                                        const tripoint_abs_ms &abs_pos )
+                                       const tripoint_bub_ms &position,
+                                       const itype_id &tool_type,
+                                       const tripoint_abs_ms &abs_pos )
 {
     const map &m = get_map();
     item *fake_item = &null_item_reference();
@@ -3391,7 +3393,7 @@ void repair_actor::do_turn( player_activity &act, Character &who )
         who.moves = 0;
     } else {
         who.moves -= action_time_scale::actor_moves_for_activity_progress( who,
-                   act.moves_left * vision_mod );
+                     act.moves_left * vision_mod );
         act.moves_left = 0;
     }
 }
@@ -3411,7 +3413,7 @@ void repair_actor::finish( player_activity &act, Character &who )
 
     if( hack_type ) {
         fake_tool = get_fake_tool_for_repair( hack_type.value(), abs_to_bub( this->target_pos ),
-                                               this->tool_type, this->target_pos );
+                                              this->tool_type, this->target_pos );
     } else if( this->tool ) {
         ploc = &*this->tool;
     }
@@ -3456,7 +3458,8 @@ void repair_actor::finish( player_activity &act, Character &who )
 
         // Remember our level: we want to stop retrying on level up
         const int old_level = who.get_skill_level( repair_iuse->used_skill );
-        const repair_item_actor::attempt_hint attempt = repair_iuse->repair( who, *used_tool, fix_location );
+        const repair_item_actor::attempt_hint attempt = repair_iuse->repair( who, *used_tool,
+                fix_location );
         if( attempt != repair_item_actor::AS_CANT ) {
             if( ploc && ploc->where() == item_location_type::map ) {
                 used_tool->ammo_consume( used_tool->ammo_required() );
@@ -3676,7 +3679,7 @@ std::unique_ptr<activity_actor> wear_actor::legacy_deserialize( const JsonObject
 void wear_actor::start( player_activity &act, Character &who ) {}
 void wear_actor::do_turn( player_activity &act, Character &who )
 {
-    
+
 
     while( who.moves > 0 && !to_wear.empty() ) {
         wear_target wt = std::move( to_wear.back() );
@@ -3746,7 +3749,7 @@ void wait_stamina_actor::start( player_activity &act, Character &who ) {}
 
 void wait_stamina_actor::do_turn( player_activity &act, Character &who )
 {
-    
+
     // If no explicit threshold, wait until full stamina
     int effective_threshold = stamina_threshold > 0 ? stamina_threshold : who.get_stamina_max();
     // Remember initial stamina on first tick
@@ -3760,7 +3763,7 @@ void wait_stamina_actor::do_turn( player_activity &act, Character &who )
 
 void wait_stamina_actor::finish( player_activity &act, Character &who )
 {
-    
+
     if( stamina_threshold > 0 ) {
         if( who.get_stamina() < stamina_threshold && who.get_stamina() <= stamina_initial ) {
             debugmsg( "Failed to wait until stamina threshold %d reached, only at %d. You may not be regaining stamina.",
@@ -3784,9 +3787,9 @@ hand_crank_charge_actor::hand_crank_charge_actor(
     int fatigue,
     const itype_id &ammo
 ) : charge_interval_turns( interval_turns )
-  , charge_amount( charges )
-  , fatigue_amount( fatigue )
-  , ammo_type( ammo )
+    , charge_amount( charges )
+    , fatigue_amount( fatigue )
+    , ammo_type( ammo )
 {}
 
 void hand_crank_charge_actor::serialize( JsonOut &jsout ) const
@@ -3812,7 +3815,8 @@ std::unique_ptr<activity_actor> hand_crank_charge_actor::deserialize( JsonIn &js
     return actor;
 }
 
-std::unique_ptr<activity_actor> hand_crank_charge_actor::legacy_deserialize( const JsonObject &data )
+std::unique_ptr<activity_actor> hand_crank_charge_actor::legacy_deserialize(
+    const JsonObject &data )
 {
     auto actor = std::make_unique<hand_crank_charge_actor>();
 
@@ -3839,13 +3843,13 @@ void hand_crank_charge_actor::start( player_activity &act, Character &who ) {}
 
 void hand_crank_charge_actor::do_turn( player_activity &act, Character &who )
 {
-    
+
     // Hand-crank chargers: time-based, not speed-based
     auto &hand_crank_item = *act.get_tools().front();
 
     auto charge_interval = charge_interval_turns > 0
-        ? time_duration::from_turns( charge_interval_turns )
-        : 144_seconds;
+                           ? time_duration::from_turns( charge_interval_turns )
+                           : 144_seconds;
 
     if( action_time_scale::once_every_this_tick( charge_interval ) ) {
         who.mod_fatigue( fatigue_amount );
@@ -3907,8 +3911,9 @@ std::unique_ptr<activity_actor> wait_npc_actor::legacy_deserialize( const JsonOb
 
 void wait_npc_actor::start( player_activity &act, Character &who ) {}
 void wait_npc_actor::do_turn( player_activity &act, Character &who ) {}
-void wait_npc_actor::finish( player_activity &act, Character &who ) {
-    
+void wait_npc_actor::finish( player_activity &act, Character &who )
+{
+
     who.add_msg_if_player( _( "%s finishes with you…" ), npc_name );
     act.set_to_null();
 }
@@ -3950,13 +3955,14 @@ std::unique_ptr<activity_actor> clear_rubble_actor::legacy_deserialize( const Js
 
 void clear_rubble_actor::start( player_activity &act, Character &who ) {}
 void clear_rubble_actor::do_turn( player_activity &act, Character &who ) {}
-void clear_rubble_actor::finish( player_activity &act, Character &who ) {
-    
+void clear_rubble_actor::finish( player_activity &act, Character &who )
+{
+
     map &here = get_map();
     const auto bub_pos = abs_to_bub( rubble_pos );
     const map_bash_info &bash = here.furn( bub_pos ).obj().bash;
     who.add_msg_if_player( m_info, _( "You clear up the %s." ),
-                          here.furnname( bub_pos ) );
+                           here.furnname( bub_pos ) );
     here.spawn_items( bub_pos, item_group::items_from( bash.drop_group, calendar::turn ) );
     here.furn_set( bub_pos, f_null );
     act.set_to_null();
@@ -3972,9 +3978,9 @@ read_activity_actor::read_activity_actor(
     bool martial_arts,
     int total_moves_
 ) : book( std::move( book_ref ) )
-  , learners( std::move( npcs ) )
-  , is_martial_arts( martial_arts )
-  , total_moves( total_moves_ )
+    , learners( std::move( npcs ) )
+    , is_martial_arts( martial_arts )
+    , total_moves( total_moves_ )
 {}
 
 void read_activity_actor::serialize( JsonOut &jsout ) const
@@ -4096,7 +4102,7 @@ void read_activity_actor::finish( player_activity &act, Character &who )
         }
         return;
     }
-    
+
     if( who.is_avatar() ) {
         // Build learners vector for do_read from typed actor fields
         std::vector<std::pair<character_id, float>> learner_data;
@@ -4122,8 +4128,8 @@ move_loot_activity_actor::move_loot_activity_actor(
     int init_stage,
     const std::unordered_set<tripoint_abs_ms> &zpoints
 ) : items_processed( processed )
-  , stage( init_stage )
-  , zone_points( zpoints )
+    , stage( init_stage )
+    , zone_points( zpoints )
 {}
 
 void move_loot_activity_actor::serialize( JsonOut &jsout ) const
@@ -4149,7 +4155,8 @@ std::unique_ptr<activity_actor> move_loot_activity_actor::deserialize( JsonIn &j
     return actor;
 }
 
-std::unique_ptr<activity_actor> move_loot_activity_actor::legacy_deserialize( const JsonObject &data )
+std::unique_ptr<activity_actor> move_loot_activity_actor::legacy_deserialize(
+    const JsonObject &data )
 {
     auto actor = std::make_unique<move_loot_activity_actor>();
 
@@ -4176,7 +4183,7 @@ void move_loot_activity_actor::do_turn( player_activity &act, Character &who )
         DO,
     };
 
-    
+
 
     //Prepare activity stage
     if( stage < 0 ) {
@@ -4425,9 +4432,9 @@ fetch_required_actor::fetch_required_actor(
     const tripoint_abs_ms &placement,
     const tripoint_abs_ms &source_zone
 ) : reason( reason )
-  , fetch_requirements( reqs )
-  , placement_pos( placement )
-  , source_zone_pos( source_zone )
+    , fetch_requirements( reqs )
+    , placement_pos( placement )
+    , source_zone_pos( source_zone )
 {}
 
 void fetch_required_actor::serialize( JsonOut &jsout ) const
@@ -4491,7 +4498,8 @@ std::unique_ptr<activity_actor> fetch_required_actor::legacy_deserialize( const 
 }
 
 void fetch_required_actor::start( player_activity &act, Character &who ) {}
-void fetch_required_actor::do_turn( player_activity &act, Character &who ) {
+void fetch_required_actor::do_turn( player_activity &act, Character &who )
+{
     generic_multi_activity_handler( act, static_cast<player &>( who ) );
 }
 void fetch_required_actor::finish( player_activity &act, Character &who ) {}
@@ -4499,25 +4507,32 @@ void fetch_required_actor::finish( player_activity &act, Character &who ) {}
 // ─── tree_communion_actor ────────────────────────────────────────────────────
 
 tree_communion_actor::tree_communion_actor( int turns ) : startup_turns( turns ) {}
-void tree_communion_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
-    jsout.member( "startup_turns", startup_turns ); jsout.end_object();
+void tree_communion_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "startup_turns", startup_turns );
+    jsout.end_object();
 }
-std::unique_ptr<activity_actor> tree_communion_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> tree_communion_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<tree_communion_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
-    data.read( "startup_turns", actor->startup_turns ); return actor;
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "startup_turns", actor->startup_turns );
+    return actor;
 }
-std::unique_ptr<activity_actor> tree_communion_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> tree_communion_actor::legacy_deserialize( const JsonObject &data )
+{
     auto actor = std::make_unique<tree_communion_actor>();
     auto values = data.get_int_array( "values" );
-    if( !values.empty() ) actor->startup_turns = values[0];
+    if( !values.empty() ) { actor->startup_turns = values[0]; }
     return actor;
 }
 void tree_communion_actor::start( player_activity &, Character & ) {}
 void tree_communion_actor::do_turn( player_activity &act, Character &who )
 {
-    
+
     // There's an initial rooting process.
     if( startup_turns > 0 ) {
         startup_turns -= 1;
@@ -4553,7 +4568,7 @@ void tree_communion_actor::do_turn( player_activity &act, Character &who )
             }
             if( one_in( 128 ) ) {
                 who.add_msg_if_player( "%s", SNIPPET.random_from_category( "tree_communion" ).value_or(
-                                          translation() ) );
+                                           translation() ) );
             }
             return;
         }
@@ -4580,7 +4595,8 @@ shear_actor::shear_actor( const tripoint_abs_ms &pos,
                           const std::string &tied,
                           safe_reference<item> shears_ref )
     : target_pos( pos ), tied_state( tied ), shears( shears_ref ) {}
-void shear_actor::serialize( JsonOut &jsout ) const {
+void shear_actor::serialize( JsonOut &jsout ) const
+{
     jsout.start_object();
     jsout.member( "progress", activity_actor::progress );
     jsout.member( "target_pos", target_pos );
@@ -4588,7 +4604,8 @@ void shear_actor::serialize( JsonOut &jsout ) const {
     jsout.member( "shears", shears );
     jsout.end_object();
 }
-std::unique_ptr<activity_actor> shear_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> shear_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<shear_actor>();
     JsonObject data = jsin.get_object();
     data.read( "progress", actor->activity_actor::progress );
@@ -4597,21 +4614,26 @@ std::unique_ptr<activity_actor> shear_actor::deserialize( JsonIn &jsin ) {
     data.read( "shears", actor->shears );
     return actor;
 }
-std::unique_ptr<activity_actor> shear_actor::legacy_deserialize( const JsonObject &data ) {
-    auto coords = std::vector<tripoint_abs_ms>(); data.read( "coords", coords );
-    if( coords.empty() ) return nullptr;
+std::unique_ptr<activity_actor> shear_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto coords = std::vector<tripoint_abs_ms>();
+    data.read( "coords", coords );
+    if( coords.empty() ) { return nullptr; }
     std::string tied;
-    auto str_values = std::vector<std::string>(); data.read( "str_values", str_values );
+    auto str_values = std::vector<std::string>();
+    data.read( "str_values", str_values );
     if( !str_values.empty() && str_values[0] == "temp_tie" ) {
         tied = "temp_tie";
     }
     return std::make_unique<shear_actor>( coords[0], tied, safe_reference<item>() );
 }
 void shear_actor::start( player_activity &, Character & ) {}
-void shear_actor::do_turn( player_activity &, Character & ) {
+void shear_actor::do_turn( player_activity &, Character & )
+{
 }
-void shear_actor::finish( player_activity &act, Character &who ) {
-    
+void shear_actor::finish( player_activity &act, Character &who )
+{
+
 
     if( !shears ) {
         debugmsg( "shearing activity with no shears" );
@@ -4646,14 +4668,16 @@ void shear_actor::finish( player_activity &act, Character &who ) {
 milk_actor::milk_actor( const tripoint_abs_ms &pos,
                         const std::string &tied )
     : target_pos( pos ), tied_state( tied ) {}
-void milk_actor::serialize( JsonOut &jsout ) const {
+void milk_actor::serialize( JsonOut &jsout ) const
+{
     jsout.start_object();
     jsout.member( "progress", activity_actor::progress );
     jsout.member( "target_pos", target_pos );
     jsout.member( "tied_state", tied_state );
     jsout.end_object();
 }
-std::unique_ptr<activity_actor> milk_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> milk_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<milk_actor>();
     JsonObject data = jsin.get_object();
     data.read( "progress", actor->activity_actor::progress );
@@ -4661,20 +4685,25 @@ std::unique_ptr<activity_actor> milk_actor::deserialize( JsonIn &jsin ) {
     data.read( "tied_state", actor->tied_state );
     return actor;
 }
-std::unique_ptr<activity_actor> milk_actor::legacy_deserialize( const JsonObject &data ) {
-    auto coords = std::vector<tripoint_abs_ms>(); data.read( "coords", coords );
-    if( coords.empty() ) return nullptr;
+std::unique_ptr<activity_actor> milk_actor::legacy_deserialize( const JsonObject &data )
+{
+    auto coords = std::vector<tripoint_abs_ms>();
+    data.read( "coords", coords );
+    if( coords.empty() ) { return nullptr; }
     std::string tied;
-    auto str_values = std::vector<std::string>(); data.read( "str_values", str_values );
+    auto str_values = std::vector<std::string>();
+    data.read( "str_values", str_values );
     if( !str_values.empty() && str_values[0] == "temp_tie" ) {
         tied = "temp_tie";
     }
     return std::make_unique<milk_actor>( coords[0], tied );
 }
 void milk_actor::start( player_activity &, Character & ) {}
-void milk_actor::do_turn( player_activity &, Character & ) {
+void milk_actor::do_turn( player_activity &, Character & )
+{
 }
-void milk_actor::finish( player_activity &act, Character &who ) {
+void milk_actor::finish( player_activity &act, Character &who )
+{
     auto *source_mon = g->critter_at<monster>( target_pos );
     if( source_mon == nullptr ) {
         debugmsg( "could not find source creature for liquid transfer" );
@@ -4713,22 +4742,30 @@ void milk_actor::finish( player_activity &act, Character &who ) {
 
 pulp_actor::pulp_actor( const tripoint_abs_ms &pos, bool auto_no_acid, int num_corpses )
     : target_pos( pos ), auto_pulp_no_acid( auto_no_acid ), num_corpses( num_corpses ) {}
-void pulp_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+void pulp_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
     jsout.member( "target_pos", target_pos );
     jsout.member( "auto_pulp_no_acid", auto_pulp_no_acid );
-    jsout.member( "num_corpses", num_corpses ); jsout.end_object();
+    jsout.member( "num_corpses", num_corpses );
+    jsout.end_object();
 }
-std::unique_ptr<activity_actor> pulp_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> pulp_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<pulp_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
     data.read( "target_pos", actor->target_pos );
     data.read( "auto_pulp_no_acid", actor->auto_pulp_no_acid );
-    data.read( "num_corpses", actor->num_corpses ); return actor;
+    data.read( "num_corpses", actor->num_corpses );
+    return actor;
 }
-std::unique_ptr<activity_actor> pulp_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> pulp_actor::legacy_deserialize( const JsonObject &data )
+{
     auto actor = std::make_unique<pulp_actor>();
-    tripoint_abs_ms pl; data.read( "placement", pl );
+    tripoint_abs_ms pl;
+    data.read( "placement", pl );
     actor->target_pos = pl;
     auto str_values = data.get_string_array( "str_values" );
     if( !str_values.empty() && str_values[0] == "auto_pulp_no_acid" ) {
@@ -4740,7 +4777,7 @@ void pulp_actor::start( player_activity &, Character & ) {}
 
 void pulp_actor::do_turn( player_activity &act, Character &who )
 {
-    
+
     map &here = get_map();
     const tripoint_bub_ms pos = abs_to_bub( target_pos );
 
@@ -4756,7 +4793,7 @@ void pulp_actor::do_turn( player_activity &act, Character &who )
 
     if( pulp_power <= 0.0f || !std::isfinite( pulp_power ) ) {
         who.add_msg_player_or_npc( m_bad, _( "You are unable to pulp the corpse." ),
-                                  _( "<npcname> is unable to pulp the corpse." ) );
+                                   _( "<npcname> is unable to pulp the corpse." ) );
         act.moves_left = 0;
         return;
     }
@@ -4816,14 +4853,14 @@ void pulp_actor::do_turn( player_activity &act, Character &who )
         return;
     }
     who.add_msg_player_or_npc( vgettext( "The corpse is thoroughly pulped.",
-                                        "The corpses are thoroughly pulped.", num_corpses ),
-                              vgettext( "<npcname> finished pulping the corpse.",
-                                        "<npcname> finished pulping the corpses.", num_corpses ) );
+                                         "The corpses are thoroughly pulped.", num_corpses ),
+                               vgettext( "<npcname> finished pulping the corpse.",
+                                         "<npcname> finished pulping the corpses.", num_corpses ) );
 }
 
 void pulp_actor::finish( player_activity &act, Character &who )
 {
-    
+
     if( who.is_npc() ) {
         who.as_npc()->revert_after_activity();
     } else {
@@ -4835,27 +4872,35 @@ void pulp_actor::finish( player_activity &act, Character &who )
 
 hotwire_car_actor::hotwire_car_actor( const tripoint_abs_ms &pos, int skill )
     : veh_pos( pos ), mechanics_skill( skill ) {}
-void hotwire_car_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
-    jsout.member( "veh_pos", veh_pos ); jsout.member( "mechanics_skill", mechanics_skill );
+void hotwire_car_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "veh_pos", veh_pos );
+    jsout.member( "mechanics_skill", mechanics_skill );
     jsout.end_object();
 }
-std::unique_ptr<activity_actor> hotwire_car_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> hotwire_car_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<hotwire_car_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
-    data.read( "veh_pos", actor->veh_pos ); data.read( "mechanics_skill", actor->mechanics_skill );
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "veh_pos", actor->veh_pos );
+    data.read( "mechanics_skill", actor->mechanics_skill );
     return actor;
 }
-std::unique_ptr<activity_actor> hotwire_car_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> hotwire_car_actor::legacy_deserialize( const JsonObject &data )
+{
     auto values = data.get_int_array( "values" );
-    if( values.size() < 3 ) return nullptr;
+    if( values.size() < 3 ) { return nullptr; }
     return std::make_unique<hotwire_car_actor>(
-        tripoint_abs_ms( values[0], values[1], 0 ), values[2] );
+               tripoint_abs_ms( values[0], values[1], 0 ), values[2] );
 }
 void hotwire_car_actor::start( player_activity &, Character & ) {}
 void hotwire_car_actor::do_turn( player_activity &act, Character &who ) {}
-void hotwire_car_actor::finish( player_activity &act, Character &who ) {
-    
+void hotwire_car_actor::finish( player_activity &act, Character &who )
+{
+
     if( const optional_vpart_position vp = g->m.veh_at( tripoint_abs_ms( veh_pos.x(),
                                            veh_pos.y(),
                                            who.bub_pos().z() ) ) ) {
@@ -4884,28 +4929,36 @@ void hotwire_car_actor::finish( player_activity &act, Character &who ) {
 
 start_engines_actor::start_engines_actor( int control, const tripoint_abs_ms &pos )
     : take_control( control ), placement( pos ) {}
-void start_engines_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
-    jsout.member( "take_control", take_control ); jsout.member( "placement", placement );
+void start_engines_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "take_control", take_control );
+    jsout.member( "placement", placement );
     jsout.end_object();
 }
-std::unique_ptr<activity_actor> start_engines_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> start_engines_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<start_engines_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
-    data.read( "take_control", actor->take_control ); data.read( "placement", actor->placement );
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "take_control", actor->take_control );
+    data.read( "placement", actor->placement );
     return actor;
 }
-std::unique_ptr<activity_actor> start_engines_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> start_engines_actor::legacy_deserialize( const JsonObject &data )
+{
     auto actor = std::make_unique<start_engines_actor>();
     auto values = data.get_int_array( "values" );
-    if( !values.empty() ) actor->take_control = values[0];
+    if( !values.empty() ) { actor->take_control = values[0]; }
     data.read( "placement", actor->placement );
     return actor;
 }
 void start_engines_actor::start( player_activity &, Character & ) {}
 void start_engines_actor::do_turn( player_activity &act, Character &who ) {}
-void start_engines_actor::finish( player_activity &act, Character &who ) {
-    
+void start_engines_actor::finish( player_activity &act, Character &who )
+{
+
     act.set_to_null();
     vehicle *veh = g->remoteveh();
     map &here = get_map();
@@ -4970,21 +5023,30 @@ void start_engines_actor::finish( player_activity &act, Character &who ) {
 
 start_fire_actor::start_fire_actor( int light, const tripoint_abs_ms &pos, int difficulty )
     : light_level( light ), placement( pos ), practice_difficulty( difficulty ) {}
-void start_fire_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
-    jsout.member( "light_level", light_level ); jsout.member( "placement", placement );
-    jsout.member( "practice_difficulty", practice_difficulty ); jsout.end_object();
+void start_fire_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "light_level", light_level );
+    jsout.member( "placement", placement );
+    jsout.member( "practice_difficulty", practice_difficulty );
+    jsout.end_object();
 }
-std::unique_ptr<activity_actor> start_fire_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> start_fire_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<start_fire_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
-    data.read( "light_level", actor->light_level ); data.read( "placement", actor->placement );
-    data.read( "practice_difficulty", actor->practice_difficulty ); return actor;
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "light_level", actor->light_level );
+    data.read( "placement", actor->placement );
+    data.read( "practice_difficulty", actor->practice_difficulty );
+    return actor;
 }
-std::unique_ptr<activity_actor> start_fire_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> start_fire_actor::legacy_deserialize( const JsonObject &data )
+{
     auto actor = std::make_unique<start_fire_actor>();
     auto values = data.get_int_array( "values" );
-    if( !values.empty() ) actor->light_level = values[0];
+    if( !values.empty() ) { actor->light_level = values[0]; }
     data.read( "placement", actor->placement );
     return actor;
 }
@@ -4995,7 +5057,7 @@ void start_fire_actor::do_turn( player_activity &act, Character &who )
     auto &here = who.get_mapbuffer();
     item &firestarter = *act.get_tools().front();
     if( !here.is_flammable( placement ) || ( firestarter.has_flag( flag_REQUIRES_TINDER ) &&
-                                           !here.tinder_at( placement ) ) ) {
+            !here.tinder_at( placement ) ) ) {
         try_fuel_fire( act, who, true );
         if( !here.is_flammable( placement ) ) {
             who.add_msg_if_player( m_info, _( "There's nothing to light there." ) );
@@ -5031,7 +5093,7 @@ void start_fire_actor::do_turn( player_activity &act, Character &who )
 
 void start_fire_actor::finish( player_activity &act, Character &who )
 {
-    
+
     static const std::string iuse_name_string( "firestarter" );
 
     item &it = *act.get_tools().front();
@@ -5068,29 +5130,37 @@ void start_fire_actor::finish( player_activity &act, Character &who )
 
 make_zlave_actor::make_zlave_actor( int success, const std::string &name )
     : success_chance( success ), corpse_name( name ) {}
-void make_zlave_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
-    jsout.member( "success_chance", success_chance ); jsout.member( "corpse_name", corpse_name );
+void make_zlave_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "success_chance", success_chance );
+    jsout.member( "corpse_name", corpse_name );
     jsout.end_object();
 }
-std::unique_ptr<activity_actor> make_zlave_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> make_zlave_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<make_zlave_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
-    data.read( "success_chance", actor->success_chance ); data.read( "corpse_name", actor->corpse_name );
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "success_chance", actor->success_chance );
+    data.read( "corpse_name", actor->corpse_name );
     return actor;
 }
-std::unique_ptr<activity_actor> make_zlave_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> make_zlave_actor::legacy_deserialize( const JsonObject &data )
+{
     auto actor = std::make_unique<make_zlave_actor>();
     auto values = data.get_int_array( "values" );
-    if( !values.empty() ) actor->success_chance = values[0];
+    if( !values.empty() ) { actor->success_chance = values[0]; }
     auto str_values = data.get_string_array( "str_values" );
-    if( !str_values.empty() ) actor->corpse_name = str_values[0];
+    if( !str_values.empty() ) { actor->corpse_name = str_values[0]; }
     return actor;
 }
 void make_zlave_actor::start( player_activity &, Character & ) {}
 void make_zlave_actor::do_turn( player_activity &act, Character &who ) {}
-void make_zlave_actor::finish( player_activity &act, Character &who ) {
-    
+void make_zlave_actor::finish( player_activity &act, Character &who )
+{
+
     act.set_to_null();
     map_stack items = g->m.i_at( who.bub_pos() );
     item *body = nullptr;
@@ -5110,7 +5180,7 @@ void make_zlave_actor::finish( player_activity &act, Character &who ) {
         who.practice( skill_firstaid, rng( 2, 5 ) );
         who.practice( skill_survival, rng( 2, 5 ) );
         who.add_msg_if_player( m_good,
-                              _( "You slice muscles and tendons, and remove body parts until you're confident the zombie won't be able to attack you when it reanimates." ) );
+                               _( "You slice muscles and tendons, and remove body parts until you're confident the zombie won't be able to attack you when it reanimates." ) );
         body->set_var( "zlave", "zlave" );
         if( one_in( 10 ) ) {
             body->set_var( "zlave", "mutilated" );
@@ -5119,7 +5189,7 @@ void make_zlave_actor::finish( player_activity &act, Character &who ) {
         who.practice( skill_firstaid, rng( 3, 6 ) );
         who.practice( skill_survival, rng( 3, 6 ) );
         who.add_msg_if_player( m_warning,
-                              _( "You hack into the corpse and chop off some body parts.  You think the zombie won't be able to attack when it reanimates." ) );
+                               _( "You hack into the corpse and chop off some body parts.  You think the zombie won't be able to attack when it reanimates." ) );
         int success = success_chance + rng( 1, 20 );
         if( success > 0 && !one_in( 5 ) ) {
             body->set_var( "zlave", "zlave" );
@@ -5135,7 +5205,7 @@ void make_zlave_actor::finish( player_activity &act, Character &who ) {
             who.add_msg_if_player( m_warning, _( "You cut up the corpse too much, it is thoroughly pulped." ) );
         } else {
             who.add_msg_if_player( m_warning,
-                                  _( "You cut into the corpse trying to make it unable to attack, but you don't think you have it right." ) );
+                                   _( "You cut into the corpse trying to make it unable to attack, but you don't think you have it right." ) );
         }
     }
 }
@@ -5145,7 +5215,8 @@ void make_zlave_actor::finish( player_activity &act, Character &who ) {
 study_spell_actor::study_spell_actor( const std::string &type, const std::string &mode,
                                       const std::string &gain )
     : spell_type( type ), study_mode( mode ), gain_level_flag( gain ) {}
-void study_spell_actor::serialize( JsonOut &jsout ) const {
+void study_spell_actor::serialize( JsonOut &jsout ) const
+{
     jsout.start_object();
     jsout.member( "progress", activity_actor::progress );
     jsout.member( "spell_type", spell_type );
@@ -5158,7 +5229,8 @@ void study_spell_actor::serialize( JsonOut &jsout ) const {
     jsout.member( "xp_snapshot", xp_snapshot );
     jsout.end_object();
 }
-std::unique_ptr<activity_actor> study_spell_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> study_spell_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<study_spell_actor>();
     JsonObject data = jsin.get_object();
     data.read( "progress", actor->activity_actor::progress );
@@ -5172,27 +5244,28 @@ std::unique_ptr<activity_actor> study_spell_actor::deserialize( JsonIn &jsin ) {
     data.read( "xp_snapshot", actor->xp_snapshot );
     return actor;
 }
-std::unique_ptr<activity_actor> study_spell_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> study_spell_actor::legacy_deserialize( const JsonObject &data )
+{
     auto str_values = data.get_string_array( "str_values" );
-    if( str_values.empty() ) return nullptr;
+    if( str_values.empty() ) { return nullptr; }
     auto actor = std::make_unique<study_spell_actor>( str_values[0] );
-    if( str_values.size() >= 2 ) actor->study_mode = str_values[1];
+    if( str_values.size() >= 2 ) { actor->study_mode = str_values[1]; }
     if( str_values.size() >= 1 && str_values[0] == "gain_level" ) {
         actor->gain_level_flag = "gain_level";
     }
     auto values = data.get_int_array( "values" );
-    if( values.size() >= 1 ) actor->total_xp = values[0];
-    if( values.size() >= 2 ) actor->total_levels = values[1];
-    if( values.size() >= 3 ) actor->dark = values[2];
-    if( values.size() >= 4 ) actor->tick_counter = values[3];
-    if( values.size() >= 5 ) actor->xp_snapshot = values[4];
+    if( values.size() >= 1 ) { actor->total_xp = values[0]; }
+    if( values.size() >= 2 ) { actor->total_levels = values[1]; }
+    if( values.size() >= 3 ) { actor->dark = values[2]; }
+    if( values.size() >= 4 ) { actor->tick_counter = values[3]; }
+    if( values.size() >= 5 ) { actor->xp_snapshot = values[4]; }
     return actor;
 }
 void study_spell_actor::start( player_activity &, Character & ) {}
 
 void study_spell_actor::do_turn( player_activity &act, Character &who )
 {
-    
+
     if( !character_funcs::can_see_fine_details( who ) ) {
         dark = -1;
         act.moves_left = 0;
@@ -5208,7 +5281,7 @@ void study_spell_actor::do_turn( player_activity &act, Character &who )
 
         if( tick_counter % 600 == 599 ) {
             who.add_msg_if_player( m_good, _( "You gained %i experience in %s" ),
-                                  total_xp - xp_snapshot, studying.name() );
+                                   total_xp - xp_snapshot, studying.name() );
             xp_snapshot = total_xp;
         }
 
@@ -5229,7 +5302,7 @@ void study_spell_actor::do_turn( player_activity &act, Character &who )
 
 void study_spell_actor::finish( player_activity &act, Character &who )
 {
-    
+
     act.set_to_null();
 
     if( study_mode == "study" ) {
@@ -5239,7 +5312,7 @@ void study_spell_actor::finish( player_activity &act, Character &who )
                                           total_levels );
         }
         who.add_msg_if_player( m_good, _( "You gained %i experience%s from your study session." ),
-                              total_xp, level_string );
+                               total_xp, level_string );
         const spell &sp = who.magic->get_spell( spell_id( spell_type ) );
         who.practice( sp.skill(), total_xp, sp.get_difficulty() );
     } else if( study_mode == "learn" && dark == 0 ) {
@@ -5254,20 +5327,27 @@ void study_spell_actor::finish( player_activity &act, Character &who )
 
 firstaid_actor::firstaid_actor( const std::string &type, safe_reference<item> target )
     : heal_type( type ), target_item( std::move( target ) ) {}
-void firstaid_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+void firstaid_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
     jsout.member( "heal_type", heal_type );
-    jsout.member( "target_item", target_item ); jsout.end_object();
+    jsout.member( "target_item", target_item );
+    jsout.end_object();
 }
-std::unique_ptr<activity_actor> firstaid_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> firstaid_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<firstaid_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
     data.read( "heal_type", actor->heal_type );
-    data.read( "target_item", actor->target_item ); return actor;
+    data.read( "target_item", actor->target_item );
+    return actor;
 }
-std::unique_ptr<activity_actor> firstaid_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> firstaid_actor::legacy_deserialize( const JsonObject &data )
+{
     auto str_values = data.get_string_array( "str_values" );
-    if( str_values.empty() ) return nullptr;
+    if( str_values.empty() ) { return nullptr; }
     auto targets = std::vector<safe_reference<item>>();
     data.read( "targets", targets );
     safe_reference<item> target;
@@ -5309,33 +5389,41 @@ void firstaid_actor::finish( player_activity &act, Character &who )
 
 play_with_pet_actor::play_with_pet_actor( weak_ptr_fast<monster> pet_ref, const std::string &name )
     : pet( std::move( pet_ref ) ), pet_name( name ) {}
-void play_with_pet_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
-    jsout.member( "pet_name", pet_name ); jsout.end_object();
+void play_with_pet_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "pet_name", pet_name );
+    jsout.end_object();
 }
-std::unique_ptr<activity_actor> play_with_pet_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> play_with_pet_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<play_with_pet_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
-    data.read( "pet_name", actor->pet_name ); return actor;
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "pet_name", actor->pet_name );
+    return actor;
 }
-std::unique_ptr<activity_actor> play_with_pet_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> play_with_pet_actor::legacy_deserialize( const JsonObject &data )
+{
     auto actor = std::make_unique<play_with_pet_actor>();
     auto str_values = data.get_string_array( "str_values" );
-    if( !str_values.empty() ) actor->pet_name = str_values[0];
+    if( !str_values.empty() ) { actor->pet_name = str_values[0]; }
     // monster weak_ptr is runtime-only; re-acquired at activity start
     return actor;
 }
 void play_with_pet_actor::start( player_activity &, Character & ) {}
 void play_with_pet_actor::do_turn( player_activity &act, Character &who ) {}
-void play_with_pet_actor::finish( player_activity &act, Character &who ) {
-    
+void play_with_pet_actor::finish( player_activity &act, Character &who )
+{
+
     auto mon = pet.lock();
     if( mon ) {
         mon->remove_effect( effect_ai_waiting );
     }
     who.add_morale( MORALE_PLAY_WITH_PET, rng( 3, 10 ), 10, 5_hours, 25_minutes );
     who.add_msg_if_player( m_good, _( "Playing with your %s has lifted your spirits a bit." ),
-                          pet_name );
+                           pet_name );
     act.set_to_null();
 }
 
@@ -5343,32 +5431,40 @@ void play_with_pet_actor::finish( player_activity &act, Character &who ) {
 
 train_pet_actor::train_pet_actor( weak_ptr_fast<monster> pet_ref, const std::string &name )
     : pet( std::move( pet_ref ) ), pet_name( name ) {}
-void train_pet_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
-    jsout.member( "pet_name", pet_name ); jsout.end_object();
+void train_pet_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "pet_name", pet_name );
+    jsout.end_object();
 }
-std::unique_ptr<activity_actor> train_pet_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> train_pet_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<train_pet_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
-    data.read( "pet_name", actor->pet_name ); return actor;
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "pet_name", actor->pet_name );
+    return actor;
 }
-std::unique_ptr<activity_actor> train_pet_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> train_pet_actor::legacy_deserialize( const JsonObject &data )
+{
     auto actor = std::make_unique<train_pet_actor>();
     auto str_values = data.get_string_array( "str_values" );
-    if( !str_values.empty() ) actor->pet_name = str_values[0];
+    if( !str_values.empty() ) { actor->pet_name = str_values[0]; }
     // monster weak_ptr is runtime-only; re-acquired at activity start
     return actor;
 }
 void train_pet_actor::start( player_activity &, Character & ) {}
 void train_pet_actor::do_turn( player_activity &act, Character &who ) {}
-void train_pet_actor::finish( player_activity &act, Character &who ) {
-    
+void train_pet_actor::finish( player_activity &act, Character &who )
+{
+
     auto mon = pet.lock();
     if( mon && mon->type->pet_training &&
         who.get_skill_level( skill_survival ) < mon->type->pet_training->min_skill ) {
         who.add_msg_if_player( m_bad,
-                              _( "You lack the skill to train %s effectively." ),
-                              pet_name );
+                               _( "You lack the skill to train %s effectively." ),
+                               pet_name );
         act.set_to_null();
         return;
     }
@@ -5392,14 +5488,14 @@ void train_pet_actor::finish( player_activity &act, Character &who ) {
                 }
             }
             who.add_msg_if_player( m_good,
-                                  _( "Training your %s has paid off!  They are now at training level %d/%d." ),
-                                  pet_name, mon->training_level,
-                                  mon->type->pet_training->max_level );
+                                   _( "Training your %s has paid off!  They are now at training level %d/%d." ),
+                                   pet_name, mon->training_level,
+                                   mon->type->pet_training->max_level );
         }
     } else {
         who.add_msg_if_player( m_neutral,
-                              _( "Training your %s takes time, it seems they are making a bit of progress at least." ),
-                              pet_name );
+                               _( "Training your %s takes time, it seems they are making a bit of progress at least." ),
+                               pet_name );
     }
     act.set_to_null();
     mon->on_pet_bonding( who.as_character() );
@@ -5408,24 +5504,32 @@ void train_pet_actor::finish( player_activity &act, Character &who ) {
 // ─── socialize_actor ─────────────────────────────────────────────────────────
 
 socialize_actor::socialize_actor( const std::string &name ) : npc_name( name ) {}
-void socialize_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
-    jsout.member( "npc_name", npc_name ); jsout.end_object();
+void socialize_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "npc_name", npc_name );
+    jsout.end_object();
 }
-std::unique_ptr<activity_actor> socialize_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> socialize_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<socialize_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
-    data.read( "npc_name", actor->npc_name ); return actor;
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "npc_name", actor->npc_name );
+    return actor;
 }
-std::unique_ptr<activity_actor> socialize_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> socialize_actor::legacy_deserialize( const JsonObject &data )
+{
     auto str_values = data.get_string_array( "str_values" );
-    if( str_values.empty() ) return nullptr;
+    if( str_values.empty() ) { return nullptr; }
     return std::make_unique<socialize_actor>( str_values[0] );
 }
 void socialize_actor::start( player_activity &, Character & ) {}
 void socialize_actor::do_turn( player_activity &act, Character &who ) {}
-void socialize_actor::finish( player_activity &act, Character &who ) {
-    
+void socialize_actor::finish( player_activity &act, Character &who )
+{
+
     who.add_msg_if_player( _( "%s finishes chatting with you." ), npc_name );
     act.set_to_null();
 }
@@ -5434,22 +5538,27 @@ void socialize_actor::finish( player_activity &act, Character &who ) {
 
 train_actor::train_actor( const std::string &name, int expert, int trainer )
     : skill_name( name ), expert_multiplier( expert ), trainer_id( trainer ) {}
-void train_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
+void train_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
     jsout.member( "skill_name", skill_name );
     jsout.member( "expert_multiplier", expert_multiplier );
     jsout.member( "trainer_id", trainer_id );
     jsout.end_object();
 }
-std::unique_ptr<activity_actor> train_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> train_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<train_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
     data.read( "skill_name", actor->skill_name );
     data.read( "expert_multiplier", actor->expert_multiplier );
     data.read( "trainer_id", actor->trainer_id );
     return actor;
 }
-std::unique_ptr<activity_actor> train_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> train_actor::legacy_deserialize( const JsonObject &data )
+{
     int trainer = data.get_int( "index", -1 );
     return std::make_unique<train_actor>( data.get_string( "name" ), 0, trainer );
 }
@@ -5495,7 +5604,7 @@ void train_actor::finish( player_activity &act, Character &who )
             const int xp = roll_remainder( studying.exp_modifier( who ) * expert_multiplier );
             studying.gain_exp( xp );
             who.add_msg_if_player( m_good, _( "You learn a little about the spell: %s" ),
-                                  sp_id->name );
+                                   sp_id->name );
         } else {
             who.magic->learn_spell( skill_name, who );
             if( who.magic->knows_spell( sp_id ) ) {
@@ -5516,25 +5625,34 @@ void train_actor::finish( player_activity &act, Character &who )
 
 butcher_actor::butcher_actor( const activity_id &type, safe_reference<item> corpse_ref )
     : act_type( type ), corpse( std::move( corpse_ref ) ) {}
-void butcher_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
-    jsout.member( "act_type", act_type ); jsout.member( "corpse", corpse );
+void butcher_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "act_type", act_type );
+    jsout.member( "corpse", corpse );
     jsout.member( "ready_for_next", ready_for_next );
-    jsout.member( "extra_corpses", extra_corpses ); jsout.end_object();
+    jsout.member( "extra_corpses", extra_corpses );
+    jsout.end_object();
 }
-std::unique_ptr<activity_actor> butcher_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> butcher_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<butcher_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
-    data.read( "act_type", actor->act_type ); data.read( "corpse", actor->corpse );
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "act_type", actor->act_type );
+    data.read( "corpse", actor->corpse );
     data.read( "ready_for_next", actor->ready_for_next );
-    data.read( "extra_corpses", actor->extra_corpses ); return actor;
+    data.read( "extra_corpses", actor->extra_corpses );
+    return actor;
 }
-std::unique_ptr<activity_actor> butcher_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> butcher_actor::legacy_deserialize( const JsonObject &data )
+{
     // Read activity type from the save data itself
     activity_id act_type( data.get_string( "type" ) );
     auto targets = std::vector<safe_reference<item>>();
     data.read( "targets", targets );
-    if( targets.empty() ) return nullptr;
+    if( targets.empty() ) { return nullptr; }
     auto actor = std::make_unique<butcher_actor>( act_type, std::move( targets[0] ) );
     // Store extra corpses from legacy targets[1..n] into extra_corpses
     for( size_t i = 1; i < targets.size(); ++i ) {
@@ -5547,7 +5665,7 @@ void butcher_actor::start( player_activity &, Character & ) {}
 void butcher_actor::do_turn( player_activity &act, Character &who )
 {
     // Check if the current corpse has rotted away
-    
+
     bool corpse_destroyed = corpse.is_destroyed();
     if( corpse_destroyed ) {
         who.add_msg_if_player( m_bad, _( "The corpse completely rotted away!" ) );
@@ -5561,7 +5679,8 @@ void butcher_actor::finish( player_activity &act, Character &who )
 {
     // Helper lambda to load the next corpse from extra_corpses, returns false if none remain
     auto load_next_corpse = [&]() -> bool {
-        if( extra_corpses.empty() ) {
+        if( extra_corpses.empty() )
+        {
             return false;
         }
         corpse = std::move( extra_corpses.back() );
@@ -5653,7 +5772,7 @@ void butcher_actor::finish( player_activity &act, Character &who )
                             break;
                         case 3:
                             who.add_msg_if_player( m_bad,
-                                                 _( "You try to look away, but this gruesome image will stay on your mind for some time." ) );
+                                                   _( "You try to look away, but this gruesome image will stay on your mind for some time." ) );
                             break;
                     }
                     g->u.add_morale( MORALE_BUTCHER, -50, 0, 2_days, 3_hours );
@@ -5725,15 +5844,15 @@ void butcher_actor::finish( player_activity &act, Character &who )
         switch( rng( 1, 3 ) ) {
             case 1:
                 who.add_msg_if_player( m_warning,
-                                     _( "You hack up the corpse so unskillfully, that there is nothing left to salvage from this bloody mess." ) );
+                                       _( "You hack up the corpse so unskillfully, that there is nothing left to salvage from this bloody mess." ) );
                 break;
             case 2:
                 who.add_msg_if_player( m_warning,
-                                     _( "You wanted to cut the corpse, but instead you hacked the meat, spilled the guts all over it, and made a bloody mess." ) );
+                                       _( "You wanted to cut the corpse, but instead you hacked the meat, spilled the guts all over it, and made a bloody mess." ) );
                 break;
             case 3:
                 who.add_msg_if_player( m_warning,
-                                     _( "You made so many mistakes during the process that you doubt even vultures will be interested in what's left of it." ) );
+                                       _( "You made so many mistakes during the process that you doubt even vultures will be interested in what's left of it." ) );
                 break;
         }
 
@@ -5745,8 +5864,9 @@ void butcher_actor::finish( player_activity &act, Character &who )
         here.add_splatter( type_blood, who.bub_pos(), rng( corpse_mtype->size + 2,
                            ( corpse_mtype->size + 1 ) * 2 ) );
         for( int i = 1; i <= corpse_mtype->size; i++ ) {
-            here.add_splatter_trail( type_gib, who.bub_pos(), random_entry( here.points_in_radius( who.bub_pos(),
-                                     corpse_mtype->size + 1 ) ) );
+            here.add_splatter_trail( type_gib, who.bub_pos(),
+                                     random_entry( here.points_in_radius( who.bub_pos(),
+                                                   corpse_mtype->size + 1 ) ) );
             here.add_splatter_trail( type_blood, who.bub_pos(),
                                      random_entry( here.points_in_radius( who.bub_pos(),
                                                    corpse_mtype->size + 1 ) ) );
@@ -5791,8 +5911,8 @@ void butcher_actor::finish( player_activity &act, Character &who )
             break;
         case BUTCHER:
             who.add_msg_if_player( m_good,
-                                 _( "You apply few quick cuts to the %s and leave what's left of it for scavengers." ),
-                                 corpse_item.tname() );
+                                   _( "You apply few quick cuts to the %s and leave what's left of it for scavengers." ),
+                                   corpse_item.tname() );
             corpse->detach();
             corpse = safe_reference<item>();
             break;
@@ -5806,15 +5926,15 @@ void butcher_actor::finish( player_activity &act, Character &who )
                 switch( rng( 1, 3 ) ) {
                     case 1:
                         who.add_msg_if_player( m_warning,
-                                             _( "You unskillfully hack up the corpse and chop off some excess body parts.  You're left wondering how you did so poorly." ) );
+                                               _( "You unskillfully hack up the corpse and chop off some excess body parts.  You're left wondering how you did so poorly." ) );
                         break;
                     case 2:
                         who.add_msg_if_player( m_warning,
-                                             _( "Your unskilled hands slip and damage the corpse.  You still hope it's not a total waste though." ) );
+                                               _( "Your unskilled hands slip and damage the corpse.  You still hope it's not a total waste though." ) );
                         break;
                     case 3:
                         who.add_msg_if_player( m_warning,
-                                             _( "You did something wrong and hacked the corpse badly.  Maybe it's still recoverable." ) );
+                                               _( "You did something wrong and hacked the corpse badly.  Maybe it's still recoverable." ) );
                         break;
                 }
                 corpse_item.set_flag( flag_FIELD_DRESS_FAILED );
@@ -5823,8 +5943,9 @@ void butcher_actor::finish( player_activity &act, Character &who )
                 here.add_splatter( type_blood, who.bub_pos(), rng( corpse_mtype->size + 2,
                                    ( corpse_mtype->size + 1 ) * 2 ) );
                 for( int i = 1; i <= corpse_mtype->size; i++ ) {
-                    here.add_splatter_trail( type_gib, who.bub_pos(), random_entry( here.points_in_radius( who.bub_pos(),
-                                             corpse_mtype->size + 1 ) ) );
+                    here.add_splatter_trail( type_gib, who.bub_pos(),
+                                             random_entry( here.points_in_radius( who.bub_pos(),
+                                                           corpse_mtype->size + 1 ) ) );
                     here.add_splatter_trail( type_blood, who.bub_pos(),
                                              random_entry( here.points_in_radius( who.bub_pos(),
                                                            corpse_mtype->size + 1 ) ) );
@@ -5836,11 +5957,11 @@ void butcher_actor::finish( player_activity &act, Character &who )
                         break;
                     case 2:
                         who.add_msg_if_player( m_good,
-                                             _( "You slice the corpse's belly and remove intestines and organs, until you're confident that it will not rot from inside." ) );
+                                               _( "You slice the corpse's belly and remove intestines and organs, until you're confident that it will not rot from inside." ) );
                         break;
                     case 3:
                         who.add_msg_if_player( m_good,
-                                             _( "You remove guts and excess parts, preparing the corpse for later use." ) );
+                                               _( "You remove guts and excess parts, preparing the corpse for later use." ) );
                         break;
                 }
                 corpse_item.set_flag( flag_FIELD_DRESS );
@@ -5849,8 +5970,9 @@ void butcher_actor::finish( player_activity &act, Character &who )
                 here.add_splatter( type_blood, who.bub_pos(), rng( corpse_mtype->size + 2,
                                    ( corpse_mtype->size + 1 ) * 2 ) );
                 for( int i = 1; i <= corpse_mtype->size; i++ ) {
-                    here.add_splatter_trail( type_gib, who.bub_pos(), random_entry( here.points_in_radius( who.bub_pos(),
-                                             corpse_mtype->size + 1 ) ) );
+                    here.add_splatter_trail( type_gib, who.bub_pos(),
+                                             random_entry( here.points_in_radius( who.bub_pos(),
+                                                           corpse_mtype->size + 1 ) ) );
                     here.add_splatter_trail( type_blood, who.bub_pos(),
                                              random_entry( here.points_in_radius( who.bub_pos(),
                                                            corpse_mtype->size + 1 ) ) );
@@ -5870,16 +5992,16 @@ void butcher_actor::finish( player_activity &act, Character &who )
                     break;
                 case 2:
                     who.add_msg_if_player( m_good, _( "You carefully remove the hide from the %s" ),
-                                          corpse_mtype->nname() );
+                                           corpse_mtype->nname() );
                     break;
                 case 3:
                     who.add_msg_if_player( m_good,
-                                          _( "The %s is challenging to skin, but you get a good hide from it." ),
-                                          corpse_mtype->nname() );
+                                           _( "The %s is challenging to skin, but you get a good hide from it." ),
+                                           corpse_mtype->nname() );
                     break;
                 case 4:
                     who.add_msg_if_player( m_good, _( "With a few deft slices you take the skin from the %s" ),
-                                          corpse_mtype->nname() );
+                                           corpse_mtype->nname() );
                     break;
             }
             corpse_item.set_flag( flag_SKINNED );
@@ -5914,40 +6036,55 @@ void butcher_actor::finish( player_activity &act, Character &who )
 // ─── operation_actor ─────────────────────────────────────────────────────────
 
 operation_actor::operation_actor( const std::string &type, const std::string &bid,
-    const std::string &installer, bool adoc, int diff, int succ, int cap, int skill )
+                                  const std::string &installer, bool adoc, int diff, int succ, int cap, int skill )
     : op_type( type ), bionic_id( bid ), installer_name( installer ),
-    autodoc( adoc ), difficulty( diff ), success( succ ), capacity( cap ), pl_skill( skill ) {}
-void operation_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
-    jsout.member( "op_type", op_type ); jsout.member( "bionic_id", bionic_id );
-    jsout.member( "installer_name", installer_name ); jsout.member( "autodoc", autodoc );
-    jsout.member( "difficulty", difficulty ); jsout.member( "success", success );
-    jsout.member( "capacity", capacity ); jsout.member( "pl_skill", pl_skill );
+      autodoc( adoc ), difficulty( diff ), success( succ ), capacity( cap ), pl_skill( skill ) {}
+void operation_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "op_type", op_type );
+    jsout.member( "bionic_id", bionic_id );
+    jsout.member( "installer_name", installer_name );
+    jsout.member( "autodoc", autodoc );
+    jsout.member( "difficulty", difficulty );
+    jsout.member( "success", success );
+    jsout.member( "capacity", capacity );
+    jsout.member( "pl_skill", pl_skill );
     jsout.member( "operation_attempted", operation_attempted );
     jsout.end_object();
 }
-std::unique_ptr<activity_actor> operation_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> operation_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<operation_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
-    data.read( "op_type", actor->op_type ); data.read( "bionic_id", actor->bionic_id );
-    data.read( "installer_name", actor->installer_name ); data.read( "autodoc", actor->autodoc );
-    data.read( "difficulty", actor->difficulty ); data.read( "success", actor->success );
-    data.read( "capacity", actor->capacity ); data.read( "pl_skill", actor->pl_skill );
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "op_type", actor->op_type );
+    data.read( "bionic_id", actor->bionic_id );
+    data.read( "installer_name", actor->installer_name );
+    data.read( "autodoc", actor->autodoc );
+    data.read( "difficulty", actor->difficulty );
+    data.read( "success", actor->success );
+    data.read( "capacity", actor->capacity );
+    data.read( "pl_skill", actor->pl_skill );
     data.read( "operation_attempted", actor->operation_attempted );
     return actor;
 }
-std::unique_ptr<activity_actor> operation_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> operation_actor::legacy_deserialize( const JsonObject &data )
+{
     auto actor = std::make_unique<operation_actor>();
     auto values = data.get_int_array( "values" );
     if( values.size() >= 4 ) {
-        actor->difficulty = values[0]; actor->success = values[1];
-        actor->capacity = values[2]; actor->pl_skill = values[3];
+        actor->difficulty = values[0];
+        actor->success = values[1];
+        actor->capacity = values[2];
+        actor->pl_skill = values[3];
     }
     auto str_values = data.get_string_array( "str_values" );
-    if( str_values.size() >= 1 ) actor->op_type = str_values[0];
-    if( str_values.size() >= 2 ) actor->bionic_id = str_values[1];
-    if( str_values.size() >= 3 ) actor->installer_name = str_values[2];
-    if( str_values.size() >= 4 ) actor->autodoc = ( str_values[3] == "true" );
+    if( str_values.size() >= 1 ) { actor->op_type = str_values[0]; }
+    if( str_values.size() >= 2 ) { actor->bionic_id = str_values[1]; }
+    if( str_values.size() >= 3 ) { actor->installer_name = str_values[2]; }
+    if( str_values.size() >= 4 ) { actor->autodoc = ( str_values[3] == "true" ); }
     // operation_attempted defaults to 0 for legacy saves (old code would re-attempt)
     return actor;
 }
@@ -5989,8 +6126,8 @@ void operation_actor::do_turn( player_activity &act, Character &who )
             if( u_see ) {
                 add_msg( m_bad, _( "The autodoc suffers a catastrophic failure." ) );
                 who.add_msg_player_or_npc( m_bad,
-                                          _( "The Autodoc's failure damages you greatly." ),
-                                          _( "The Autodoc's failure damages <npcname> greatly." ) );
+                                           _( "The Autodoc's failure damages you greatly." ),
+                                           _( "The Autodoc's failure damages <npcname> greatly." ) );
             }
             if( !bps.empty() ) {
                 for( const bodypart_id &bp : bps ) {
@@ -5998,7 +6135,7 @@ void operation_actor::do_turn( player_activity &act, Character &who )
                     who.apply_damage( nullptr, bp, 20 * difficulty );
                     if( u_see ) {
                         who.add_msg_player_or_npc( m_bad, _( "Your %s is ripped open." ),
-                                                  _( "<npcname>'s %s is ripped open." ), body_part_name_accusative( bp->token ) );
+                                                   _( "<npcname>'s %s is ripped open." ), body_part_name_accusative( bp->token ) );
                     }
                     if( bp == bodypart_id( "eyes" ) ) {
                         who.add_effect( effect_blind, 1_hours, bodypart_str_id::NULL_ID() );
@@ -6016,16 +6153,16 @@ void operation_actor::do_turn( player_activity &act, Character &who )
             for( const bodypart_id &bp : bps ) {
                 if( action_time_scale::once_every_this_tick( message_freq ) && u_see && autodoc ) {
                     who.add_msg_player_or_npc( m_info,
-                                              _( "The Autodoc is meticulously cutting your %s open." ),
-                                              _( "The Autodoc is meticulously cutting <npcname>'s %s open." ),
-                                              body_part_name_accusative( bp->token ) );
+                                               _( "The Autodoc is meticulously cutting your %s open." ),
+                                               _( "The Autodoc is meticulously cutting <npcname>'s %s open." ),
+                                               body_part_name_accusative( bp->token ) );
                 }
             }
         } else {
             if( action_time_scale::once_every_this_tick( message_freq ) && u_see ) {
                 who.add_msg_player_or_npc( m_info,
-                                          _( "The Autodoc is meticulously cutting you open." ),
-                                          _( "The Autodoc is meticulously cutting <npcname> open." ) );
+                                           _( "The Autodoc is meticulously cutting you open." ),
+                                           _( "The Autodoc is meticulously cutting <npcname> open." ) );
             }
         }
     } else if( operation_attempted == 0 ) {
@@ -6036,7 +6173,7 @@ void operation_actor::do_turn( player_activity &act, Character &who )
             }
             if( who.has_bionic( bid ) ) {
                 who.perform_uninstall( bid, difficulty, success,
-                                      units::from_joule( capacity ), pl_skill );
+                                       units::from_joule( capacity ), pl_skill );
             } else {
                 debugmsg( _( "Tried to uninstall %s, but you don't have this bionic installed." ), bid.c_str() );
                 who.remove_effect( effect_under_op );
@@ -6048,7 +6185,7 @@ void operation_actor::do_turn( player_activity &act, Character &who )
             }
             if( bid.is_valid() ) {
                 who.perform_install( bid, upbid, difficulty, success, pl_skill,
-                                    installer_name, bid->canceled_mutations );
+                                     installer_name, bid->canceled_mutations );
             } else {
                 debugmsg( _( "%s is no a valid bionic_id" ), bid.c_str() );
                 who.remove_effect( effect_under_op );
@@ -6060,23 +6197,23 @@ void operation_actor::do_turn( player_activity &act, Character &who )
             for( const bodypart_id &bp : bps ) {
                 if( action_time_scale::once_every_this_tick( message_freq ) && u_see && autodoc ) {
                     who.add_msg_player_or_npc( m_info,
-                                              _( "The Autodoc is stitching your %s back up." ),
-                                              _( "The Autodoc is stitching <npcname>'s %s back up." ),
-                                              body_part_name_accusative( bp->token ) );
+                                               _( "The Autodoc is stitching your %s back up." ),
+                                               _( "The Autodoc is stitching <npcname>'s %s back up." ),
+                                               body_part_name_accusative( bp->token ) );
                 }
             }
         } else {
             if( action_time_scale::once_every_this_tick( message_freq ) && u_see && autodoc ) {
                 who.add_msg_player_or_npc( m_info,
-                                          _( "The Autodoc is stitching you back up." ),
-                                          _( "The Autodoc is stitching <npcname> back up." ) );
+                                           _( "The Autodoc is stitching you back up." ),
+                                           _( "The Autodoc is stitching <npcname> back up." ) );
             }
         }
     } else {
         if( action_time_scale::once_every_this_tick( message_freq ) && u_see && autodoc ) {
             who.add_msg_player_or_npc( m_bad,
-                                      _( "The Autodoc is moving erratically through the rest of its program, not actually stitching your wounds." ),
-                                      _( "The Autodoc is moving erratically through the rest of its program, not actually stitching <npcname>'s wounds." ) );
+                                       _( "The Autodoc is moving erratically through the rest of its program, not actually stitching your wounds." ),
+                                       _( "The Autodoc is moving erratically through the rest of its program, not actually stitching <npcname>'s wounds." ) );
         }
     }
 
@@ -6146,33 +6283,48 @@ void operation_actor::finish( player_activity &act, Character &who )
 // ─── gunmod_add_actor ────────────────────────────────────────────────────────
 
 gunmod_add_actor::gunmod_add_actor( int r, int rk, int q,
-    const std::string &tool, safe_reference<item> gun_ref, safe_reference<item> mod_ref )
+                                    const std::string &tool, safe_reference<item> gun_ref, safe_reference<item> mod_ref )
     : roll( r ), risk( rk ), qty( q ), tool_name( tool ),
-    gun( std::move( gun_ref ) ), mod( std::move( mod_ref ) ) {}
-void gunmod_add_actor::serialize( JsonOut &jsout ) const {
-    jsout.start_object(); jsout.member( "progress", activity_actor::progress );
-    jsout.member( "roll", roll ); jsout.member( "risk", risk );
-    jsout.member( "qty", qty ); jsout.member( "tool_name", tool_name );
-    jsout.member( "gun", gun ); jsout.member( "mod", mod ); jsout.end_object();
+      gun( std::move( gun_ref ) ), mod( std::move( mod_ref ) ) {}
+void gunmod_add_actor::serialize( JsonOut &jsout ) const
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "roll", roll );
+    jsout.member( "risk", risk );
+    jsout.member( "qty", qty );
+    jsout.member( "tool_name", tool_name );
+    jsout.member( "gun", gun );
+    jsout.member( "mod", mod );
+    jsout.end_object();
 }
-std::unique_ptr<activity_actor> gunmod_add_actor::deserialize( JsonIn &jsin ) {
+std::unique_ptr<activity_actor> gunmod_add_actor::deserialize( JsonIn &jsin )
+{
     auto actor = std::make_unique<gunmod_add_actor>();
-    JsonObject data = jsin.get_object(); data.read( "progress", actor->activity_actor::progress );
-    data.read( "roll", actor->roll ); data.read( "risk", actor->risk );
-    data.read( "qty", actor->qty ); data.read( "tool_name", actor->tool_name );
-    data.read( "gun", actor->gun ); data.read( "mod", actor->mod ); return actor;
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "roll", actor->roll );
+    data.read( "risk", actor->risk );
+    data.read( "qty", actor->qty );
+    data.read( "tool_name", actor->tool_name );
+    data.read( "gun", actor->gun );
+    data.read( "mod", actor->mod );
+    return actor;
 }
-std::unique_ptr<activity_actor> gunmod_add_actor::legacy_deserialize( const JsonObject &data ) {
+std::unique_ptr<activity_actor> gunmod_add_actor::legacy_deserialize( const JsonObject &data )
+{
     auto actor = std::make_unique<gunmod_add_actor>();
     auto values = data.get_int_array( "values" );
     if( values.size() >= 4 ) {
-        actor->roll = values[1]; actor->risk = values[2]; actor->qty = values[3];
+        actor->roll = values[1];
+        actor->risk = values[2];
+        actor->qty = values[3];
     }
     actor->tool_name = data.get_string( "name" );
     auto targets = std::vector<safe_reference<item>>();
     data.read( "targets", targets );
-    if( targets.size() >= 1 ) actor->gun = std::move( targets[0] );
-    if( targets.size() >= 2 ) actor->mod = std::move( targets[1] );
+    if( targets.size() >= 1 ) { actor->gun = std::move( targets[0] ); }
+    if( targets.size() >= 2 ) { actor->mod = std::move( targets[1] ); }
     return actor;
 }
 void gunmod_add_actor::start( player_activity &, Character & ) {}
@@ -6180,7 +6332,7 @@ void gunmod_add_actor::do_turn( player_activity &, Character & ) {}
 
 void gunmod_add_actor::finish( player_activity &act, Character &who )
 {
-    
+
     act.set_to_null();
 
     item &gun = *this->gun;

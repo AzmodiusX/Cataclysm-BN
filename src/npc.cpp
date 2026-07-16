@@ -1128,13 +1128,13 @@ void npc::start_read( item &it, Character *pl )
     const int time_taken = time_to_read( chosen, *pl );
     bool is_martial_arts = chosen.type->use_methods.contains( "MA_MANUAL" );
     std::unique_ptr<player_activity> act = std::make_unique<player_activity>(
-        std::make_unique<read_activity_actor>(
-            safe_reference<item>( &chosen ),
-            std::vector<read_activity_actor::npc_learner>(),
-            is_martial_arts,
-            time_taken
-        )
-    );
+            std::make_unique<read_activity_actor>(
+                safe_reference<item>( &chosen ),
+                std::vector<read_activity_actor::npc_learner>(),
+                is_martial_arts,
+                time_taken
+            )
+                                           );
     assign_activity( std::move( act ) );
 }
 

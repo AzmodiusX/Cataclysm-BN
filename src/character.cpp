@@ -8827,8 +8827,9 @@ void Character::vomit()
         fungal_effects( *g, here ).fungalize( abs_pos(), this );
     } else if( stomach.get_calories() > 0 || get_thirst() < 0 ) {
         add_msg_player_or_npc( m_bad, _( "You throw up heavily!" ), _( "<npcname> throws up heavily!" ) );
-        here.add_field( bub_to_abs( tripoint_bub_ms( character_funcs::pick_safe_adjacent_tile( *this ).value_or(
-                                             bub_pos() ) ) ), {fd_bile, 1} );
+        here.add_field( bub_to_abs( tripoint_bub_ms( character_funcs::pick_safe_adjacent_tile(
+                                        *this ).value_or(
+                                        bub_pos() ) ) ), {fd_bile, 1} );
     } else {
         return;
     }
@@ -11688,9 +11689,9 @@ bool Character::can_hear( const tripoint_abs_ms &source, const int volume ) cons
     if( source == abs_pos() ) {
         return true;
     }
-    if( is_player() || ( get_dimension() == g->u.get_dimension() && 
-        get_map().inbounds( abs_to_bub( source ) ) &&
-        get_map().inbounds( bub_pos() ) ) ) {
+    if( is_player() || ( get_dimension() == g->u.get_dimension() &&
+                         get_map().inbounds( abs_to_bub( source ) ) &&
+                         get_map().inbounds( bub_pos() ) ) ) {
         return( can_hear( abs_to_bub( source ), volume ) );
     }
     const int dist = rl_dist( source, abs_pos() );

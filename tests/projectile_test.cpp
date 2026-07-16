@@ -36,8 +36,7 @@ static tripoint_abs_ms projectile_end_point(
     map& here = get_map();
 
     attack = projectile_attack(
-        test_proj, range[0], range[2],
-        dispersion_sources(), &get_avatar(), nullptr);
+        test_proj, range[0], range[2], dispersion_sources(), &get_avatar(), nullptr);
 
     return attack.end_point;
 }
@@ -207,8 +206,7 @@ TEST_CASE("adjacent_friendly_fire_prevention", "[projectile][ballistics]") {
 
     // Fire projectile toward target with high dispersion (simulating a miss toward the ally)
     dealt_projectile_attack attack = projectile_attack(
-        test_proj, shooter_pos, target_pos,
-        dispersion_sources(5000), &shooter, &gun);
+        test_proj, shooter_pos, target_pos, dispersion_sources(5000), &shooter, &gun);
 
     // Verify friendly was not hit despite being adjacent to shooter in projectile path
     const int final_friendly_hp = ally.get_hp();
@@ -266,8 +264,7 @@ TEST_CASE("npc_adjacent_friendly_fire_prevention", "[projectile][ballistics]") {
 
     // Fire projectile toward target with high dispersion
     dealt_projectile_attack attack = projectile_attack(
-        test_proj, shooter_pos, target_pos,
-        dispersion_sources(5000), &shooter, &gun);
+        test_proj, shooter_pos, target_pos, dispersion_sources(5000), &shooter, &gun);
 
     // Verify friendly NPC was not hit despite being adjacent to shooter
     const int final_friendly_hp = ally.get_hp();
@@ -321,8 +318,7 @@ TEST_CASE("npc_protects_adjacent_player", "[projectile][ballistics]") {
 
     // Fire projectile toward target with high dispersion
     dealt_projectile_attack attack = projectile_attack(
-        test_proj, shooter_pos, target_pos,
-        dispersion_sources(5000), &shooter, &gun);
+        test_proj, shooter_pos, target_pos, dispersion_sources(5000), &shooter, &gun);
 
     // Verify player was not hit despite being adjacent to NPC shooter
     const int final_player_hp = player.get_hp();
@@ -367,8 +363,7 @@ TEST_CASE("monster_adjacent_ally_fire_prevention", "[projectile][ballistics]") {
 
     // Fire projectile toward target with high dispersion
     dealt_projectile_attack attack = projectile_attack(
-        test_proj, shooter_pos, target_pos,
-        dispersion_sources(5000), &shooter, nullptr);
+        test_proj, shooter_pos, target_pos, dispersion_sources(5000), &shooter, nullptr);
 
     // Verify allied monster was not hit despite being adjacent to shooter
     const int final_ally_hp = ally.get_hp();
@@ -424,8 +419,7 @@ TEST_CASE("hostile_npc_adjacent_ally_fire_prevention", "[projectile][ballistics]
 
     // Fire projectile toward target with high dispersion
     dealt_projectile_attack attack = projectile_attack(
-        test_proj, shooter_pos, target_pos,
-        dispersion_sources(5000), &shooter, &gun);
+        test_proj, shooter_pos, target_pos, dispersion_sources(5000), &shooter, &gun);
 
     // Verify allied hostile NPC was not hit despite being adjacent to shooter
     const int final_ally_hp = ally.get_hp();

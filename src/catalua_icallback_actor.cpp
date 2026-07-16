@@ -49,7 +49,8 @@ int lua_iuse_actor::use( Character &who, item &itm, bool tick, const tripoint_ab
     return 1;
 }
 
-ret_val<bool> lua_iuse_actor::can_use( const Character &who, const item &it, bool, const tripoint_abs_ms & ) const
+ret_val<bool> lua_iuse_actor::can_use( const Character &who, const item &it, bool,
+                                       const tripoint_abs_ms & ) const
 {
     if( can_use_func != sol::lua_nil ) {
         sol::state_view lua( can_use_func.lua_state() );

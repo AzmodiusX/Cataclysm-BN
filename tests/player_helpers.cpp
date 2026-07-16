@@ -121,7 +121,7 @@ void clear_character(player& dummy, bool debug_storage) {
     dummy.cash = 0;
     dummy.dodges_left = 1;
 
-    dummy.setpos( test_origin );
+    dummy.setpos(test_origin);
 
     dummy.invalidate_crafting_inventory();
 }

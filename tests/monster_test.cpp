@@ -46,13 +46,9 @@ auto count_items_at(const tripoint_bub_ms& pos, const itype_id& type) -> int {
 }
 
 auto count_items_at(const tripoint_abs_ms& pos, const itype_id& type) -> int {
-    const auto *const items = get_map().get_mapbuffer().get_items(pos);
-    if( items == nullptr ) {
-        return 0;
-    }
-    return std::ranges::count_if(*items, [&type](const auto* it) {
-        return it->typeId() == type;
-    });
+    const auto* const items = get_map().get_mapbuffer().get_items(pos);
+    if (items == nullptr) { return 0; }
+    return std::ranges::count_if(*items, [&type](const auto* it) { return it->typeId() == type; });
 }
 
 } // namespace
@@ -100,8 +96,8 @@ TEST_CASE("empty top-level monster death drops replace inherited drops", "[monst
     auto& test_monster = *test_monster_ptr;
     test_monster.drop_items_on_death();
 
-    const auto *const dropped_items =
-        here.get_mapbuffer().get_items(map_local_to_abs(here, monster_pos));
+    const auto* const dropped_items = here.get_mapbuffer().get_items(
+        map_local_to_abs(here, monster_pos));
     REQUIRE(dropped_items != nullptr);
     CHECK(dropped_items->empty());
 }
@@ -487,29 +483,29 @@ TEST_CASE("monster_vertical_melee_respects_floors", "[monster][z-level]") {
 
     avatar& you = get_avatar();
     auto& here = get_map().get_mapbuffer();
-    auto &map = get_map();
-    const auto avatar_pos = bub_to_abs( tripoint_bub_ms{60, 60, 2} );
+    auto& map = get_map();
+    const auto avatar_pos = bub_to_abs(tripoint_bub_ms{60, 60, 2});
     const auto zombie_pos = avatar_pos + tripoint_rel_ms::below();
     you.setpos(avatar_pos);
 
-    monster& grabber = spawn_test_monster( "mon_zombie_grabber", abs_to_bub( zombie_pos ) );
+    monster& grabber = spawn_test_monster("mon_zombie_grabber", abs_to_bub(zombie_pos));
 
     SECTION("open air does not block vertical melee") {
-        CHECK_FALSE( here.floor_between( zombie_pos, avatar_pos ) );
+        CHECK_FALSE(here.floor_between(zombie_pos, avatar_pos));
         CHECK(grabber.attack_at(you.abs_pos()));
     }
 
     SECTION("terrain floors block vertical melee") {
-        here.set_ter( avatar_pos, ter_id( "t_floor" ) );
+        here.set_ter(avatar_pos, ter_id("t_floor"));
 
-        CHECK( here.floor_between( zombie_pos, avatar_pos ) );
+        CHECK(here.floor_between(zombie_pos, avatar_pos));
         CHECK_FALSE(grabber.attack_at(you.abs_pos()));
     }
 
     SECTION("vehicle floors block vertical melee") {
         const vpart_id vpart_frame_vertical("frame_vertical");
         const vpart_id vpart_seat("seat");
-        auto* veh = here.add_vehicle( vproto_id( "none" ), avatar_pos, 0_degrees, 0, 0 );
+        auto* veh = here.add_vehicle(vproto_id("none"), avatar_pos, 0_degrees, 0, 0);
 
         REQUIRE(veh != nullptr);
         veh->install_part(tripoint_mnt_veh::zero(), vpart_frame_vertical);
@@ -521,7 +517,7 @@ TEST_CASE("monster_vertical_melee_respects_floors", "[monster][z-level]") {
     }
 
     SECTION("grabber below player on blimp cannot attack through the floor") {
-        auto* blimp = here.add_vehicle( vproto_id( "blimp" ), avatar_pos, 0_degrees, 0, 0 );
+        auto* blimp = here.add_vehicle(vproto_id("blimp"), avatar_pos, 0_degrees, 0, 0);
 
         REQUIRE(blimp != nullptr);
         const auto cockpit_part =
@@ -532,8 +528,7 @@ TEST_CASE("monster_vertical_melee_respects_floors", "[monster][z-level]") {
         you.setpos(blimp_tile);
         grabber.setpos(blimp_tile + tripoint_below);
 
-        CHECK( here.veh_at( you.abs_pos() ).part_with_feature(
-                   "BOARDABLE", true ).has_value() );
+        CHECK(here.veh_at(you.abs_pos()).part_with_feature("BOARDABLE", true).has_value());
         CHECK_FALSE(grabber.attack_at(you.abs_pos()));
     }
 }

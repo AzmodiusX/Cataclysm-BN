@@ -31,8 +31,9 @@ auto remove_migo_nerve_cage_terrain(mapbuffer& buffer, const tripoint_abs_ms& p)
     return open;
 }
 
-auto finish_migo_nerve_cage_removal( mapbuffer &buffer, const tripoint_abs_ms& p, const bool spawn_damaged,
-                                     const bool open) -> void {
+auto finish_migo_nerve_cage_removal(
+    mapbuffer& buffer, const tripoint_abs_ms& p, const bool spawn_damaged, const bool open)
+    -> void {
     if (open) {
         add_msg(m_good, _("The nerve cluster collapses in on itself, and the nearby cages open!"));
     } else {
@@ -50,7 +51,8 @@ auto finish_migo_nerve_cage_removal( mapbuffer &buffer, const tripoint_abs_ms& p
     if (spawn_damaged) { spawn->set_hp(spawn->get_hp_max() / 2); }
     // Don't give the mi-go free shots against the player
     spawn->mod_moves(-300);
-    if (buffer.get_dimension_id() == get_player_character().get_dimension() && get_player_character().sees(p)) {
+    if (buffer.get_dimension_id() == get_player_character().get_dimension()
+        && get_player_character().sees(p)) {
         add_msg(m_bad,
                 _("Something stirs and clambers out of the ruined mass of flesh and nerves!"));
     }
@@ -141,7 +143,7 @@ auto climbing_cost(mapbuffer& buffer, const tripoint_abs_ms& from, const tripoin
 
 auto climbing_cost(const map& m, const tripoint_bub_ms& from, const tripoint_bub_ms& to)
     -> std::optional<int> {
-    return climbing_cost( m.get_mapbuffer(), bub_to_abs( from ), bub_to_abs(to));
+    return climbing_cost(m.get_mapbuffer(), bub_to_abs(from), bub_to_abs(to));
 }
 
 auto migo_nerve_cage_removal(mapbuffer& buffer, const tripoint_abs_ms& p, const bool spawn_damaged)
@@ -153,7 +155,8 @@ auto migo_nerve_cage_removal(mapbuffer& buffer, const tripoint_abs_ms& p, const 
 void migo_nerve_cage_removal(map& m, const tripoint_bub_ms& p, bool spawn_damaged) {
     auto& buffer = m.get_mapbuffer();
     finish_migo_nerve_cage_removal(
-        buffer, bub_to_abs( p ), spawn_damaged, remove_migo_nerve_cage_terrain(buffer, bub_to_abs( p )));
+        buffer, bub_to_abs(p), spawn_damaged,
+        remove_migo_nerve_cage_terrain(buffer, bub_to_abs(p)));
 }
 
 } // namespace map_funcs

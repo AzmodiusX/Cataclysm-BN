@@ -1178,8 +1178,10 @@ struct itype {
         const use_function *get_use( const std::string &iuse_name ) const;
 
         // Here "invoke" means "actively use". "Tick" means "active item working"
-        int invoke( Character &p, item &it, const tripoint_abs_ms &pos ) const; // Picks first method or returns 0
-        int invoke( Character &p, item &it, const tripoint_abs_ms &pos, const std::string &iuse_name ) const;
+        int invoke( Character &p, item &it,
+                    const tripoint_abs_ms &pos ) const; // Picks first method or returns 0
+        int invoke( Character &p, item &it, const tripoint_abs_ms &pos,
+                    const std::string &iuse_name ) const;
         void tick( Character &p, item &it ) const;
 
         bool is_fuel() const;

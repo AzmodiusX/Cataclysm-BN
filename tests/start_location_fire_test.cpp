@@ -51,19 +51,19 @@ TEST_CASE(
             }
         }
     }
-    here.set_outside_cache_dirty( 0 );
-    here.set_outside_cache_dirty( 1 );
+    here.set_outside_cache_dirty(0);
+    here.set_outside_cache_dirty(1);
     here.invalidate_map_cache(0);
     here.build_map_cache(0, true);
     here.invalidate_map_cache(1);
     here.build_map_cache(1, true);
 
     // Preconditions: a flammable interior tile, inside, beyond burn()'s safe radius (3).
-    const auto interior_far = center + tripoint_rel_ms( 4, 0, 0 );
+    const auto interior_far = center + tripoint_rel_ms(4, 0, 0);
     REQUIRE_FALSE(here.is_outside(abs_to_bub(interior_far)));
-    REQUIRE(
-        (here.get_mapbuffer().has_flag("FLAMMABLE", interior_far) ||
-         here.get_mapbuffer().has_flag("FLAMMABLE_ASH", interior_far)));
+    REQUIRE((
+        here.get_mapbuffer().has_flag("FLAMMABLE", interior_far)
+        || here.get_mapbuffer().has_flag("FLAMMABLE_ASH", interior_far)));
 
     // bad_day passes the player's OMT to burn().
     const tripoint_abs_omt omtstart = project_to<coords::omt>(get_avatar().abs_pos());
@@ -72,7 +72,7 @@ TEST_CASE(
     sl.burn(omtstart, /*count=*/3, /*rad=*/3);
 
     int fires = 0;
-    for (const auto &handle : simulated_tiles_in_rectangle(
+    for (const auto& handle : simulated_tiles_in_rectangle(
              here.get_mapbuffer(), center + tripoint_rel_ms(-5, -5, 0),
              center + tripoint_rel_ms(5, 5, 0))) {
         if (here.get_mapbuffer().get_field_entry(handle.abs_pos(), fd_fire) != nullptr) { ++fires; }

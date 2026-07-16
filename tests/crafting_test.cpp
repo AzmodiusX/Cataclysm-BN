@@ -593,10 +593,9 @@ static auto in_progress_crafts(Character& you) -> std::vector<item*> {
 static auto assign_completed_craft_activity(
     Character& you, const recipe& recipe_to_make, item* target = nullptr) -> void {
     auto actor = std::make_unique<craft_activity_actor>(
-        &recipe_to_make, 1, 10'000'000, you.abs_pos(),
-        bench_type::ground, 100, you.abs_pos(),
-        std::vector<comp_selection<item_comp>>{},
-        std::vector<comp_selection<tool_comp>>{}, true, false);
+        &recipe_to_make, 1, 10'000'000, you.abs_pos(), bench_type::ground, 100, you.abs_pos(),
+        std::vector<comp_selection<item_comp>>{}, std::vector<comp_selection<tool_comp>>{}, true,
+        false);
     auto act = std::make_unique<player_activity>(std::move(actor));
     if (target != nullptr) { act->targets.emplace_back(*target); }
     you.assign_activity(std::move(act));

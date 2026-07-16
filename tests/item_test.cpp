@@ -82,8 +82,7 @@ TEST_CASE("ethereal_item_with_malformed_counter_expires_without_throwing", "[ite
     ethereal->set_flag(flag_ETHEREAL_ITEM);
     ethereal->set_var("ethereal", "not-a-number");
 
-    CHECK_NOTHROW(
-        ethereal = item::process(std::move(ethereal), nullptr, false));
+    CHECK_NOTHROW(ethereal = item::process(std::move(ethereal), nullptr, false));
     CHECK_FALSE(ethereal);
 }
 

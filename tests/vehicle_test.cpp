@@ -95,11 +95,10 @@ auto make_horde_vehicle_spawn_fixture(const horde_vehicle_spawn_options& options
 
     const auto vehicle_points = veh->get_points(true);
     const auto horde_spawn_blocking_terrain = ter_id("t_wall");
-    for(const auto &handle : simulated_tiles_in_rectangle(here, target_submap_origin, target_submap_end) ) {
+    for (const auto& handle :
+         simulated_tiles_in_rectangle(here, target_submap_origin, target_submap_end)) {
         const auto p = handle.abs_pos();
-        if (!vehicle_points.contains(p)) {
-            here.set_ter(p, horde_spawn_blocking_terrain);
-        }
+        if (!vehicle_points.contains(p)) { here.set_ter(p, horde_spawn_blocking_terrain); }
     };
     map.invalidate_map_cache(target_submap.z());
     map.build_map_cache(target_submap.z(), true);
@@ -323,7 +322,8 @@ TEST_CASE("taking_control_of_vehicle_without_engine", "[vehicle]") {
     auto& player_character = get_avatar();
     player_character.setpos(test_origin);
 
-    auto* veh_ptr = get_map().add_vehicle(vproto_id("shopping_cart"), bub_test_origin(), 0_degrees, 0, 0);
+    auto* veh_ptr =
+        get_map().add_vehicle(vproto_id("shopping_cart"), bub_test_origin(), 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
     REQUIRE_FALSE(player_character.controlling_vehicle);
     REQUIRE_FALSE(veh_ptr->engine_on);
@@ -338,7 +338,8 @@ TEST_CASE("taking_control_of_vehicle_without_engine", "[vehicle]") {
 TEST_CASE("moving_flying_vehicle_can_use_wait_menu", "[vehicle][wait]") {
     clear_all_state();
 
-    auto* veh_ptr = get_map().add_vehicle(vproto_id("plane_small"), bub_test_origin(), 0_degrees, 0, 0);
+    auto* veh_ptr =
+        get_map().add_vehicle(vproto_id("plane_small"), bub_test_origin(), 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     veh_ptr->velocity = 100;
@@ -471,7 +472,8 @@ TEST_CASE("horde_spawns_skip_owned_vehicle_tiles", "[horde][vehicle][monster]") 
 
 TEST_CASE("add_item_to_broken_vehicle_part") {
     clear_all_state();
-    vehicle* veh_ptr = get_map().add_vehicle(vproto_id("bicycle"), bub_test_origin(), 0_degrees, 0, 0);
+    vehicle* veh_ptr =
+        get_map().add_vehicle(vproto_id("bicycle"), bub_test_origin(), 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     const tripoint_bub_ms pos = bub_test_origin() + tripoint_rel_ms::west();
@@ -496,7 +498,8 @@ TEST_CASE("damage_vehicle_oob") {
     g->place_player(test_origin);
     const tripoint_rel_ms vehicle_offset(SEEX, 0, 0);
     auto vehicle_origin = test_origin + vehicle_offset;
-    vehicle* veh_ptr = get_map().add_vehicle(vproto_id("bicycle"), abs_to_bub(vehicle_origin), 0_degrees, 0, 0);
+    vehicle* veh_ptr =
+        get_map().add_vehicle(vproto_id("bicycle"), abs_to_bub(vehicle_origin), 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     // Put an item in the vehicle
@@ -514,7 +517,7 @@ TEST_CASE("damage_vehicle_oob") {
     optional_vpart_position part_pos = get_map().get_mapbuffer().veh_at(vehicle_origin);
     REQUIRE(part_pos);
 
-    const auto parts = veh_ptr->parts_at_relative( cargo_part->mount, true );
+    const auto parts = veh_ptr->parts_at_relative(cargo_part->mount, true);
     REQUIRE(!parts.empty());
     for (int part : parts) {
         // We aren't actually smashing each chosen part in turn here
@@ -529,7 +532,8 @@ static void check_wreckage(int zlevel) {
     g->place_player(test_origin);
     ensure_simulated_islands_for(g->u.abs_pos());
 
-    vehicle* veh_ptr = get_map().add_vehicle(vproto_id("bicycle"), abs_to_bub(test_origin), 0_degrees, 0, 0);
+    vehicle* veh_ptr =
+        get_map().add_vehicle(vproto_id("bicycle"), abs_to_bub(test_origin), 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     vehicle* veh_ptr2 = get_map().add_vehicle(
@@ -582,7 +586,8 @@ TEST_CASE("check_vehicle_rotation_against_old", "[.]") {
 
 TEST_CASE("vehicle_rotation_reverse") {
     clear_all_state();
-    vehicle* veh_ptr = get_map().add_vehicle(vproto_id("bicycle"), bub_test_origin(), 0_degrees, 0, 0);
+    vehicle* veh_ptr =
+        get_map().add_vehicle(vproto_id("bicycle"), bub_test_origin(), 0_degrees, 0, 0);
     const tripoint_mnt_veh pivot;
 
     for (int dir = 0; dir < 24; dir++) {
@@ -605,7 +610,8 @@ TEST_CASE("vehicle_rotation_reverse") {
 
 TEST_CASE("broken_door_and_lock_can_be_removed", "[vehicle]") {
     clear_all_state();
-    auto* veh_ptr = get_map().add_vehicle(vproto_id("cross_split_test"), bub_test_origin(), 0_degrees, 0, 0);
+    auto* veh_ptr =
+        get_map().add_vehicle(vproto_id("cross_split_test"), bub_test_origin(), 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     const auto door_mount = tripoint_mnt_veh(1, 0, 0);

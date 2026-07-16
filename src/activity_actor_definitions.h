@@ -900,7 +900,7 @@ class repair_actor : public activity_actor
         bool can_resume_with_internal( const activity_actor &other,
                                        const Character & ) const override {
             const auto &c = static_cast<const repair_actor &>( other );
-            if( is_hack != c.is_hack ) return false;
+            if( is_hack != c.is_hack ) { return false; }
             if( is_hack ) {
                 return hack_type == c.hack_type &&
                        target_pos == c.target_pos &&
@@ -913,7 +913,7 @@ class repair_actor : public activity_actor
     public:
         repair_actor() = default;
         repair_actor( hack_type_t htype, const tripoint_abs_ms &tpos,
-            const itype_id &ttool, int cpart_idx = -1 );
+                      const itype_id &ttool, int cpart_idx = -1 );
         repair_actor( const std::string &name, safe_reference<item> tool_ref, int pos );
 
         bool is_hack_path() const { return is_hack; }
@@ -1454,7 +1454,7 @@ class operation_actor : public activity_actor
     public:
         operation_actor() = default;
         explicit operation_actor( const std::string &type, const std::string &bid,
-            const std::string &installer, bool adoc, int diff, int succ, int cap, int skill );
+                                  const std::string &installer, bool adoc, int diff, int succ, int cap, int skill );
         const std::string &get_op_type() const { return op_type; }
         const std::string &get_bionic_id() const { return bionic_id; }
         bool is_autodoc() const { return autodoc; }
@@ -1505,7 +1505,7 @@ class gunmod_add_actor : public activity_actor
     public:
         gunmod_add_actor() = default;
         explicit gunmod_add_actor( int roll, int risk, int qty,
-            const std::string &tool, safe_reference<item> gun_ref, safe_reference<item> mod_ref );
+                                   const std::string &tool, safe_reference<item> gun_ref, safe_reference<item> mod_ref );
         int get_roll() const { return roll; }
         int get_risk() const { return risk; }
         int get_qty() const { return qty; }

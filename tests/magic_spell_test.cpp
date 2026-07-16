@@ -130,7 +130,7 @@ TEST_CASE(
 
     avatar& you = get_avatar();
     const auto target_pos = test_origin + point_rel_ms(5, 0);
-    you.setpos( test_origin );
+    you.setpos(test_origin);
     you.set_mutation(trait_id("INFRARED"));
     you.recalc_sight_limits();
 

@@ -26,9 +26,9 @@ constexpr unsigned int DENOMINATOR = 10;
 // NOLINTNEXTLINE(cata-xy)
 static void oldCastLight(
     float (&output_cache)[T_MAPSIZE_X][T_MAPSIZE_Y],
-    const float (&input_array)[T_MAPSIZE_X][T_MAPSIZE_Y], const int xx, const int xy,
-    const int yx, const int yy, const int offsetX, const int offsetY, const int offsetDistance,
-    const int row = 1, float start = 1.0f, const float end = 0.0f) {
+    const float (&input_array)[T_MAPSIZE_X][T_MAPSIZE_Y], const int xx, const int xy, const int yx,
+    const int yy, const int offsetX, const int offsetY, const int offsetDistance, const int row = 1,
+    float start = 1.0f, const float end = 0.0f) {
 
     float newStart = 0.0f;
     const float radius = 60.0f - offsetDistance;
@@ -98,8 +98,8 @@ static bool bresenham_visibility_check(
 }
 
 static void randomly_fill_transparency(
-    float (&transparency_cache)[T_MAPSIZE_X][T_MAPSIZE_Y],
-    const unsigned int numerator = NUMERATOR, const unsigned int denominator = DENOMINATOR) {
+    float (&transparency_cache)[T_MAPSIZE_X][T_MAPSIZE_Y], const unsigned int numerator = NUMERATOR,
+    const unsigned int denominator = DENOMINATOR) {
     // Construct a rng that produces integers in a range selected to provide the probability
     // we want, i.e. if we want 1/4 tiles to be set, produce numbers in the range 0-3,
     // with 0 indicating the bit is set.
@@ -293,7 +293,7 @@ static void shadowcasting_3d_2d(const int iterations) {
     static float seen_squares_experiment[T_MAPSIZE_X][T_MAPSIZE_Y];
     static float transparency_cache[T_MAPSIZE_X][T_MAPSIZE_Y];
     static char floor_cache[T_MAPSIZE_X][T_MAPSIZE_Y]; // zero-initialized once; never written
-                                                             // by algorithms.
+                                                       // by algorithms.
     static diagonal_blocks blocked_cache[T_MAPSIZE_X][T_MAPSIZE_Y];
 
     // Result arrays accumulate light; must be zeroed before each run.
@@ -314,9 +314,8 @@ static void shadowcasting_3d_2d(const int iterations) {
     const auto start1 = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < iterations; i++) {
         // First the control algorithm.
-        castLightAll(
-            &seen_squares_control[0][0], &transparency_cache[0][0], &blocked_cache[0][0],
-            T_MAPSIZE_X, T_MAPSIZE_Y, ORIGIN.xy(), 0, VISIBILITY_FULL, k_sight_model);
+        castLightAll(&seen_squares_control[0][0], &transparency_cache[0][0], &blocked_cache[0][0],
+                     T_MAPSIZE_X, T_MAPSIZE_Y, ORIGIN.xy(), 0, VISIBILITY_FULL, k_sight_model);
     }
     const auto end1 = std::chrono::high_resolution_clock::now();
 
@@ -420,8 +419,8 @@ static void run_spot_check(const grid_overlay& test_case, const grid_overlay& ex
         }
     }
 
-    castLightAll(&seen_squares[0][0], &transparency_cache[0][0], &blocked_cache[0][0],
-                 T_MAPSIZE_X, T_MAPSIZE_Y, ORIGIN.xy(), 0, VISIBILITY_FULL, k_sight_model);
+    castLightAll(&seen_squares[0][0], &transparency_cache[0][0], &blocked_cache[0][0], T_MAPSIZE_X,
+                 T_MAPSIZE_Y, ORIGIN.xy(), 0, VISIBILITY_FULL, k_sight_model);
     // Compares the whole grid, but out-of-bounds compares will de-facto pass.
     for (int y = 0; y < expected_result.height(); ++y) {
         for (int x = 0; x < expected_result.width(); ++x) {

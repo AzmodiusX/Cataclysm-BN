@@ -43,7 +43,7 @@ TEST_CASE("active_item_cache_tracks_bionic_scannable_corpses", "[item]") {
 
 TEST_CASE("nonperishable_food_does_not_enter_active_item_cache", "[item]") {
     clear_all_state();
-    auto &here = g->m.get_mapbuffer();
+    auto& here = g->m.get_mapbuffer();
     here.clear_items(test_origin);
     const auto baseline_active_submaps = here.get_submaps_with_active_items();
 
@@ -64,7 +64,7 @@ TEST_CASE("nonperishable_food_does_not_enter_active_item_cache", "[item]") {
 
 TEST_CASE("pointer_item_removal_updates_active_item_cache", "[item]") {
     clear_all_state();
-    auto &here = g->m.get_mapbuffer();
+    auto& here = g->m.get_mapbuffer();
     here.clear_items(test_origin);
 
     auto active =
@@ -84,14 +84,14 @@ TEST_CASE("pointer_item_removal_updates_active_item_cache", "[item]") {
 
 TEST_CASE("stack_iterator_item_removal_updates_active_item_cache", "[item]") {
     clear_all_state();
-    auto &here = g->m.get_mapbuffer();
+    auto& here = g->m.get_mapbuffer();
     here.clear_items(test_origin);
 
     auto active =
         item::spawn("firecracker_act", calendar::start_of_cataclysm, item::default_charges_tag());
     active->activate();
     REQUIRE(active->needs_processing());
-    auto *const active_ptr = &*active;
+    auto* const active_ptr = &*active;
 
     here.add_item(test_origin, std::move(active));
     REQUIRE(here.get_submaps_with_active_items().contains(project_to<coords::sm>(test_origin)));
@@ -104,7 +104,7 @@ TEST_CASE("stack_iterator_item_removal_updates_active_item_cache", "[item]") {
 
 TEST_CASE("stack_clear_updates_active_item_cache", "[item]") {
     clear_all_state();
-    auto &here = g->m.get_mapbuffer();
+    auto& here = g->m.get_mapbuffer();
     here.clear_items(test_origin);
 
     auto active =
@@ -145,7 +145,7 @@ TEST_CASE("nested_processing_flag_changes_invalidate_container_cache", "[item]")
 
 TEST_CASE("nested_processing_food_flag_changes_invalidate_container_cache", "[item]") {
     clear_all_state();
-    auto &here = g->m.get_mapbuffer();
+    auto& here = g->m.get_mapbuffer();
 
     auto backpack = item::spawn("backpack");
     backpack->put_in(item::spawn("bread"));
@@ -193,7 +193,7 @@ TEST_CASE("active_item_cache_moves_items_when_processing_speed_changes", "[item]
 
 TEST_CASE("content_removal_helpers_invalidate_processing_cache", "[item]") {
     clear_all_state();
-    auto &here = g->m.get_mapbuffer();
+    auto& here = g->m.get_mapbuffer();
     here.clear_items(test_origin);
 
     SECTION("spill contents") {
@@ -278,10 +278,12 @@ TEST_CASE("active_item_cache_slow_items_accrue_elapsed_time", "[item]") {
 
 TEST_CASE("place_active_item_at_various_coordinates", "[item]") {
     clear_all_state();
-    auto &here = g->m.get_mapbuffer();
+    auto& here = g->m.get_mapbuffer();
     for (auto z = -OVERMAP_DEPTH; z <= OVERMAP_HEIGHT; ++z) {
         for (auto x = 0; x < T_MAPSIZE_X; ++x) {
-            for (auto y = 0; y < T_MAPSIZE_Y; ++y) { here.clear_items(bub_to_abs(tripoint_bub_ms{x, y, z})); }
+            for (auto y = 0; y < T_MAPSIZE_Y; ++y) {
+                here.clear_items(bub_to_abs(tripoint_bub_ms{x, y, z}));
+            }
         }
     }
     const auto baseline_active_submaps = here.get_submaps_with_active_items();

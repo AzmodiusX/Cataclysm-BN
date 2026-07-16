@@ -170,7 +170,7 @@ void location_vector<T>::push_back( detached_ptr<T> &&obj )
     } else {
         raw->saved_loc = nullptr;
     }
-    // Only set location if not already set — allows pre-insert location 
+    // Only set location if not already set — allows pre-insert location
     // assignment (e.g. for prepare_item_for_placement processing) without
     // triggering set_location's "already has a location" assertion.
     if( raw->loc != &*loc ) {

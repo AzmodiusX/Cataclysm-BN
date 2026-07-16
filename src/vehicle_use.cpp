@@ -541,8 +541,8 @@ bool vehicle::interact_vehicle_locked()
                 const int moves = to_moves<int>( time_duration::from_turns( hotwire_time ) );
                 //assign long activity
                 g->u.assign_activity( std::make_unique<player_activity>(
-                    std::make_unique<hotwire_car_actor>(
-                        g->u.abs_pos(), g->u.get_skill_level( skill_mechanics ) ) ) );
+                                          std::make_unique<hotwire_car_actor>(
+                                              g->u.abs_pos(), g->u.get_skill_level( skill_mechanics ) ) ) );
             } else {
                 if( has_security_working() && query_yn( _( "Trigger the %s's Alarm?" ), name ) ) {
                     is_alarm_on = true;
@@ -1300,7 +1300,7 @@ void vehicle::start_engines( const bool take_control, const bool autodrive )
 
     if( !autodrive ) {
         g->u.assign_activity( std::make_unique<player_activity>(
-            std::make_unique<start_engines_actor>( take_control, starting_engine_position ) ) );
+                                  std::make_unique<start_engines_actor>( take_control, starting_engine_position ) ) );
     }
 }
 

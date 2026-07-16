@@ -45,18 +45,18 @@ auto setup_adjacent_pit_move(const ter_id& origin_terrain, const ter_id& destina
     const auto origin = bub_test_origin();
     const auto destination = test_origin + tripoint_rel_ms::east();
 
-    g->u.setpos( test_origin );
-    here.set_ter( test_origin, origin_terrain );
-    here.set_ter( destination, destination_terrain );
-    g->u.add_known_trap( test_origin, here.get_trap( test_origin )->obj() );
-    g->u.add_known_trap( destination, here.get_trap( destination )->obj() );
+    g->u.setpos(test_origin);
+    here.set_ter(test_origin, origin_terrain);
+    here.set_ter(destination, destination_terrain);
+    g->u.add_known_trap(test_origin, here.get_trap(test_origin)->obj());
+    g->u.add_known_trap(destination, here.get_trap(destination)->obj());
     g->u.add_effect(effect_in_pit, 1_turns, bodypart_str_id::NULL_ID());
     g->u.str_cur = 0;
     g->u.dex_cur = 0;
     g->u.set_skill_level(skill_dodge, 0);
     g->u.moves = 1000;
 
-    return {.origin = origin, .destination = abs_to_bub( destination )};
+    return {.origin = origin, .destination = abs_to_bub(destination)};
 }
 
 auto setup_adjacent_pit_move(const ter_id& terrain) -> adjacent_pit_move {

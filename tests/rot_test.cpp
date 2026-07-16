@@ -47,7 +47,7 @@ static auto make_storage(const vpart_id& storage_part, const bool enabled)
     clear_all_state();
     calendar::turn = calendar::start_of_cataclysm + 91_days;
     set_map_temperature(get_weather(), 18_c);
-    
+
     auto& map = get_map();
     auto& here = map.get_mapbuffer();
     const auto pos = test_origin;
@@ -217,7 +217,7 @@ TEST_CASE("Rate of rotting") {
         auto& here = get_map();
         const auto pos = bub_test_origin();
 
-        set_map_temperature( get_weather(), 18_c );
+        set_map_temperature(get_weather(), 18_c);
 
         // Normal item on bare floor, frozen item on freezer furniture,
         // sealed item on bare floor (container provides preservation).
@@ -451,24 +451,18 @@ TEST_CASE("Items rot away") {
 
         add_food_to_map(map_pos, itype_id("offal_canned"));
         calendar::turn += 20_minutes;
-        CHECK(capture_debugmsg_during([&here]() {
-            here.process_items();
-        }).empty());
+        CHECK(capture_debugmsg_during([&here]() { here.process_items(); }).empty());
 
         auto outer = item::spawn("bag_canvas");
         outer->put_in(item::spawn("sashimi"));
         here.add_item(map_pos + point_rel_ms(1, 0), std::move(outer));
         calendar::turn += 20_minutes;
-        CHECK(capture_debugmsg_during([&here]() {
-            here.process_items();
-        }).empty());
+        CHECK(capture_debugmsg_during([&here]() { here.process_items(); }).empty());
 
         auto fixture = make_storage(vpart_id("box"), true);
         add_food_to_vehicle_part(*fixture.veh, fixture.part_index, itype_id("bread"));
         calendar::turn += 20_minutes;
-        CHECK(capture_debugmsg_during([]() {
-            get_map().process_items();
-        }).empty());
+        CHECK(capture_debugmsg_during([]() { get_map().process_items(); }).empty());
     }
 }
 
@@ -640,7 +634,8 @@ TEST_CASE("Vehicle storage temperature controls food rot") {
 
         auto quantity = 1;
         auto components = get_map().use_amount(
-            abs_to_bub(fixture.pos), PICKUP_RANGE, itype_id("sauce_red"), quantity, return_true<item>);
+            abs_to_bub(fixture.pos), PICKUP_RANGE, itype_id("sauce_red"), quantity,
+            return_true<item>);
 
         REQUIRE(quantity == 0);
         REQUIRE(components.size() == 1);
@@ -679,7 +674,8 @@ TEST_CASE("Vehicle storage temperature controls food rot") {
 
         auto quantity = 1;
         auto components = get_map().use_amount(
-            abs_to_bub(fixture.pos), PICKUP_RANGE, itype_id("sashimi"), quantity, return_true<item>);
+            abs_to_bub(fixture.pos), PICKUP_RANGE, itype_id("sashimi"), quantity,
+            return_true<item>);
 
         REQUIRE(quantity == 0);
         REQUIRE(components.size() == 1);
@@ -716,7 +712,8 @@ TEST_CASE("Vehicle storage temperature controls food rot") {
 
         auto quantity = 1;
         auto components = get_map().use_amount(
-            abs_to_bub(fixture.pos), PICKUP_RANGE, itype_id("sashimi"), quantity, return_true<item>);
+            abs_to_bub(fixture.pos), PICKUP_RANGE, itype_id("sashimi"), quantity,
+            return_true<item>);
 
         REQUIRE(quantity == 0);
         REQUIRE(components.size() == 1);
@@ -731,8 +728,8 @@ TEST_CASE("Vehicle storage temperature controls food rot") {
         calendar::turn += 20_days;
 
         auto quantity = 1;
-        auto components =
-            get_map().use_charges(abs_to_bub(fixture.pos), 0, itype_id("bread"), quantity, return_true<item>);
+        auto components = get_map().use_charges(
+            abs_to_bub(fixture.pos), 0, itype_id("bread"), quantity, return_true<item>);
 
         REQUIRE(quantity == 0);
         REQUIRE(components.size() == 1);
@@ -753,8 +750,8 @@ TEST_CASE("Vehicle storage temperature controls food rot") {
         calendar::turn += 24_hours;
 
         auto quantity = 1;
-        auto components =
-            get_map().use_charges(abs_to_bub(fixture.pos), 0, itype_id("bread"), quantity, return_true<item>);
+        auto components = get_map().use_charges(
+            abs_to_bub(fixture.pos), 0, itype_id("bread"), quantity, return_true<item>);
 
         REQUIRE(quantity == 0);
         REQUIRE(components.size() == 1);

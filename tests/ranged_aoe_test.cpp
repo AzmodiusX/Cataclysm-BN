@@ -112,14 +112,16 @@ static auto reachable_shape_points_no_obstacle(const shape& s, mapbuffer& here)
             queue.push(candidate);
         };
 
-    for (const auto &tile : simulated_tiles_in_radius(here, origin, 1)) {
+    for (const auto& tile : simulated_tiles_in_radius(here, origin, 1)) {
         try_enqueue(origin, tile.abs_pos());
     };
 
     while (!queue.empty()) {
         const auto p = queue.front();
         queue.pop();
-        for (const auto &tile : simulated_tiles_in_radius(here, p, 1)) { try_enqueue(p, tile.abs_pos()); };
+        for (const auto& tile : simulated_tiles_in_radius(here, p, 1)) {
+            try_enqueue(p, tile.abs_pos());
+        };
     }
 
     reachable.erase(origin);

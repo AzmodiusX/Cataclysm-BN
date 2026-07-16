@@ -173,16 +173,16 @@ std::unique_ptr<player_activity> veh_interact::serialize_activity()
     }
 
     std::unique_ptr<player_activity> res = std::make_unique<player_activity>(
-        std::make_unique<vehicle_work_actor>( vehicle_work_actor_options{
-            .command = static_cast<char>( sel_cmd ),
-            .part_pos = q,
-            .cursor_mount = vehicle_cursor,
-            .part_type = vp->get_id(),
-            .part_index = veh->index_of_part( vpt ),
-            .moves_total = time,
-            .vehicle_points = std::move( veh_points ),
-        } )
-    );
+    std::make_unique<vehicle_work_actor>( vehicle_work_actor_options{
+        .command = static_cast<char>( sel_cmd ),
+        .part_pos = q,
+        .cursor_mount = vehicle_cursor,
+        .part_type = vp->get_id(),
+        .part_index = veh->index_of_part( vpt ),
+        .moves_total = time,
+        .vehicle_points = std::move( veh_points ),
+    } )
+                                           );
     if( target ) {
         res->targets.emplace_back( target );
     }

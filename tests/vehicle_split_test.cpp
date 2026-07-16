@@ -39,14 +39,12 @@ TEST_CASE("vehicle_split_section") {
         veh_ptr->part_removal_cleanup();
         REQUIRE(veh_ptr->get_parts_at(vehicle_origin, "", part_status_flag::available).empty());
         vehs = here.get_vehicles();
-        std::vector<vehicle *> vehs_copy;
-        for (auto& vehs_v : vehs) {
-            vehs_copy.push_back(vehs_v);
-        }
+        std::vector<vehicle*> vehs_copy;
+        for (auto& vehs_v : vehs) { vehs_copy.push_back(vehs_v); }
         // destroying the center frame results in 4 new vehicles
         CHECK(vehs.size() == 4);
         if (vehs.size() == 4) {
-            std::ranges::sort(vehs_copy, [](const vehicle *lhs, const vehicle *rhs) {
+            std::ranges::sort(vehs_copy, [](const vehicle* lhs, const vehicle* rhs) {
                 return lhs->part_count() > rhs->part_count();
             });
             // correct number of parts
@@ -88,12 +86,11 @@ TEST_CASE("vehicle_split_section") {
         REQUIRE(veh_ptr->get_parts_at(vehicle_origin, "", part_status_flag::available).empty());
         vehs = here.get_vehicles();
         vehs_copy.clear();
-        for (auto& vehs_v : vehs) {
-            vehs_copy.push_back(vehs_v);
-        }
+        for (auto& vehs_v : vehs) { vehs_copy.push_back(vehs_v); }
         CHECK(vehs_copy.size() == 1);
         if (vehs_copy.size() == 1) {
-            CHECK(vehs_copy[0]->part_count() == 38 + 3); // 3 Extra part for auto generated door lock
+            CHECK(vehs_copy[0]->part_count() == 38 + 3); // 3 Extra part for auto generated door
+                                                         // lock
         }
         break;
     }
@@ -103,7 +100,8 @@ TEST_CASE("split vehicle keeps selected structure part at origin") {
     clear_all_state();
     auto& here = get_map();
     const auto vehicle_origin = tripoint_abs_ms(10, 10, 0);
-    auto* veh_ptr = here.add_vehicle(vproto_id("none"), abs_to_bub(vehicle_origin), 0_degrees, 0, 0);
+    auto* veh_ptr =
+        here.add_vehicle(vproto_id("none"), abs_to_bub(vehicle_origin), 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     const auto anchor_frame =

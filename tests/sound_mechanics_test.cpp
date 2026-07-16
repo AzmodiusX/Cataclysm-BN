@@ -38,8 +38,10 @@ TEST_CASE("sound_direction_index_matches_compass_directions", "[sound]") {
               == test_case.expected);
     }
 
-    CHECK(sounds::direction_index_to_sound_source(source, source + tripoint_rel_ms::below()) == SDI_DOWN);
-    CHECK(sounds::direction_index_to_sound_source(source, source + tripoint_rel_ms::above()) == SDI_UP);
+    CHECK(sounds::direction_index_to_sound_source(source, source + tripoint_rel_ms::below())
+          == SDI_DOWN);
+    CHECK(sounds::direction_index_to_sound_source(source, source + tripoint_rel_ms::above())
+          == SDI_UP);
 }
 
 TEST_CASE("sound_filter_key_distinguishes_noise_fear", "[sound]") {

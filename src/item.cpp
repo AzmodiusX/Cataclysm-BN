@@ -10331,7 +10331,8 @@ int item::processing_speed() const
 
 auto item::process_rot( detached_ptr<item> &&self ) -> detached_ptr<item>
 {
-    return process_rot( std::move( self ), false, nullptr, temperature_flag::TEMP_NORMAL, get_weather() );
+    return process_rot( std::move( self ), false, nullptr, temperature_flag::TEMP_NORMAL,
+                        get_weather() );
 }
 
 static units::temperature clip_by_temperature_flag( units::temperature temperature,
@@ -10556,7 +10557,8 @@ detached_ptr<item> item::process_corpse( detached_ptr<item> &&self, Character *c
     if( rng( 0, self->volume() / units::legacy_volume_factor ) > self->burnt &&
         self->get_mapbuffer().revive_corpse( *self ) ) {
         if( carrier == nullptr ) {
-            if( self->get_dimension_id() == get_avatar().get_dimension() && get_avatar().sees( self->abs_pos() ) ) {
+            if( self->get_dimension_id() == get_avatar().get_dimension() &&
+                get_avatar().sees( self->abs_pos() ) ) {
                 if( self->corpse->in_species( ROBOT ) ) {
                     add_msg( m_warning, _( "A nearby robot has repaired itself and stands up!" ) );
                 } else {
@@ -10600,7 +10602,8 @@ detached_ptr<item> item::process_fake_mill( detached_ptr<item> &&self, Character
     return std::move( self );
 }
 
-detached_ptr<item> item::process_fake_cloning_vat( detached_ptr<item> &&self, Character * /*carrier*/ )
+detached_ptr<item> item::process_fake_cloning_vat( detached_ptr<item> &&self,
+        Character * /*carrier*/ )
 {
     if( !self ) {
         return std::move( self );
@@ -10612,7 +10615,8 @@ detached_ptr<item> item::process_fake_cloning_vat( detached_ptr<item> &&self, Ch
     }
 
     if( self->item_counter == 0 ) {
-        iexamine::cloning_vat_finalize( self->bub_pos(), self->birthday() ); //activate effects when timers goes to zero
+        iexamine::cloning_vat_finalize( self->bub_pos(),
+                                        self->birthday() ); //activate effects when timers goes to zero
         return detached_ptr<item>(); //destroy fake smoke when it 'burns out'
     }
 
@@ -10633,7 +10637,8 @@ detached_ptr<item> item::process_fake_smoke( detached_ptr<item> &&self, Characte
     }
 
     if( self->age() >= 6_hours || self->item_counter == 0 ) {
-        iexamine::on_smoke_out( self->bub_pos(), self->birthday() ); //activate effects when timers goes to zero
+        iexamine::on_smoke_out( self->bub_pos(),
+                                self->birthday() ); //activate effects when timers goes to zero
         return detached_ptr<item>(); //destroy fake smoke when it 'burns out'
     }
 
@@ -10714,7 +10719,8 @@ detached_ptr<item> item::process_litcig( detached_ptr<item> &&self, Character *c
             if( carrier != nullptr ) {
                 carrier->add_effect( effect_weed_high, 1_minutes ); // one last puff
                 here.add_field( self->abs_pos() + point_rel_ms( rng( -1, 1 ), rng( -1, 1 ) ), {fd_weedsmoke,
-                                2} );
+                                2
+                                                                                              } );
                 weed_msg( *carrier );
             }
         }
@@ -10790,7 +10796,8 @@ detached_ptr<item> item::process_extinguish( detached_ptr<item> &&self, Characte
                        ( self->type->get_use( "transform" )->get_actor_ptr() )->target );
     } else { // transform (lit) items
         if( !self->revert( carrier ) ) {
-            self->type->invoke( carrier != nullptr ? *carrier : get_avatar(), *self, self->abs_pos(), "transform" );
+            self->type->invoke( carrier != nullptr ? *carrier : get_avatar(), *self, self->abs_pos(),
+                                "transform" );
         }
 
     }
@@ -11107,7 +11114,8 @@ detached_ptr<item> item::process_tool( detached_ptr<item> &&self, Character *car
     return std::move( self );
 }
 
-detached_ptr<item> item::process_blackpowder_fouling( detached_ptr<item> &&self, Character *carrier )
+detached_ptr<item> item::process_blackpowder_fouling( detached_ptr<item> &&self,
+        Character *carrier )
 {
     if( !self ) {
         return std::move( self );

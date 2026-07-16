@@ -12,7 +12,7 @@ class time_point;
 
 static constexpr int T_BUBBLE_SIZE = 6;
 static constexpr int T_MAPSIZE = 2 * T_BUBBLE_SIZE + 3;
-static constexpr int T_HALF_MAPSIZE = static_cast<int>( T_MAPSIZE / 2 );
+static constexpr int T_HALF_MAPSIZE = static_cast<int>(T_MAPSIZE / 2);
 
 static constexpr int T_MAPSIZE_X = SEEX * T_MAPSIZE;
 static constexpr int T_MAPSIZE_Y = SEEY * T_MAPSIZE;

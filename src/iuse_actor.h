@@ -1065,9 +1065,11 @@ class heal_actor : public iuse_actor
         /** How many intensity levels will be applied using this actor by `healer`. */
         int get_disinfected_level( const Character &healer ) const;
         /** Does the actual healing. Used by both long and short actions. Returns charges used. */
-        int finish_using( Character &healer, Character &patient, item &it, const bodypart_str_id &healed ) const;
+        int finish_using( Character &healer, Character &patient, item &it,
+                          const bodypart_str_id &healed ) const;
 
-        bodypart_str_id use_healing_item( Character &healer, Character &patient, item &it, bool force ) const;
+        bodypart_str_id use_healing_item( Character &healer, Character &patient, item &it,
+                                          bool force ) const;
 
         heal_actor( const std::string &type = "heal" ) : iuse_actor( type ) {}
 
@@ -1310,7 +1312,8 @@ class heat_food_actor : public iuse_actor
         ~heat_food_actor() override = default;
         void load( const JsonObject &obj ) override;
         int use( Character &, item &, bool, const tripoint_abs_ms & ) const override;
-        ret_val<bool> can_use( const Character &, const item &, bool, const tripoint_abs_ms & ) const override;
+        ret_val<bool> can_use( const Character &, const item &, bool,
+                               const tripoint_abs_ms & ) const override;
         std::unique_ptr<iuse_actor> clone() const override;
 };
 
@@ -1374,7 +1377,8 @@ class sex_toy_actor : public iuse_actor
         ~sex_toy_actor() override = default;
         void load( const JsonObject &obj ) override;
         int use( Character &p, item &i, bool, const tripoint_abs_ms & ) const override;
-        ret_val<bool> can_use( const Character &, const item &, bool, const tripoint_abs_ms & ) const override;
+        ret_val<bool> can_use( const Character &, const item &, bool,
+                               const tripoint_abs_ms & ) const override;
         std::unique_ptr<iuse_actor> clone() const override;
 };
 

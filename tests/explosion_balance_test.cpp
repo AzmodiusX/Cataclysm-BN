@@ -54,10 +54,10 @@ void check_lethality(
     do {
         // Clear map
         clear_map();
-        get_avatar().setpos( test_origin + tripoint_rel_ms( -30, -30, 0 ) );
+        get_avatar().setpos(test_origin + tripoint_rel_ms(-30, -30, 0));
         // Spawn some monsters in a circle.
         auto origin = tripoint_abs_ms(30, 30, 0);
-        auto bub_origin = abs_to_bub( origin );
+        auto bub_origin = abs_to_bub(origin);
         int num_subjects_this_time = 0;
         for (const tripoint_bub_ms& monster_position : closest_points_first(bub_origin, range)) {
             if (rl_dist(monster_position, bub_origin) != range) { continue; }
@@ -109,13 +109,12 @@ auto get_part_hp(vehicle* veh) -> std::vector<int> {
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void check_vehicle_damage(
     const std::string& explosive_id, const std::string& vehicle_id, const int range) {
-    get_avatar().setpos( test_origin + tripoint_rel_ms( -30, -30, 0 ) );
+    get_avatar().setpos(test_origin + tripoint_rel_ms(-30, -30, 0));
     auto origin = tripoint_abs_ms(30, 30, 0);
-    auto bub_origin = abs_to_bub( origin );
-    auto &here = get_map().get_mapbuffer();
+    auto bub_origin = abs_to_bub(origin);
+    auto& here = get_map().get_mapbuffer();
 
-    vehicle* target_vehicle =
-        here.add_vehicle(vproto_id(vehicle_id), origin, 0_degrees, -1, 0);
+    vehicle* target_vehicle = here.add_vehicle(vproto_id(vehicle_id), origin, 0_degrees, -1, 0);
     std::vector<int> before_hp = get_part_hp(target_vehicle);
 
     while (here.veh_at(origin)) { origin.x()++; }
@@ -156,7 +155,7 @@ TEST_CASE("grenade_vs_vehicle", "[grenade][explosion][balance]") {
 
 TEST_CASE("shrapnel behind wall", "[grenade][explosion][balance]") {
     clear_all_state();
-    get_avatar().setpos( test_origin + tripoint_rel_ms( -30, -30, 0 ) );
+    get_avatar().setpos(test_origin + tripoint_rel_ms(-30, -30, 0));
     const auto origin = tripoint_abs_ms(30, 30, 0);
 
     item& grenade = *item::spawn_temporary("test_shrapnel_blast");
@@ -167,15 +166,17 @@ TEST_CASE("shrapnel behind wall", "[grenade][explosion][balance]") {
     REQUIRE(static_cast<bool>(actor->explosion.fragment));
     REQUIRE(actor->explosion.radius <= 0);
     REQUIRE(actor->explosion.fragment->range > 2);
-    auto &here = get_map().get_mapbuffer();
+    auto& here = get_map().get_mapbuffer();
     for (const auto& pt : simulated_tiles_in_radius(here, origin, 2)) {
-        if (square_dist(origin, pt.abs_pos()) > 1) { here.set_ter(pt.abs_pos(), ter_id("test_t_shrapnel_wall")); }
+        if (square_dist(origin, pt.abs_pos()) > 1) {
+            here.set_ter(pt.abs_pos(), ter_id("test_t_shrapnel_wall"));
+        }
     }
 
     // Not on the bomb because shrapnel always hits that square
-    auto *const m_in_range_ptr = here.place_critter_at(
+    auto* const m_in_range_ptr = here.place_critter_at(
         mtype_id("mon_test_explosion_target"), origin + tripoint_rel_ms::east());
-    auto *const m_behind_wall_ptr = here.place_critter_at(
+    auto* const m_behind_wall_ptr = here.place_critter_at(
         mtype_id("mon_test_explosion_target"), origin + tripoint_rel_ms(3, 0, 0));
     REQUIRE(m_in_range_ptr != nullptr);
     REQUIRE(m_behind_wall_ptr != nullptr);
@@ -192,7 +193,7 @@ TEST_CASE("shrapnel behind wall", "[grenade][explosion][balance]") {
 
 TEST_CASE("shrapnel at huge range", "[grenade][explosion]") {
     clear_all_state();
-    get_avatar().setpos( test_origin + tripoint_rel_ms( -30, -30, 0 ) );
+    get_avatar().setpos(test_origin + tripoint_rel_ms(-30, -30, 0));
     auto origin = tripoint_abs_ms(30, 30, 0);
 
     item& grenade = *item::spawn_temporary("test_long_shrapnel_blast");
@@ -203,11 +204,11 @@ TEST_CASE("shrapnel at huge range", "[grenade][explosion]") {
     REQUIRE(static_cast<bool>(actor->explosion.fragment));
     REQUIRE(actor->explosion.radius <= 0);
     REQUIRE(actor->explosion.fragment->range >= 300);
-    auto range = pow( actor->explosion.fragment->range, 1.4 ) - 1;
-    auto placement = std::min( static_cast<int>( range ), g_mapsize_x - 1 );
+    auto range = pow(actor->explosion.fragment->range, 1.4) - 1;
+    auto placement = std::min(static_cast<int>(range), g_mapsize_x - 1);
 
     auto& buffer = get_map().get_mapbuffer();
-    auto *const monster_ptr = buffer.place_critter_at(
+    auto* const monster_ptr = buffer.place_critter_at(
         mtype_id("mon_test_explosion_target"),
         bub_to_abs(tripoint_bub_ms(placement, placement, 0)));
     REQUIRE(monster_ptr != nullptr);
@@ -221,7 +222,7 @@ TEST_CASE("shrapnel at huge range", "[grenade][explosion]") {
 
 TEST_CASE("shrapnel at max grenade range", "[grenade][explosion]") {
     clear_all_state();
-    get_avatar().setpos( test_origin + tripoint_rel_ms( -30, -30, 0 ) );
+    get_avatar().setpos(test_origin + tripoint_rel_ms(-30, -30, 0));
     const auto bub_origin = bub_test_origin();
 
     item& grenade = *item::spawn_temporary("test_shrapnel_blast");
@@ -255,7 +256,7 @@ TEST_CASE("shrapnel at max grenade range", "[grenade][explosion]") {
 
 TEST_CASE("rotated_vehicle_walls_block_explosions") {
     clear_all_state();
-    get_avatar().setpos( test_origin + tripoint_rel_ms( -30, -30, 0 ) );
+    get_avatar().setpos(test_origin + tripoint_rel_ms(-30, -30, 0));
     const auto origin = bub_test_origin();
 
     item& grenade = *item::spawn_temporary("test_shrapnel_blast");

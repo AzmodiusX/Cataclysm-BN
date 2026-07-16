@@ -456,11 +456,11 @@ void gunmod_add( avatar &you, item &gun, item &mod )
     const int moves = !you.has_trait( trait_DEBUG_HT ) ? mod.type->gunmod->install_time : 0;
 
     you.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<gunmod_add_actor>(
-            roll, risk, qty, tool,
-            safe_reference<item>( &gun ), safe_reference<item>( &mod )
-        )
-    ) );
+                             std::make_unique<gunmod_add_actor>(
+                                 roll, risk, qty, tool,
+                                 safe_reference<item>( &gun ), safe_reference<item>( &mod )
+                             )
+                         ) );
 }
 
 bool gunmod_remove( avatar &you, item &gun, item &mod )

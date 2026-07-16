@@ -537,7 +537,7 @@ detached_ptr<item> vehicle_item_location::detach( item *it )
             .temperature = temperature,
             .weather = &get_weather(),
             .local_temperature = g && !g->new_game ?
-                veh->get_mapbuffer().get_temperature( part_abs_pos ).value_or( 0 ) : 0,
+            veh->get_mapbuffer().get_temperature( part_abs_pos ).value_or( 0 ) : 0,
         } );
     }
     veh->invalidate_mass();

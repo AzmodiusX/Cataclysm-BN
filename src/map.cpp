@@ -1671,8 +1671,8 @@ bool map::displace_vehicle( vehicle &veh, const tripoint_rel_ms &dp )
             // Place passenger on the new part location.  Z must include mount
             // and terrain-topology offsets — precalc[1] is XY-only.
             const auto passenger_abs_pos = dest + tripoint_rel_ms( veh_part.precalc[1].x(),
-                                            veh_part.precalc[1].y(),
-                                            veh_part.mount.z() + veh_part.z_terrain[1] );
+                                           veh_part.precalc[1].y(),
+                                           veh_part.mount.z() + veh_part.z_terrain[1] );
             // someone is in the way so try again
             if( g->critter_at( passenger_abs_pos ) ) {
                 complete = false;
@@ -5265,7 +5265,7 @@ void map::add_item( const tripoint_bub_ms &p, detached_ptr<item> &&new_item )
 
     const auto abs_pos = map_local_to_abs( *this, p );
     get_mapbuffer().add_item( abs_pos, std::move( new_item ),
-                                resident_item_lookup() );
+                              resident_item_lookup() );
     return;
 }
 
@@ -6234,7 +6234,8 @@ void map::add_splatter_trail( const field_type_id &type, const tripoint_bub_ms &
     for( tripoint_bub_ms &elem : trail ) {
         add_splatter( type, elem );
         remainder--;
-        if( get_mapbuffer().obstructed_by_vehicle_rotation( bub_to_abs( last_point ), bub_to_abs( elem ) ) ) {
+        if( get_mapbuffer().obstructed_by_vehicle_rotation( bub_to_abs( last_point ),
+                bub_to_abs( elem ) ) ) {
             if( one_in( 2 ) ) {
                 elem.x() = last_point.x();
                 add_splatter( type, elem, remainder );
@@ -8015,7 +8016,8 @@ void map::spawn_monsters_submap_group( const tripoint_bub_sm &gp, mongroup &grou
     };
 
     // If the submap is uniform, we can skip many checks
-    const auto current_submap = active_load_region_.view().get_submap_view( map_local_to_abs( *this, gp ) );
+    const auto current_submap = active_load_region_.view().get_submap_view( map_local_to_abs( *this,
+                                gp ) );
     if( !current_submap ) {
         return;
     }

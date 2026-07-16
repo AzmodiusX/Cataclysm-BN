@@ -151,8 +151,7 @@ TEST_CASE("water drag remains positive with excess floating parts", "[vehicle] [
         get_map().add_vehicle(vproto_id("none"), bub_test_origin(), 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
-    REQUIRE(
-        veh_ptr->install_part(tripoint_mnt_veh::zero(), vpart_id("frame_vertical"), true) >= 0);
+    REQUIRE(veh_ptr->install_part(tripoint_mnt_veh::zero(), vpart_id("frame_vertical"), true) >= 0);
     REQUIRE(veh_ptr->install_part(tripoint_mnt_veh::zero(), vpart_id("boat_board"), true) >= 0);
     REQUIRE(
         veh_ptr->install_part(tripoint_mnt_veh(1, 0, 0), vpart_id("sea_scooter_hull"), true) >= 0);

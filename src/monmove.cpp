@@ -2079,7 +2079,7 @@ tripoint_abs_ms monster::scent_move() const
             // Waterbound monsters can only smell you if you're in deep water.
             ( !has_flag( MF_AQUATIC ) || here.is_divable( dest ) ) &&
             ( ( can_move_to( dest_abs ) && !here.get_mapbuffer().obstructed_by_vehicle_rotation(
-                bub_to_abs( pos ), bub_to_abs( dest ) ) ) ||
+                    bub_to_abs( pos ), bub_to_abs( dest ) ) ) ||
               ( dest_abs == g->u.abs_pos() ) ||
               ( can_bash && here.is_bashable( dest ) &&
                 here.bash_rating( bash_estimate( dest_abs ), dest ) > 0 ) ) ) {
@@ -2333,7 +2333,7 @@ bool monster::attack_at( const tripoint_abs_ms &p )
     auto &here = get_mapbuffer();
     if( p.z() != abs_pos().z() && !map_funcs::physical_clear_path( {
     .here = here,
-        .from = abs_pos(),
+    .from = abs_pos(),
         .to = p,
         .range = rl_dist( abs_pos(), p ),
         .cost_min = 0,

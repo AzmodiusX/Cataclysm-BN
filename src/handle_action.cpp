@@ -916,7 +916,7 @@ static void smash()
     if( should_pulp ) {
         // do activity forever. ACT_PULP stops itself
         u.assign_activity( std::make_unique<player_activity>(
-            std::make_unique<pulp_actor>( bub_to_abs( smashp ) ) ) );
+                               std::make_unique<pulp_actor>( bub_to_abs( smashp ) ) ) );
         return; // don't smash terrain if we've smashed a corpse
     }
 
@@ -1479,8 +1479,8 @@ static void loot()
             break;
         case SortLoot:
             u.assign_activity( std::make_unique<player_activity>(
-                std::make_unique<move_loot_activity_actor>()
-            ) );
+                                   std::make_unique<move_loot_activity_actor>()
+                               ) );
             break;
         case FertilizePlots:
             u.assign_activity( ACT_FERTILIZE_PLOT );

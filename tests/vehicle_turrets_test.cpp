@@ -63,8 +63,8 @@ TEST_CASE("vehicle_turret", "[vehicle][gun][magazine][.]") {
     avatar& player_character = get_avatar();
     for (auto e : turret_types()) {
         SECTION(e->name()) {
-            vehicle* veh =
-                here.add_vehicle(vproto_id("none"), bub_test_origin() + point_rel_ms(5, 5), 270_degrees, 0, 0);
+            vehicle* veh = here.add_vehicle(
+                vproto_id("none"), bub_test_origin() + point_rel_ms(5, 5), 270_degrees, 0, 0);
             REQUIRE(veh);
 
             const int idx = veh->install_part(tripoint_mnt_veh::zero(), e->get_id(), true);
@@ -108,8 +108,8 @@ TEST_CASE("vehicle_turret", "[vehicle][gun][magazine][.]") {
 TEST_CASE("vehicle_turret_autoloader_integral_magazine", "[vehicle][gun][turret][autoload]") {
     clear_all_state();
     map& here = get_map();
-    vehicle* veh =
-        here.add_vehicle(vproto_id("none"), bub_test_origin() + point_rel_ms(5, 5), 270_degrees, 0, 0);
+    vehicle* veh = here.add_vehicle(
+        vproto_id("none"), bub_test_origin() + point_rel_ms(5, 5), 270_degrees, 0, 0);
     REQUIRE(veh);
 
     const auto turret_part_id = vpart_id("mounted_rebar_rifle");
@@ -160,7 +160,7 @@ TEST_CASE("vehicle_turret_iff_protects_followers_in_line_of_fire", "[vehicle][tu
     build_test_map(ter_id("t_dirt"));
     map& here = get_map();
     set_time(calendar::turn_zero + 12_hours);
-    
+
     avatar& shooter = get_avatar();
     shooter.setpos(test_origin);
     const auto shooter_pos = shooter.bub_pos();
@@ -189,7 +189,7 @@ TEST_CASE("vehicle_turret_iff_allows_clear_shots", "[vehicle][turret][npc][iff]"
     build_test_map(ter_id("t_dirt"));
     map& here = get_map();
     set_time(calendar::turn_zero + 12_hours);
-    
+
     avatar& shooter = get_avatar();
     shooter.setpos(test_origin);
     const auto shooter_pos = shooter.bub_pos();

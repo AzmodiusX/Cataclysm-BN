@@ -1685,26 +1685,26 @@ void dialogue::gen_responses( const talk_topic &the_topic )
                 backlog_trainer_id = ta->get_trainer_id();
             }
             if( backlog_trainer_id == p->getID().get_value() ) {
-            const skill_id skillt( backlog_name );
-            // TODO: This is potentially dangerous. A skill and a martial art
-            // could have the same ident!
-            if( !skillt.is_valid() ) {
-                const matype_id styleid = matype_id( backlog_name );
-                if( !styleid.is_valid() ) {
-                    const spell_id &sp_id = spell_id( backlog_name );
-                    if( p->magic->knows_spell( sp_id ) ) {
-                        add_response( string_format( _( "Yes, let's resume training %s" ), sp_id->name ),
-                                      "TALK_TRAIN_START", sp_id );
+                const skill_id skillt( backlog_name );
+                // TODO: This is potentially dangerous. A skill and a martial art
+                // could have the same ident!
+                if( !skillt.is_valid() ) {
+                    const matype_id styleid = matype_id( backlog_name );
+                    if( !styleid.is_valid() ) {
+                        const spell_id &sp_id = spell_id( backlog_name );
+                        if( p->magic->knows_spell( sp_id ) ) {
+                            add_response( string_format( _( "Yes, let's resume training %s" ), sp_id->name ),
+                                          "TALK_TRAIN_START", sp_id );
+                        }
+                    } else {
+                        const martialart &style = styleid.obj();
+                        add_response( string_format( _( "Yes, let's resume training %s" ), style.name ), "TALK_TRAIN_START",
+                                      style );
                     }
                 } else {
-                    const martialart &style = styleid.obj();
-                    add_response( string_format( _( "Yes, let's resume training %s" ), style.name ), "TALK_TRAIN_START",
-                                  style );
+                    add_response( string_format( _( "Yes, let's resume training %s" ), skillt->name() ),
+                                  "TALK_TRAIN_START", skillt );
                 }
-            } else {
-                add_response( string_format( _( "Yes, let's resume training %s" ), skillt->name() ),
-                              "TALK_TRAIN_START", skillt );
-            }
             }
         }
         std::vector<matype_id> styles = p->styles_offered_to( you );

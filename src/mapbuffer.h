@@ -831,13 +831,13 @@ class mapbuffer
          * adjacent to at least 2 other impassable tiles neighbourging @p p.
          */
         auto is_cornerfloor( const tripoint_abs_ms &p,
-                             mapbuffer_lookup_options options = {} ) -> bool;
+        mapbuffer_lookup_options options = {} ) -> bool;
 
         // ----- Cleaning / maintenance -----
 
         /** Remove liquid spills, blood, and other filth from @p p. */
         auto mop_spills( const tripoint_abs_ms &p,
-                         mapbuffer_lookup_options options = {} ) -> bool;
+        mapbuffer_lookup_options options = {} ) -> bool;
         auto has_loaded_vehicle( const vehicle *veh ) const -> bool;
         auto register_vehicle( vehicle *veh ) -> void;
         auto unregister_vehicle( vehicle *veh ) -> void;
@@ -1035,12 +1035,12 @@ class mapbuffer
         mapbuffer_lookup_options options = {} ) -> std::vector<item *>;
 
         auto add_spawn( const mtype_id &type, int count, const tripoint_abs_ms &p, bool friendly,
-                                  int faction_id, int mission_id, const std::string &name,
-                                  mapbuffer_lookup_options options = {} ) const -> void;
-        
+                        int faction_id, int mission_id, const std::string &name,
+        mapbuffer_lookup_options options = {} ) const -> void;
+
         auto add_spawn( const mtype_id &type, int count, const tripoint_abs_ms &p,
-                             spawn_disposition disposition, int faction_id, int mission_id,
-                             const std::string &name, mapbuffer_lookup_options options = {} ) const -> void;
+                        spawn_disposition disposition, int faction_id, int mission_id,
+        const std::string &name, mapbuffer_lookup_options options = {} ) const -> void;
 
         auto add_vehicle( const std::variant<vgroup_id, vproto_id> &type_,
                           const tripoint_abs_ms &p,
@@ -1048,21 +1048,21 @@ class mapbuffer
                           int init_veh_status = -1, bool merge_wrecks = true,
                           std::optional<bool> locked = std::nullopt,
                           std::optional<bool> has_keys = std::nullopt,
-                          mapbuffer_lookup_options options = {} ) -> vehicle *;
+        mapbuffer_lookup_options options = {} ) -> vehicle *;
 
         auto add_vehicle_to_mapbuffer( std::unique_ptr<vehicle> veh, const bool merge_wrecks,
-                                       mapbuffer_lookup_options options = {} ) -> std::unique_ptr<vehicle>;
+        mapbuffer_lookup_options options = {} ) -> std::unique_ptr<vehicle>;
 
         auto get_vehicles( const tripoint_abs_sm &start, const tripoint_abs_sm &end,
-                           mapbuffer_lookup_options options = {} ) -> std::set<vehicle *>;
+        mapbuffer_lookup_options options = {} ) -> std::set<vehicle *>;
 
         auto get_vehicles( mapbuffer_lookup_options options = {} ) -> std::set<vehicle *>;
 
         auto detach_vehicle( vehicle *veh,
-                             mapbuffer_lookup_options options = {} ) -> std::unique_ptr<vehicle>;
+        mapbuffer_lookup_options options = {} ) -> std::unique_ptr<vehicle>;
 
         auto destroy_vehicle( vehicle *veh,
-                              mapbuffer_lookup_options options = {} ) -> void;
+        mapbuffer_lookup_options options = {} ) -> void;
 
         auto partial_con_at( const tripoint_abs_ms &p,
         mapbuffer_lookup_options options = {} ) -> partial_con *;
@@ -1331,35 +1331,35 @@ class mapbuffer
         mapbuffer_lookup_options options = {} ) -> bool;
 
         auto get_roof( const tripoint_abs_ms &p, const bool allow_air,
-                       mapbuffer_lookup_options options = {} ) -> ter_id;
+        mapbuffer_lookup_options options = {} ) -> ter_id;
 
         /// Bash terrain/furniture at @p p with given @p strength.
         auto bash( const tripoint_abs_ms &p, int str, bool silent = false,
                    bool destroy = false, bool bash_floor = false,
                    const vehicle *bashing_vehicle = nullptr,
-                   mapbuffer_lookup_options options = {} ) -> bash_results;
+        mapbuffer_lookup_options options = {} ) -> bash_results;
 
         auto bash( const tripoint_abs_ms &p,
                    const bash_params &params,
                    const vehicle *bashing_vehicle = nullptr,
-                   mapbuffer_lookup_options options = {} ) -> bash_results;
+        mapbuffer_lookup_options options = {} ) -> bash_results;
 
         auto bash_vehicle( const tripoint_abs_ms &p, const bash_params &params,
-                           mapbuffer_lookup_options options = {} ) -> bash_results;
+        mapbuffer_lookup_options options = {} ) -> bash_results;
         auto bash_ter_furn( const tripoint_abs_ms &p, const bash_params &params,
-                            mapbuffer_lookup_options options = {} ) -> bash_results;
-        
+        mapbuffer_lookup_options options = {} ) -> bash_results;
+
         auto bash_items( const tripoint_abs_ms &p, const bash_params &params,
-                               mapbuffer_lookup_options options = {} ) -> bash_results;
+        mapbuffer_lookup_options options = {} ) -> bash_results;
         auto bash_field( const tripoint_abs_ms &p, const bash_params &params,
-                               mapbuffer_lookup_options options = {} ) -> bash_results;
+        mapbuffer_lookup_options options = {} ) -> bash_results;
 
         // Successfully bashing things down
         auto bash_ter_success( const tripoint_abs_ms &p, const bash_params &params,
-                               mapbuffer_lookup_options options = {} ) -> bash_results;
+        mapbuffer_lookup_options options = {} ) -> bash_results;
         auto bash_furn_success( const tripoint_abs_ms &p, const bash_params &params,
-                                mapbuffer_lookup_options options = {} ) -> bash_results;
-        
+        mapbuffer_lookup_options options = {} ) -> bash_results;
+
 
         auto destroy( const tripoint_abs_ms &p, bool silent = false,
         const mapbuffer_lookup_options options = {} ) -> void;

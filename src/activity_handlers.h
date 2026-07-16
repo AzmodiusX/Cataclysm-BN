@@ -127,7 +127,8 @@ void butchery_quarter( item *corpse_item, const Character &who );
 void extract_or_wreck_cbms( std::vector<detached_ptr<item>> &cbms, int roll, Character &who );
 
 //return true if there is an activity that can be done potentially, return false if no work can be found.
-bool generic_multi_activity_handler( player_activity &act, Character &who, bool check_only = false );
+bool generic_multi_activity_handler( player_activity &act, Character &who,
+                                     bool check_only = false );
 void move_item( Character &who, item &it, const int quantity, const tripoint_bub_ms &src,
                 const tripoint_bub_ms &dest, const activity_id &activity_to_restore = activity_id::NULL_ID() );
 //Generic activity: maximum search distance for zones, constructions, etc.

@@ -1598,7 +1598,8 @@ static void lua_trap_on_trigger_aftermath( Character &target, trap &trap,
 
 bool trapfunc::lua( const tripoint_abs_ms &p, Creature *target, item *trap_item )
 {
-    auto &here = trap_item && trap_item->has_position() ? trap_item->get_mapbuffer() : target->get_mapbuffer();
+    auto &here = trap_item &&
+                 trap_item->has_position() ? trap_item->get_mapbuffer() : target->get_mapbuffer();
     const auto character = target->as_character();
     auto handle = abs_tile_handle::fetch( here, p );
     if( !handle ) {

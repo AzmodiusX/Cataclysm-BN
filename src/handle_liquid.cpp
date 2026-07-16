@@ -46,11 +46,11 @@ static void assign_liquid_transfer(
     safe_reference<item> tgt_container )
 {
     g->u.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<liquid_transfer_actor>(
-            src_type, src_pos, src_part_index,
-            tgt_type, tgt_pos, std::move( tgt_container )
-        )
-    ) );
+                              std::make_unique<liquid_transfer_actor>(
+                                  src_type, src_pos, src_part_index,
+                                  tgt_type, tgt_pos, std::move( tgt_container )
+                              )
+                          ) );
 }
 
 namespace liquid_handler

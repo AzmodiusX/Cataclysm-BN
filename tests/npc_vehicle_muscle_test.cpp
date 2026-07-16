@@ -58,7 +58,8 @@ TEST_CASE("multiple_manual_engines_allowed", "[vehicle][muscle][engine]") {
 
     GIVEN("a tandem bicycle with two foot_pedals") {
         const auto bike_origin = tripoint_abs_ms(10, 10, 0);
-        vehicle* veh_ptr = here.add_vehicle(vproto_id("tandem"), abs_to_bub(bike_origin), 0_degrees, 0, 0);
+        vehicle* veh_ptr =
+            here.add_vehicle(vproto_id("tandem"), abs_to_bub(bike_origin), 0_degrees, 0, 0);
         REQUIRE(veh_ptr != nullptr);
 
         WHEN("checking for muscle engines") {
@@ -94,7 +95,8 @@ TEST_CASE("npc_muscle_engine_fuel_availability", "[vehicle][muscle][npc]") {
 
     GIVEN("a tandem bicycle with an NPC assigned to rear seat") {
         const auto bike_origin = tripoint_abs_ms(10, 10, 0);
-        vehicle* veh_ptr = map.add_vehicle(vproto_id("tandem"), abs_to_bub(bike_origin), 0_degrees, 0, 0);
+        vehicle* veh_ptr =
+            map.add_vehicle(vproto_id("tandem"), abs_to_bub(bike_origin), 0_degrees, 0, 0);
         REQUIRE(veh_ptr != nullptr);
 
         npc& test_npc = create_test_npc();
@@ -185,10 +187,11 @@ TEST_CASE("player_and_npc_muscle_power_combined", "[vehicle][muscle][npc][player
         auto& map = get_map();
         auto& here = map.get_mapbuffer();
         avatar& player = get_avatar();
-        
+
         const auto bike_origin = tripoint_abs_ms(10, 10, 0);
 
-        vehicle* veh_ptr = map.add_vehicle(vproto_id("tandem"), abs_to_bub(bike_origin), 0_degrees, 0, 0);
+        vehicle* veh_ptr =
+            map.add_vehicle(vproto_id("tandem"), abs_to_bub(bike_origin), 0_degrees, 0, 0);
         REQUIRE(veh_ptr != nullptr);
 
         npc& test_npc = create_test_npc();
@@ -252,7 +255,8 @@ TEST_CASE("npc_muscle_engine_energy_consumption", "[vehicle][muscle][npc][energy
 
     GIVEN("an NPC powering a muscle engine under load") {
         const auto bike_origin = tripoint_abs_ms(10, 10, 0);
-        vehicle* veh_ptr = map.add_vehicle(vproto_id("bicycle"), abs_to_bub(bike_origin), 0_degrees, 0, 0);
+        vehicle* veh_ptr =
+            map.add_vehicle(vproto_id("bicycle"), abs_to_bub(bike_origin), 0_degrees, 0, 0);
         REQUIRE(veh_ptr != nullptr);
 
         npc& test_npc = create_test_npc();
@@ -273,7 +277,7 @@ TEST_CASE("npc_muscle_engine_energy_consumption", "[vehicle][muscle][npc][energy
             }
         }
         REQUIRE(seat_part >= 0);
-        
+
         const auto seat_pos = veh_ptr->abs_part_location(seat_part);
         test_npc.setpos(seat_pos);
         here.board_vehicle(seat_pos, test_npc);
@@ -302,7 +306,8 @@ TEST_CASE("npc_muscle_engine_with_disabled_needs", "[vehicle][muscle][npc][energ
 
     GIVEN("an NPC powering a muscle engine with needs disabled") {
         const auto bike_origin = tripoint_abs_ms(10, 10, 0);
-        vehicle* veh_ptr = map.add_vehicle(vproto_id("bicycle"), abs_to_bub(bike_origin), 0_degrees, 0, 0);
+        vehicle* veh_ptr =
+            map.add_vehicle(vproto_id("bicycle"), abs_to_bub(bike_origin), 0_degrees, 0, 0);
         REQUIRE(veh_ptr != nullptr);
 
         npc& test_npc = create_test_npc();
@@ -323,7 +328,7 @@ TEST_CASE("npc_muscle_engine_with_disabled_needs", "[vehicle][muscle][npc][energ
             }
         }
         REQUIRE(seat_part >= 0);
-        
+
         const auto seat_pos = veh_ptr->abs_part_location(seat_part);
         test_npc.setpos(seat_pos);
         here.board_vehicle(seat_pos, test_npc);
@@ -347,7 +352,8 @@ TEST_CASE("npc_muscle_engine_broken_limbs", "[.][vehicle][muscle][npc][injury]")
 
     GIVEN("an NPC with broken legs assigned to foot pedals") {
         const auto bike_origin = tripoint_abs_ms(10, 10, 0);
-        vehicle* veh_ptr = map.add_vehicle(vproto_id("bicycle"), abs_to_bub(bike_origin), 0_degrees, 0, 0);
+        vehicle* veh_ptr =
+            map.add_vehicle(vproto_id("bicycle"), abs_to_bub(bike_origin), 0_degrees, 0, 0);
         REQUIRE(veh_ptr != nullptr);
 
         npc& test_npc = create_test_npc();

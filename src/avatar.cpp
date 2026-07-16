@@ -783,8 +783,8 @@ bool avatar::read( item *loc, const bool continuous )
     }
 
     auto read_actor = std::make_unique<read_activity_actor>(
-        safe_reference<item>( &it ), std::move( npc_learners ), is_martial_arts, time_taken
-    );
+                          safe_reference<item>( &it ), std::move( npc_learners ), is_martial_arts, time_taken
+                      );
     read_actor->continuous_reader_id = continuous ? this->activity->index : 0;
     assign_activity( std::make_unique<player_activity>( std::move( read_actor ) ) );
 

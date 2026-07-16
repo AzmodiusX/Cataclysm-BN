@@ -198,7 +198,7 @@ class RemovePartHandler
 
         virtual void unboard( const tripoint_abs_ms &loc ) = 0;
         virtual detached_ptr<item> add_item_or_charges( const tripoint_abs_ms &loc,
-                                                        detached_ptr<item> &&it, bool permit_oob ) = 0;
+                detached_ptr<item> &&it, bool permit_oob ) = 0;
         virtual void set_transparency_cache_dirty( int z ) = 0;
         virtual void set_floor_cache_dirty( int z ) = 0;
         virtual void removed( vehicle &veh, int part ) = 0;
@@ -291,8 +291,10 @@ class MapgenRemovePartHandler : public RemovePartHandler
                                                 bool permit_oob ) override {
             if( !here.is_outside_pocket_dimension_bounds( loc ) ) {
                 return here.add_item_or_charges( loc, std::move( it ), { .lookup = { .mode = permit_oob ?
-                                                                            mapbuffer_lookup_mode::simulated_only :
-                                                                            mapbuffer_lookup_mode::resident_only } } );
+                                                                                     mapbuffer_lookup_mode::simulated_only :
+                                                                                     mapbuffer_lookup_mode::resident_only
+                                                                                   }
+                                                                       } );
             }
         }
         void set_transparency_cache_dirty( const int /*z*/ ) override {
@@ -331,7 +333,7 @@ class MapgenConstructorRemovePartHandler : public RemovePartHandler
             if( permit_oob ) {
                 return proj.remainder_tripoint;
             }
-            const bool inbounds = proj.quotient.raw().abs().x == 0 && 
+            const bool inbounds = proj.quotient.raw().abs().x == 0 &&
                                   proj.remainder.raw().abs().y == 0;
             if( !inbounds ) {
                 return std::nullopt;
@@ -4213,7 +4215,8 @@ int vehicle::fuel_left( const itype_id &ftype, bool recurse ) const
         }
         // As do any other engine flagged as perpetual
         //TODO!: push up
-    } else if( ftype != fuel_type_battery && item::spawn_temporary( ftype )->has_flag( flag_PERPETUAL ) ) {
+    } else if( ftype != fuel_type_battery &&
+               item::spawn_temporary( ftype )->has_flag( flag_PERPETUAL ) ) {
         fl += 10;
     }
 

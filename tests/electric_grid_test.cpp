@@ -112,7 +112,7 @@ static void clear_grid_connections(map& m) {
 }
 
 static grid_setup set_up_grid(map& m) {
-    [[maybe_unused]] const scoped_map_context map_context( m );
+    [[maybe_unused]] const scoped_map_context map_context(m);
     // TODO: clear_grids()
     clear_grid_connections(m);
     m.load(m.get_abs_sub(), true);
@@ -130,8 +130,8 @@ static grid_setup set_up_grid(map& m) {
     vehicle* veh = m.get_mapbuffer().add_vehicle(
         vproto_id("car"), map_local_to_abs(m, vehicle_local_pos), 0_degrees, 0, 0, true);
     REQUIRE(veh);
-    for( const auto part_index : veh->battery_parts ) {
-        veh->part( part_index ).ammo_set( itype_battery, 0 );
+    for (const auto part_index : veh->battery_parts) {
+        veh->part(part_index).ammo_set(itype_battery, 0);
     }
     vehicle_connector_tile* grid_connector = active_tiles::furn_at<vehicle_connector_tile>(
         connector_abs_pos);
@@ -147,10 +147,10 @@ static grid_setup set_up_grid(map& m) {
     // Installing the cable refreshes the vehicle's derived part indexes.
     // Re-establish the empty battery state after that refresh so this fixture
     // starts with the vehicle discharged.
-    for( const auto part_index : veh->battery_parts ) {
-        auto &part = veh->part( part_index );
-        part.get_base().set_damage( 0 );
-        part.ammo_set( itype_battery, 0 );
+    for (const auto part_index : veh->battery_parts) {
+        auto& part = veh->part(part_index);
+        part.get_base().set_damage(0);
+        part.ammo_set(itype_battery, 0);
     }
 
     distribution_grid& grid = get_distribution_grid_tracker().grid_at(connector_abs_pos);
@@ -160,15 +160,15 @@ static grid_setup set_up_grid(map& m) {
     // Grid construction may synchronize a small existing charge through the
     // newly installed cable.  The fixture starts with both storage endpoints
     // empty so each scenario controls its own initial energy state.
-    battery->mod_resource( -battery->get_resource() );
-    grid.mod_resource( -grid.get_resource() );
-    veh->discharge_battery( veh->fuel_left( itype_battery, false ), false );
-    for( const auto part_index : veh->battery_parts ) {
-        auto &part = veh->part( part_index );
-        part.get_base().set_damage( 0 );
-        part.ammo_set( itype_battery, 0 );
+    battery->mod_resource(-battery->get_resource());
+    grid.mod_resource(-grid.get_resource());
+    veh->discharge_battery(veh->fuel_left(itype_battery, false), false);
+    for (const auto part_index : veh->battery_parts) {
+        auto& part = veh->part(part_index);
+        part.get_base().set_damage(0);
+        part.ammo_set(itype_battery, 0);
     }
-    REQUIRE( veh->fuel_left( itype_battery, false ) == 0 );
+    REQUIRE(veh->fuel_left(itype_battery, false) == 0);
     return grid_setup{grid, *veh, *battery};
 }
 
@@ -193,7 +193,7 @@ TEST_CASE("grid_and_vehicle_outside_bubble", "[grids][vehicle]") {
     m.load(m.get_abs_sub() + point(g_mapsize, 0), true);
     GIVEN("vehicle and battery are on one grid") {
         map tm(2);
-        tm.bind_dimension( m.get_bound_dimension() );
+        tm.bind_dimension(m.get_bound_dimension());
         tm.load(old_abs_sub, false);
         auto setup = set_up_grid(tm);
         test_grid_veh(setup.grid, setup.veh, setup.battery);
@@ -413,7 +413,7 @@ TEST_CASE("grid_furn_transform_queue_in_bubble", "[grids]") {
     move_player_out_of_the_way();
     get_map().load(get_map().get_abs_sub(), true);
 
-    const auto pos_abs = map_local_to_abs( get_map(), tripoint_bub_ms(22, 7, z) );
+    const auto pos_abs = map_local_to_abs(get_map(), tripoint_bub_ms(22, 7, z));
 
     grid_furn_transform_queue tf_queue;
     tf_queue.add(pos_abs, f_floor_lamp_on, "");

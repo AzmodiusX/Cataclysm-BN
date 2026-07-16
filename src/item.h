@@ -1052,7 +1052,8 @@ class item : public location_visitable<item>, public game_object<item>
          * potentially destroying other items and invalidating iterators.
          * Should NOT be called on an item on the map, but on a local copy.
          */
-        static detached_ptr<item> detonate( detached_ptr<item> &&self, std::vector<detached_ptr<item>> &drops );
+        static detached_ptr<item> detonate( detached_ptr<item> &&self,
+                                            std::vector<detached_ptr<item>> &drops );
 
         bool will_explode_in_fire() const;
 
@@ -2442,7 +2443,8 @@ class item : public location_visitable<item>, public game_object<item>
         };
 
         const use_function *get_use_internal( const std::string &use_name ) const;
-        static detached_ptr<item> process_internal( detached_ptr<item> &&self, Character *carrier, bool activate,
+        static detached_ptr<item> process_internal( detached_ptr<item> &&self, Character *carrier,
+                bool activate,
                 bool seals, temperature_flag flag, const weather_manager &weather_generator );
         static auto actualize_rot( detached_ptr<item> &&self, temperature_flag temperature,
                                    const weather_manager &weather, bool seals ) -> detached_ptr<item>;
@@ -2501,7 +2503,8 @@ class item : public location_visitable<item>, public game_object<item>
         static detached_ptr<item> process_fake_mill( detached_ptr<item> &&self, Character *carrier );
         static detached_ptr<item> process_cable( detached_ptr<item> &&self, Character *carrier );
         static detached_ptr<item> process_UPS( detached_ptr<item> &&self, Character *carrier );
-        static detached_ptr<item> process_blackpowder_fouling( detached_ptr<item> &&self, Character *carrier );
+        static detached_ptr<item> process_blackpowder_fouling( detached_ptr<item> &&self,
+                Character *carrier );
         static detached_ptr<item> process_tool( detached_ptr<item> &&self, Character *carrier );
 
         //Process wet is built different because sigh

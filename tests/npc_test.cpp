@@ -79,7 +79,7 @@ TEST_CASE("hallucination_npcs_do_not_board_real_vehicles", "[npc][hallucination]
     auto& here = get_map();
     build_test_map(ter_id("t_pavement"));
     clear_vehicles();
-    
+
     const auto seat_pos = test_origin + point_rel_ms(3, 0);
     const auto npc_pos = seat_pos + point_rel_ms(0, -1);
     auto* veh_ptr =
@@ -96,7 +96,7 @@ TEST_CASE("hallucination_npcs_do_not_board_real_vehicles", "[npc][hallucination]
     CHECK_FALSE(hallucination_npc.in_vehicle);
     CHECK(veh_ptr->get_passenger(
               here.veh_at(seat_pos).part_with_feature(VPFLAG_BOARDABLE, true)->part_index())
-              == nullptr);
+          == nullptr);
 }
 
 static void on_load_test(npc& who, const time_duration& from, const time_duration& to) {
@@ -396,7 +396,8 @@ TEST_CASE("npc-movement") {
             }
             // create vehicles
             if (type == 'V' || type == 'W' || type == 'M') {
-                vehicle* veh = get_map().add_vehicle(vproto_id("none"), abs_to_bub(p), 270_degrees, 0, 0);
+                vehicle* veh =
+                    get_map().add_vehicle(vproto_id("none"), abs_to_bub(p), 270_degrees, 0, 0);
                 REQUIRE(veh != nullptr);
                 veh->install_part(tripoint_mnt_veh::zero(), vpart_frame_vertical);
                 veh->install_part(tripoint_mnt_veh::zero(), vpart_seat);
@@ -485,7 +486,7 @@ TEST_CASE("control_npc_updates_positions_and_reality_bubble", "[npc][control]") 
 
     avatar& you = get_avatar();
     g->place_player(test_origin);
-    npc& follower = spawn_npc(abs_to_bub(test_origin + point_rel_ms(10,10)), "test_talker");
+    npc& follower = spawn_npc(abs_to_bub(test_origin + point_rel_ms(10, 10)), "test_talker");
     follower.set_fac(faction_id("your_followers"));
     follower.set_attitude(NPCATT_FOLLOW);
     REQUIRE(follower.is_player_ally());

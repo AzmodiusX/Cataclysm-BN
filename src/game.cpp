@@ -11955,35 +11955,35 @@ static void butcher_submenu( const std::vector<item *> &corpses, int corpse = -1
     switch( smenu.ret ) {
         case BUTCHER:
             you.assign_activity( std::make_unique<player_activity>(
-                std::make_unique<butcher_actor>( activity_id( "ACT_BUTCHER" ), safe_reference<item>() ) ) );
+                                     std::make_unique<butcher_actor>( activity_id( "ACT_BUTCHER" ), safe_reference<item>() ) ) );
             break;
         case BUTCHER_FULL:
             you.assign_activity( std::make_unique<player_activity>(
-                std::make_unique<butcher_actor>( activity_id( "ACT_BUTCHER_FULL" ), safe_reference<item>() ) ) );
+                                     std::make_unique<butcher_actor>( activity_id( "ACT_BUTCHER_FULL" ), safe_reference<item>() ) ) );
             break;
         case F_DRESS:
             you.assign_activity( std::make_unique<player_activity>(
-                std::make_unique<butcher_actor>( activity_id( "ACT_FIELD_DRESS" ), safe_reference<item>() ) ) );
+                                     std::make_unique<butcher_actor>( activity_id( "ACT_FIELD_DRESS" ), safe_reference<item>() ) ) );
             break;
         case BLEED:
             you.assign_activity( std::make_unique<player_activity>(
-                std::make_unique<butcher_actor>( activity_id( "ACT_BLEED" ), safe_reference<item>() ) ) );
+                                     std::make_unique<butcher_actor>( activity_id( "ACT_BLEED" ), safe_reference<item>() ) ) );
             break;
         case SKIN:
             you.assign_activity( std::make_unique<player_activity>(
-                std::make_unique<butcher_actor>( activity_id( "ACT_SKIN" ), safe_reference<item>() ) ) );
+                                     std::make_unique<butcher_actor>( activity_id( "ACT_SKIN" ), safe_reference<item>() ) ) );
             break;
         case QUARTER:
             you.assign_activity( std::make_unique<player_activity>(
-                std::make_unique<butcher_actor>( activity_id( "ACT_QUARTER" ), safe_reference<item>() ) ) );
+                                     std::make_unique<butcher_actor>( activity_id( "ACT_QUARTER" ), safe_reference<item>() ) ) );
             break;
         case DISMEMBER:
             you.assign_activity( std::make_unique<player_activity>(
-                std::make_unique<butcher_actor>( activity_id( "ACT_DISMEMBER" ), safe_reference<item>() ) ) );
+                                     std::make_unique<butcher_actor>( activity_id( "ACT_DISMEMBER" ), safe_reference<item>() ) ) );
             break;
         case DISSECT:
             you.assign_activity( std::make_unique<player_activity>(
-                std::make_unique<butcher_actor>( activity_id( "ACT_DISSECT" ), safe_reference<item>() ) ) );
+                                     std::make_unique<butcher_actor>( activity_id( "ACT_DISSECT" ), safe_reference<item>() ) ) );
             break;
         default:
             return;
@@ -13020,7 +13020,7 @@ void game::apply_movement_effects()
         };
         const std::string forage_type = get_option<std::string>( "AUTO_FORAGING" );
         if( forage_type != "off" ) {
-            const auto forage = [&]( const tripoint_abs_ms &pos ) {
+            const auto forage = [&]( const tripoint_abs_ms & pos ) {
                 const auto &xter_t = here.ter( pos )->obj().examine;
                 const auto &xfurn_t = here.furn( pos )->obj().examine;
                 const bool forage_everything = forage_type == "both";
@@ -13057,7 +13057,7 @@ void game::apply_movement_effects()
             }
             if( !corpses.empty() ) {
                 auto actor = std::make_unique<butcher_actor>( activity_id( "ACT_BUTCHER" ),
-                            safe_reference<item>( corpses[0] ) );
+                             safe_reference<item>( corpses[0] ) );
                 for( size_t i = 1; i < corpses.size(); ++i ) {
                     actor->add_extra_corpse( safe_reference<item>( corpses[i] ) );
                 }
@@ -13069,7 +13069,7 @@ void game::apply_movement_effects()
                     if( maybe_corpse->is_corpse() && maybe_corpse->can_revive() &&
                         !maybe_corpse->get_mtype()->bloodType().obj().has_acid ) {
                         u.assign_activity( std::make_unique<player_activity>(
-                            std::make_unique<pulp_actor>( pos, true ) ) );
+                                               std::make_unique<pulp_actor>( pos, true ) ) );
                         u.activity->auto_resume = true;
                         return;
                     }

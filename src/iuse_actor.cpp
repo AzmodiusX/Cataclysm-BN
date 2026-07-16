@@ -596,7 +596,8 @@ std::unique_ptr<iuse_actor> explosion_iuse::clone() const
 // Those points must have a clear line of sight and a clear path to
 // the center of the explosion.
 // They must also be passable.
-static std::vector<tripoint_abs_ms> points_for_gas_cloud( mapbuffer &here, const tripoint_abs_ms &center,
+static std::vector<tripoint_abs_ms> points_for_gas_cloud( mapbuffer &here,
+        const tripoint_abs_ms &center,
         int radius )
 {
     std::vector<tripoint_abs_ms> result;
@@ -676,18 +677,20 @@ int explosion_iuse::use( Character &p, item &it, bool t, const tripoint_abs_ms &
     return 1;
 }
 
-void explosion_iuse::trigger_explosion( mapbuffer &here, const tripoint_abs_ms &pos, Creature *source ) const
+void explosion_iuse::trigger_explosion( mapbuffer &here, const tripoint_abs_ms &pos,
+                                        Creature *source ) const
 {
     tripoint_bub_ms pos_bub = abs_to_bub( pos );
     if( here.get_dimension_id() != g_active_dimension_id || !get_map().inbounds( abs_to_bub( pos ) ) ) {
         return;
     }
-    if( explosion) {
+    if( explosion ) {
         explosion_handler::explosion( pos_bub, explosion, source );
     }
 
     if( draw_explosion_radius >= 0 ) {
-        explosion_handler::draw_explosion( pos_bub, draw_explosion_radius, draw_explosion_color, "explosion" );
+        explosion_handler::draw_explosion( pos_bub, draw_explosion_radius, draw_explosion_color,
+                                           "explosion" );
     }
     if( do_flashbang ) {
         explosion_handler::flashbang( pos_bub, flashbang_player_immune, "explosion" );
@@ -1508,7 +1511,7 @@ int deploy_furn_actor::use( Character &p, item &it, bool t, const tripoint_abs_m
     const furn_t &furn_obj = furn_type.obj();
     auto items = here.get_items( pnt );
     if( ( furn_obj.has_flag( TFLAG_SEALED ) || furn_obj.has_flag( TFLAG_NOITEM ) ) &&
-        ( !items || items->empty()) ) {
+        ( !items || items->empty() ) ) {
         p.add_msg_if_player( m_info, _( "Can't put that here - items in the way." ) );
         return 0;
     }
@@ -1638,7 +1641,8 @@ void reveal_map_actor::reveal_targets( const tripoint_abs_omt &map ) const
     }
 }
 
-void reveal_map_actor::show_revealed( Character &p, item &item, const tripoint_abs_omt &center ) const
+void reveal_map_actor::show_revealed( Character &p, item &item,
+                                      const tripoint_abs_omt &center ) const
 {
     uistate.overmap_highlighted_omts.clear();
 
@@ -1829,7 +1833,8 @@ void firestarter_actor::resolve_firestarter_use( Character &p, const tripoint_ab
     }
 }
 
-ret_val<bool> firestarter_actor::can_use( const Character &p, const item &it, bool, const tripoint_abs_ms &pos ) const
+ret_val<bool> firestarter_actor::can_use( const Character &p, const item &it, bool,
+        const tripoint_abs_ms &pos ) const
 {
     if( p.is_underwater() ) {
         return ret_val<bool>::make_failure( _( "You can't do that while underwater." ) );
@@ -1913,7 +1918,7 @@ int firestarter_actor::use( Character &p, item &it, bool t, const tripoint_abs_m
     const int potential_skill_gain =
         moves_modifier + moves_cost_fast / 100.0 + 2;
     auto fire_actor = std::make_unique<start_fire_actor>(
-        g->natural_light_level( pos.z() ), pos );
+                          g->natural_light_level( pos.z() ), pos );
     p.assign_activity( std::make_unique<player_activity>( std::move( fire_actor ) ) );
     p.activity->add_tool( &it );
     // charges to use are handled by the activity
@@ -2307,7 +2312,7 @@ int enzlave_actor::use( Character &p, item &it, bool t, const tripoint_abs_ms & 
     const int moves = difficulty * to_moves<int>( 12_seconds ) / p.get_skill_level( skill_firstaid );
 
     p.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<make_zlave_actor>( success, corpses[selected_corpse]->display_name() ) ) );
+                           std::make_unique<make_zlave_actor>( success, corpses[selected_corpse]->display_name() ) ) );
 
     return cost >= 0 ? cost : it.ammo_required();
 }
@@ -2894,7 +2899,8 @@ bool holster_actor::can_holster( const item &obj ) const
     std::find( skills.begin(), skills.end(), obj.gun_skill() ) != skills.end();
 }
 
-detached_ptr<item> holster_actor::store( Character &p, item &holster, detached_ptr<item> &&obj ) const
+detached_ptr<item> holster_actor::store( Character &p, item &holster,
+        detached_ptr<item> &&obj ) const
 {
     if( obj->is_null() || holster.is_null() ) {
         debugmsg( "Null item was passed to holster_actor" );
@@ -3298,10 +3304,10 @@ int repair_item_actor::use( Character &p, item &it, bool, const tripoint_abs_ms 
     }
 
     p.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<repair_actor>(
-            type, safe_reference<item>( &it ), p.get_item_position( &it )
-        )
-    ) );
+                           std::make_unique<repair_actor>(
+                               type, safe_reference<item>( &it ), p.get_item_position( &it )
+                           )
+                       ) );
     // All repairs are done in the activity, including charge cost and target item selection
     return 0;
 }
@@ -3915,7 +3921,7 @@ int heal_actor::use( Character &p, item &it, bool, const tripoint_abs_ms &pos ) 
         // Assign first aid long action.
         /** @EFFECT_FIRSTAID speeds up firstaid activity */
         p.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<firstaid_actor>( hpp.str(), safe_reference<item>( &it ) ) ) );
+                               std::make_unique<firstaid_actor>( hpp.str(), safe_reference<item>( &it ) ) ) );
         p.moves = 0;
         return 0;
     }
@@ -4332,8 +4338,10 @@ bool place_trap_actor::is_allowed( Character &p, const tripoint_abs_ms &pos,
         return false;
     }
     if( needs_solid_neighbor ) {
-        if( !is_solid_neighbor( here, pos, point_rel_ms::east() ) && !is_solid_neighbor( here, pos, point_rel_ms::south() ) &&
-            !is_solid_neighbor( here, pos, point_rel_ms::south_east() ) && !is_solid_neighbor( here, pos, point_rel_ms::north_east() ) ) {
+        if( !is_solid_neighbor( here, pos, point_rel_ms::east() ) &&
+            !is_solid_neighbor( here, pos, point_rel_ms::south() ) &&
+            !is_solid_neighbor( here, pos, point_rel_ms::south_east() ) &&
+            !is_solid_neighbor( here, pos, point_rel_ms::north_east() ) ) {
             p.add_msg_if_player( m_info, _( "You must place the %s between two solid tiles." ), name );
             return false;
         }
@@ -4357,7 +4365,8 @@ bool place_trap_actor::is_allowed( Character &p, const tripoint_abs_ms &pos,
     return true;
 }
 
-static void place_and_add_as_known( Character &p, const tripoint_abs_ms &pos, const trap_str_id &id )
+static void place_and_add_as_known( Character &p, const tripoint_abs_ms &pos,
+                                    const trap_str_id &id )
 {
     auto &here = p.get_mapbuffer();
     here.set_trap( pos, id );
@@ -4493,7 +4502,8 @@ int saw_barrel_actor::use( Character &p, item &it, bool t, const tripoint_abs_ms
     return 0;
 }
 
-ret_val<bool> saw_barrel_actor::can_use_on( const Character &, const item &, const item &target ) const
+ret_val<bool> saw_barrel_actor::can_use_on( const Character &, const item &,
+        const item &target ) const
 {
     if( !target.is_gun() ) {
         return ret_val<bool>::make_failure( _( "It's not a gun." ) );
@@ -4551,7 +4561,8 @@ int saw_stock_actor::use( Character &p, item &it, bool t,
     return 0;
 }
 
-ret_val<bool> saw_stock_actor::can_use_on( const Character &, const item &, const item &target ) const
+ret_val<bool> saw_stock_actor::can_use_on( const Character &, const item &,
+        const item &target ) const
 {
     if( !target.is_gun() ) {
         return ret_val<bool>::make_failure( _( "It's not a gun." ) );
@@ -4906,7 +4917,7 @@ int deploy_tent_actor::use( Character &p, item &it, bool, const tripoint_abs_ms 
     // spaces away from the player.
     // First check there's enough room.
     tripoint_abs_ms center = p.abs_pos() + tripoint_rel_ms( ( radius + 1 ) * direction.x(),
-                                    ( radius + 1 ) * direction.y(), 0 );
+                             ( radius + 1 ) * direction.y(), 0 );
     for( const auto &dest : simulated_tiles_in_radius( here, center, radius ) ) {
         if( const auto vp = dest.vehicle_part() ) {
             add_msg( m_info, _( "The %s is in the way." ), vp->vehicle().name );
@@ -6201,10 +6212,10 @@ auto hand_crank_actor::use( Character &p, item &it, bool, const tripoint_abs_ms 
         const auto moves = to_moves<int>( required_duration );
         const auto interval_turns = to_turns<int>( resolved_charge_interval );
         p.assign_activity( std::make_unique<player_activity>(
-            std::make_unique<hand_crank_charge_actor>(
-                interval_turns, safe_charge_amount, fatigue_per_interval, ammo_type
-            )
-        ) );
+                               std::make_unique<hand_crank_charge_actor>(
+                                   interval_turns, safe_charge_amount, fatigue_per_interval, ammo_type
+                               )
+                           ) );
         p.activity->add_tool( &it );
     } else {
         p.add_msg_if_player( _( already_charged_message ), it.tname(), magazine->tname() );
@@ -7017,11 +7028,12 @@ void iuse_flowerpot_collect::load( const JsonObject & )
 
 }
 
-auto iuse_flowerpot_collect::use( Character &who, item &, bool, const tripoint_abs_ms &pt ) const -> int
+auto iuse_flowerpot_collect::use( Character &who, item &, bool,
+                                  const tripoint_abs_ms &pt ) const -> int
 {
     auto &here = who.get_mapbuffer();
-    const auto get_harvestable_furn = [&here]( const tripoint_bub_ms &pos ) {
-        return here.has_flag( TFLAG_PLANT, bub_to_abs(pos) );
+    const auto get_harvestable_furn = [&here]( const tripoint_bub_ms & pos ) {
+        return here.has_flag( TFLAG_PLANT, bub_to_abs( pos ) );
     };
 
     const auto source_pos_opt =
@@ -7216,7 +7228,8 @@ ret_val<bool> iuse_dimension_travel::can_use( const Character &, const item &it,
     return ret_val<bool>::make_success();
 }
 
-void iuse_dimension_travel::dimension_travel( Character &p, item &, const tripoint_abs_ms &pos ) const
+void iuse_dimension_travel::dimension_travel( Character &p, item &,
+        const tripoint_abs_ms &pos ) const
 {
     if( destination.is_empty() ) {
         p.add_msg_if_player( m_bad, _( "This item has no destination configured." ) );
@@ -7689,7 +7702,7 @@ void iuse_pocket_dimension::exit_pocket( Character &p, item &it ) const
     // travel_to_dimension clears stale bounds before loading the map.
     g->travel_to_dimension( return_dimension_id, return_world_type, std::nullopt,
                             return_preload_point );
-    
+
     auto &here = MAPBUFFER_REGISTRY.get( return_dimension_id );
     const auto safe = find_safe_spawn( here, return_point );
     p.setpos( safe );
@@ -8078,7 +8091,7 @@ auto iuse_paint_stuff_vehicle( Character &who, item &it, bool,
     const auto &target_veh = veh_opt->vehicle();
 
     const std::optional<std::pair<tripoint_bub_ms, tripoint_bub_ms>> area =
-          choose_area( _( "Paint Vehicle" ), veh_pos );
+                choose_area( _( "Paint Vehicle" ), veh_pos );
     if( !area.has_value() ) {
         add_msg( _( "Never mind." ) );
         return 0;
@@ -8270,7 +8283,8 @@ void iuse_paint_stuff_config::load( const JsonObject &jo )
     }
 }
 
-auto iuse_paint_stuff_config::use( Character &, item &it, bool, const tripoint_abs_ms &pt ) const -> int
+auto iuse_paint_stuff_config::use( Character &, item &it, bool,
+                                   const tripoint_abs_ms &pt ) const -> int
 {
 
     enum eMode {
@@ -8359,7 +8373,7 @@ auto iuse_paint_stuff::use( Character &who, item &it, const bool b,
     bool has_furn_near = false;
     for( auto handle : simulated_tiles_in_radius( here, pos, 1 ) ) {
         tripoint_abs_ms ap = handle.abs_pos();
-        if( handle.furn() != f_null && ter_furn_painter<true>{here}.can_paint( ap )) {
+        if( handle.furn() != f_null && ter_furn_painter<true> {here}.can_paint( ap ) ) {
             has_furn_near = true;
             break;
         }
@@ -8371,7 +8385,7 @@ auto iuse_paint_stuff::use( Character &who, item &it, const bool b,
     bool has_terrain_near = false;
     for( auto handle : simulated_tiles_in_radius( here, pos, 1 ) ) {
         tripoint_abs_ms ap = handle.abs_pos();
-        if( handle.ter() != t_null && ter_furn_painter<false>{here}.can_paint( ap )) {
+        if( handle.ter() != t_null && ter_furn_painter<false> {here}.can_paint( ap ) ) {
             has_terrain_near = true;
             break;
         }

@@ -407,7 +407,7 @@ static bool check_butcher_cbm( const int roll )
 }
 
 void extract_or_wreck_cbms( std::vector<detached_ptr<item>> &cbms, int roll,
-                                   Character &who )
+                            Character &who )
 {
     if( roll < 0 ) {
         return;
@@ -773,8 +773,8 @@ static int corpse_damage_effect( int weight, const std::string &entry_type, int 
 }
 
 void butchery_drops_harvest( item *corpse_item, const mtype &mt, Character &who,
-                                    const std::function<int()> &roll_butchery, butcher_type action,
-                                    const std::function<double()> &roll_drops )
+                             const std::function<int()> &roll_butchery, butcher_type action,
+                             const std::function<double()> &roll_drops )
 {
     who.add_msg_if_player( m_neutral, mt.harvest->message() );
     int monster_weight = to_gram( mt.weight );
@@ -786,7 +786,7 @@ void butchery_drops_harvest( item *corpse_item, const mtype &mt, Character &who,
         monster_weight = std::round( 0.85 * monster_weight );
         if( action != F_DRESS ) {
             who.add_msg_if_player( m_bad,
-                                 _( "You salvage what you can from the corpse, but it is badly damaged." ) );
+                                   _( "You salvage what you can from the corpse, but it is badly damaged." ) );
         }
     }
     if( corpse_item->has_flag( flag_SKINNED ) ) {
@@ -829,34 +829,34 @@ void butchery_drops_harvest( item *corpse_item, const mtype &mt, Character &who,
                 if( drop != nullptr && !drop->bionic ) {
                     if( one_in( 3 ) ) {
                         who.add_msg_if_player( m_bad,
-                                             _( "You notice something embedded in the corpse, perhaps harvestable via careful dissection." ) );
+                                               _( "You notice something embedded in the corpse, perhaps harvestable via careful dissection." ) );
                     }
                     continue;
                 }
                 who.add_msg_if_player( m_bad,
-                                     _( "You notice there are implants in this corpse, that careful dissection might preserve." ) );
+                                       _( "You notice there are implants in this corpse, that careful dissection might preserve." ) );
                 continue;
             }
             if( action == BUTCHER || action == BUTCHER_FULL || action == DISMEMBER ) {
                 if( drop != nullptr && !drop->bionic ) {
                     if( one_in( 3 ) ) {
                         who.add_msg_if_player( m_bad,
-                                             _( "Your butchering tool destroys something.  Perhaps a more surgical approach would allow harvesting it." ) );
+                                               _( "Your butchering tool destroys something.  Perhaps a more surgical approach would allow harvesting it." ) );
                     }
                     continue;
                 }
                 switch( rng( 1, 3 ) ) {
                     case 1:
                         who.add_msg_if_player( m_bad,
-                                             _( "Your butchering tool encounters something implanted in this corpse, but your rough cuts destroy it." ) );
+                                               _( "Your butchering tool encounters something implanted in this corpse, but your rough cuts destroy it." ) );
                         break;
                     case 2:
                         who.add_msg_if_player( m_bad,
-                                             _( "You find traces of implants in the body, but you care only for the flesh." ) );
+                                               _( "You find traces of implants in the body, but you care only for the flesh." ) );
                         break;
                     case 3:
                         who.add_msg_if_player( m_bad,
-                                             _( "You found some implants in the body, but harvesting them would require more surgical approach." ) );
+                                               _( "You found some implants in the body, but harvesting them would require more surgical approach." ) );
                         break;
                 }
                 continue;
@@ -1041,7 +1041,7 @@ void butchery_drops_harvest( item *corpse_item, const mtype &mt, Character &who,
 
     if( action != DISSECT ) {
         who.practice( skill_survival, std::max( 0, practice ), std::max( mt.size - creature_size::medium,
-                    0 ) + 4 );
+                      0 ) + 4 );
     }
 }
 
@@ -1049,8 +1049,8 @@ void butchery_quarter( item *corpse_item, const Character &who )
 {
     corpse_item->set_flag( flag_QUARTERED );
     who.add_msg_if_player( m_good,
-                         _( "You roughly slice the corpse of %s into four parts and set them aside." ),
-                         corpse_item->get_mtype()->nname() );
+                           _( "You roughly slice the corpse of %s into four parts and set them aside." ),
+                           corpse_item->get_mtype()->nname() );
     map &here = get_map();
     // 4 quarters (one exists, add 3, flag does the rest)
     for( int i = 1; i <= 3; i++ ) {
@@ -1495,10 +1495,10 @@ void patch_activity_for_vehicle(
     activity.index = INT_MIN;
     // Data for lookup vehicle part
     activity = player_activity(
-        std::make_unique<repair_actor>(
-            hack_type_t::vehicle, bub_to_abs( veh_part_position ), it, crafter_index
-        )
-    );
+                   std::make_unique<repair_actor>(
+                       hack_type_t::vehicle, bub_to_abs( veh_part_position ), it, crafter_index
+                   )
+               );
 }
 
 void patch_activity_for_furniture( player_activity &activity,
@@ -1516,10 +1516,10 @@ void patch_activity_for_furniture( player_activity &activity,
     activity.index = INT_MIN;
     // Data for lookup furniture
     activity = player_activity(
-        std::make_unique<repair_actor>(
-            hack_type_t::furniture, bub_to_abs( furniture_position ), itt, -1
-        )
-    );
+                   std::make_unique<repair_actor>(
+                       hack_type_t::furniture, bub_to_abs( furniture_position ), itt, -1
+                   )
+               );
 }
 
 } // namespace repair_activity_hack

@@ -940,22 +940,22 @@ static bool vehicle_activity( player &p, const tripoint_bub_ms &src_loc, int vpi
         veh_points.insert( pt );
     }
     p.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<vehicle_work_actor>( vehicle_work_actor_options{
-            .command = type,
-            .part_pos = part_pos,
-            .cursor_mount = tripoint_mnt_veh::zero(),
-            .part_type = vp.get_id(),
-            .part_index = veh->index_of_part( &veh->part( vpindex ) ),
-            .moves_total = time_to_take,
-            .vehicle_points = std::move( veh_points ),
-        } )
-    ) );
+    std::make_unique<vehicle_work_actor>( vehicle_work_actor_options{
+        .command = type,
+        .part_pos = part_pos,
+        .cursor_mount = tripoint_mnt_veh::zero(),
+        .part_type = vp.get_id(),
+        .part_index = veh->index_of_part( &veh->part( vpindex ) ),
+        .moves_total = time_to_take,
+        .vehicle_points = std::move( veh_points ),
+    } )
+                       ) );
     p.activity_vehicle_part_index = -1;
     return true;
 }
 
 void move_item( Character &p, item &it, const int quantity, const tripoint_bub_ms &src,
-               const tripoint_bub_ms &dest, const activity_id &activity_to_restore )
+                const tripoint_bub_ms &dest, const activity_id &activity_to_restore )
 {
     // Check that we can pick it up.
     if( it.made_of( LIQUID ) ) {
@@ -2268,8 +2268,8 @@ static bool butcher_corpse_activity( player &p, const tripoint_bub_ms &src_loc,
             }
             elem->set_var( "activity_var", p.name );
             p.assign_activity( std::make_unique<player_activity>(
-                std::make_unique<butcher_actor>(
-                    activity_id( "ACT_BUTCHER_FULL" ), safe_reference<item>( elem ) ) ) );
+                                   std::make_unique<butcher_actor>(
+                                       activity_id( "ACT_BUTCHER_FULL" ), safe_reference<item>( elem ) ) ) );
             p.activity->placement = bub_to_abs( src_loc );
             return true;
         }
@@ -3371,11 +3371,11 @@ bool find_auto_consume( Character &p, const consume_type type )
 
     auto stalest = mgr.get_near( consume_type_zone, pos, ACTIVITY_SEARCH_DISTANCE )
                    | views::filter( [&]( const auto & loc ) -> bool { return loc.z() == p.abs_pos().z(); } )
-                   | flat_map( []( const tripoint_abs_ms &loc ) {
-                       return map_funcs::get_items_at( get_map().get_mapbuffer(), loc );
-                   } )
-                   | views::filter( ok_to_consume )
-                   | min_by( &item::spoilage_sort_order );
+    | flat_map( []( const tripoint_abs_ms & loc ) {
+        return map_funcs::get_items_at( get_map().get_mapbuffer(), loc );
+    } )
+    | views::filter( ok_to_consume )
+    | min_by( &item::spoilage_sort_order );
     if( !stalest ) {
         return false;
     }

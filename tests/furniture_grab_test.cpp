@@ -15,9 +15,7 @@
 
 #include <array>
 
-static auto grabbed_ramp_abs_x() -> int {
-    return test_origin.x() + 30;
-}
+static auto grabbed_ramp_abs_x() -> int { return test_origin.x() + 30; }
 
 static auto set_ramp_for_furniture(const int transit_x, const bool use_ramp, const bool up)
     -> void {
@@ -36,8 +34,8 @@ static auto set_ramp_for_furniture(const int transit_x, const bool use_ramp, con
         const auto max_y = T_MAPSIZE_Y - 1;
 
         for (const auto z : std::array{-1, 0, 1}) {
-            for (const auto& handle : simulated_tiles_in_rectangle(here,
-                     tripoint_abs_ms(0, 0, z), tripoint_abs_ms(transit_x, max_y, z))) {
+            for (const auto& handle : simulated_tiles_in_rectangle(
+                     here, tripoint_abs_ms(0, 0, z), tripoint_abs_ms(transit_x, max_y, z))) {
                 auto pos = handle.abs_pos();
                 if ((up && pos.z() == upper_zlevel) || (!up && pos.z() == lower_zlevel)) {
                     here.set_ter(pos, ter_id("t_pavement"));
@@ -50,8 +48,9 @@ static auto set_ramp_for_furniture(const int transit_x, const bool use_ramp, con
         }
 
         for (const auto z : std::array{-1, 0, 1}) {
-            for (const auto& handle : simulated_tiles_in_rectangle(here,
-                     tripoint_abs_ms(transit_x + 2, 0, z), tripoint_abs_ms(max_x, max_y, z))) {
+            for (const auto& handle : simulated_tiles_in_rectangle(
+                     here, tripoint_abs_ms(transit_x + 2, 0, z),
+                     tripoint_abs_ms(max_x, max_y, z))) {
                 auto pos = handle.abs_pos();
                 if (pos.z() == 0) {
                     here.set_ter(pos, ter_id("t_pavement"));
@@ -63,26 +62,26 @@ static auto set_ramp_for_furniture(const int transit_x, const bool use_ramp, con
             }
         }
 
-        for (const auto& handle : simulated_tiles_in_rectangle(here,
-                 tripoint_abs_ms(lowx, 0, lower_zlevel),
+        for (const auto& handle : simulated_tiles_in_rectangle(
+                 here, tripoint_abs_ms(lowx, 0, lower_zlevel),
                  tripoint_abs_ms(lowx, max_y, lower_zlevel))) {
             auto pos = handle.abs_pos();
             here.set_ter(pos, ter_id("t_ramp_up_low"));
         }
-        for (const auto& handle : simulated_tiles_in_rectangle(here,
-                 tripoint_abs_ms(highx, 0, lower_zlevel),
+        for (const auto& handle : simulated_tiles_in_rectangle(
+                 here, tripoint_abs_ms(highx, 0, lower_zlevel),
                  tripoint_abs_ms(highx, max_y, lower_zlevel))) {
             auto pos = handle.abs_pos();
             here.set_ter(pos, ter_id("t_ramp_up_high"));
         }
-        for (const auto& handle : simulated_tiles_in_rectangle(here,
-                 tripoint_abs_ms(lowx, 0, upper_zlevel),
+        for (const auto& handle : simulated_tiles_in_rectangle(
+                 here, tripoint_abs_ms(lowx, 0, upper_zlevel),
                  tripoint_abs_ms(lowx, max_y, upper_zlevel))) {
             auto pos = handle.abs_pos();
             here.set_ter(pos, ter_id("t_ramp_down_low"));
         }
-        for (const auto& handle : simulated_tiles_in_rectangle(here,
-                 tripoint_abs_ms(highx, 0, upper_zlevel),
+        for (const auto& handle : simulated_tiles_in_rectangle(
+                 here, tripoint_abs_ms(highx, 0, upper_zlevel),
                  tripoint_abs_ms(highx, max_y, upper_zlevel))) {
             auto pos = handle.abs_pos();
             here.set_ter(pos, ter_id("t_ramp_down_high"));
@@ -127,13 +126,12 @@ TEST_CASE("grabbed_furniture_can_be_pulled_up_ramp", "[furniture][ramp][grab]") 
     const auto dangerous_prompt = override_option("DANGEROUS_TERRAIN_WARNING_PROMPT", "IGNORE");
     const auto ramp_x = grabbed_ramp_abs_x();
     set_ramp_for_furniture(ramp_x, true, true);
-    
+
     auto& player_character = get_avatar();
     auto& here = player_character.get_mapbuffer();
     const auto test_furniture = furn_id("f_chair");
-    setup_grabbed_furniture(tripoint_abs_ms(ramp_x + 1, 0, 0),
-                            tripoint_abs_ms(ramp_x + 2, 0, 0),
-                            test_furniture);
+    setup_grabbed_furniture(
+        tripoint_abs_ms(ramp_x + 1, 0, 0), tripoint_abs_ms(ramp_x + 2, 0, 0), test_furniture);
 
     REQUIRE(avatar_action::move(player_character, tripoint_rel_ms::west()));
     CHECK(player_character.abs_pos() == tripoint_abs_ms(ramp_x, 0, 1));
@@ -155,9 +153,8 @@ TEST_CASE("grabbed_furniture_can_be_pushed_up_ramp", "[furniture][ramp][grab]") 
     auto& player_character = get_avatar();
     auto& here = player_character.get_mapbuffer();
     const auto test_furniture = furn_id("f_chair");
-    setup_grabbed_furniture(tripoint_abs_ms(ramp_x + 3, 0, 0),
-                            tripoint_abs_ms(ramp_x + 2, 0, 0),
-                            test_furniture);
+    setup_grabbed_furniture(
+        tripoint_abs_ms(ramp_x + 3, 0, 0), tripoint_abs_ms(ramp_x + 2, 0, 0), test_furniture);
 
     REQUIRE(avatar_action::move(player_character, tripoint_rel_ms::west()));
     CHECK(player_character.abs_pos() == tripoint_abs_ms(ramp_x + 2, 0, 0));
@@ -184,9 +181,8 @@ TEST_CASE("grabbed_furniture_can_be_pulled_down_ramp", "[furniture][ramp][grab]"
     auto& player_character = get_avatar();
     auto& here = player_character.get_mapbuffer();
     const auto test_furniture = furn_id("f_chair");
-    setup_grabbed_furniture(tripoint_abs_ms(ramp_x + 1, 0, 0),
-                            tripoint_abs_ms(ramp_x + 2, 0, 0),
-                            test_furniture);
+    setup_grabbed_furniture(
+        tripoint_abs_ms(ramp_x + 1, 0, 0), tripoint_abs_ms(ramp_x + 2, 0, 0), test_furniture);
 
     REQUIRE(avatar_action::move(player_character, tripoint_rel_ms::west()));
     CHECK(player_character.abs_pos() == tripoint_abs_ms(ramp_x, 0, -1));
@@ -204,13 +200,12 @@ TEST_CASE("grabbed_furniture_can_be_pushed_down_ramp", "[furniture][ramp][grab]"
     const auto dangerous_prompt = override_option("DANGEROUS_TERRAIN_WARNING_PROMPT", "IGNORE");
     const auto ramp_x = grabbed_ramp_abs_x();
     set_ramp_for_furniture(ramp_x, true, false);
-    
+
     auto& player_character = get_avatar();
     auto& here = player_character.get_mapbuffer();
     const auto test_furniture = furn_id("f_chair");
-    setup_grabbed_furniture(tripoint_abs_ms(ramp_x + 3, 0, 0),
-                            tripoint_abs_ms(ramp_x + 2, 0, 0),
-                            test_furniture);
+    setup_grabbed_furniture(
+        tripoint_abs_ms(ramp_x + 3, 0, 0), tripoint_abs_ms(ramp_x + 2, 0, 0), test_furniture);
 
     REQUIRE(avatar_action::move(player_character, tripoint_rel_ms::west()));
     CHECK(player_character.abs_pos() == tripoint_abs_ms(ramp_x + 2, 0, 0));
@@ -231,7 +226,7 @@ TEST_CASE("grabbed_furniture_can_be_pushed_down_ramp", "[furniture][ramp][grab]"
 TEST_CASE("dragging_furniture_burns_extra_stamina", "[furniture][grab][stamina]") {
     clear_all_state();
     set_ramp_for_furniture(60, false, true);
-    
+
     auto& player_character = get_avatar();
     auto& here = player_character.get_mapbuffer();
     player_character.setpos(tripoint_abs_ms(1, 0, 0));

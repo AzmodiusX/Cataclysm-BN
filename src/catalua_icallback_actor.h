@@ -29,7 +29,8 @@ class lua_iuse_actor : public iuse_actor
         ~lua_iuse_actor() override;
         void load( const JsonObject &obj ) override;
         int use( Character &, item &, bool, const tripoint_abs_ms & ) const override;
-        ret_val<bool> can_use( const Character &, const item &, bool, const tripoint_abs_ms & ) const override;
+        ret_val<bool> can_use( const Character &, const item &, bool,
+                               const tripoint_abs_ms & ) const override;
         std::unique_ptr<iuse_actor> clone() const override;
 };
 

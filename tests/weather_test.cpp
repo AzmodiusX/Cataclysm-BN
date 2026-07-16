@@ -94,9 +94,8 @@ TEST_CASE("eternal seasons", "[weather]") {
             CAPTURE(i);
             CHECK(generator.get_weather_temperature(test_origin, mid_season, no_eternal, seed)
                   == (is_initial_season ? 100_c : 0_c));
-            CHECK(
-                generator.get_weather_temperature(test_origin, mid_season, yes_eternal, seed)
-                == 100_c);
+            CHECK(generator.get_weather_temperature(test_origin, mid_season, yes_eternal, seed)
+                  == 100_c);
         }
     }
 }

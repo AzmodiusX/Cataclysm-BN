@@ -2987,7 +2987,7 @@ static bool has_rail_at_abs( const mapbuffer &buf, const tripoint_abs_ms &p )
         p + tripoint_rel_ms( 0, 0, 1 ),
         p + tripoint_rel_ms( 0, 0, -1 ),
     };
-    return std::ranges::any_of( neighbors, [&]( const tripoint_abs_ms &candidate ) {
+    return std::ranges::any_of( neighbors, [&]( const tripoint_abs_ms & candidate ) {
         auto ct = abs_tile_handle::fetch( const_cast<mapbuffer &>( buf ), candidate );
         return ct && ct->has_flag_ter_or_furn( "RAIL" );
     } );
@@ -3110,10 +3110,11 @@ auto mapbuffer::obstructed_by_vehicle_rotation( const tripoint_abs_ms &from,
 
     // Slow path: out of bubble — check loaded vehicle parts directly
     // Use const_cast since veh_at() is non-const but the operation is read-only.
-    const auto check_vehicle_block = [this]( const tripoint_abs_ms &part_tile,
-    const tripoint_abs_ms &neighbor ) -> bool {
+    const auto check_vehicle_block = [this]( const tripoint_abs_ms & part_tile,
+    const tripoint_abs_ms & neighbor ) -> bool {
         const auto vp = const_cast<mapbuffer &>( *this ).veh_at( part_tile );
-        if( !vp ) {
+        if( !vp )
+        {
             return false;
         }
         const vehicle *v = &vp->vehicle();
@@ -3522,7 +3523,7 @@ auto mapbuffer::shift_vehicle_z( vehicle &veh, int z_shift ) -> void
 
     // Update vehicle list in map cache if in bubble
     if( const auto local_dst = active_reality_bubble_local(
-            tripoint_abs_ms( point_abs_ms( dst.x() * SEEX, dst.y() * SEEY ), dst.z() ) ) ) {
+                                   tripoint_abs_ms( point_abs_ms( dst.x() * SEEX, dst.y() * SEEY ), dst.z() ) ) ) {
         map &here = get_map();
         here.invalidate_max_populated_zlev( dst.z() );
         here.update_vehicle_list( dst_submap, dst.z() );
@@ -3530,7 +3531,7 @@ auto mapbuffer::shift_vehicle_z( vehicle &veh, int z_shift ) -> void
 
     // Clean up from src z-level cache
     if( const auto local_src_z = active_reality_bubble_local(
-            tripoint_abs_ms( point_abs_ms( src.x() * SEEX, src.y() * SEEY ), src.z() ) ) ) {
+                                     tripoint_abs_ms( point_abs_ms( src.x() * SEEX, src.y() * SEEY ), src.z() ) ) ) {
         map &here = get_map();
         level_cache &ch = here.get_cache( src.z() );
         for( const vehicle *elem : ch.vehicle_list ) {
@@ -3723,9 +3724,10 @@ auto mapbuffer::move_vehicle( vehicle &veh, const tripoint_rel_ms &dp,
     Character &player_character = get_player_character();
 
     // Determine if the vehicle is seen — only relevant in the bubble
-    auto sees_veh = []( const Creature &c, vehicle &veh, bool force_recalc ) -> bool {
+    auto sees_veh = []( const Creature & c, vehicle & veh, bool force_recalc ) -> bool {
         const auto &veh_points = veh.get_points( force_recalc );
-        return std::ranges::any_of( veh_points, [&c]( const tripoint_abs_ms &pt ) {
+        return std::ranges::any_of( veh_points, [&c]( const tripoint_abs_ms & pt )
+        {
             return c.sees( pt );
         } );
     };
@@ -3960,7 +3962,7 @@ auto mapbuffer::is_sheltered( const tripoint_abs_ms &p,
 auto mapbuffer::is_suspension_valid( const tripoint_abs_ms &point,
                                      const mapbuffer_lookup_options options ) -> bool
 {
-    auto ter_at = [&]( const tripoint_abs_ms &p ) -> std::optional<ter_id> {
+    auto ter_at = [&]( const tripoint_abs_ms & p ) -> std::optional<ter_id> {
         return ter( p, options );
     };
 
@@ -4222,7 +4224,7 @@ auto mapbuffer::emit_field( const tripoint_abs_ms &pos, const emit_id &src, cons
 
 auto mapbuffer::get_fishable_locations( const int radius, const tripoint_abs_ms &fish_pos,
                                         const mapbuffer_lookup_options options )
--> std::unordered_set<tripoint_abs_ms>
+- > std::unordered_set<tripoint_abs_ms>
 {
     std::unordered_set<tripoint_abs_ms> visited;
 
@@ -4290,7 +4292,8 @@ auto mapbuffer::is_cornerfloor( const tripoint_abs_ms &p,
     const std::array<tripoint_abs_ms, 4> diagonals = {{
             p + tripoint_north_east, p + tripoint_north_west,
             p + tripoint_south_east, p + tripoint_south_west
-        }};
+        }
+    };
 
     for( const auto &impassable_diagonal : diagonals ) {
         if( impassable_adjacent.contains( impassable_diagonal ) ) {
@@ -5730,19 +5733,20 @@ auto mapbuffer::delete_computer( const tripoint_abs_ms &p,
 }
 
 void mapbuffer::add_spawn( const mtype_id &type, int count, const tripoint_abs_ms &p, bool friendly,
-                     int faction_id, int mission_id, const std::string &name,
-                     mapbuffer_lookup_options options ) const
+                           int faction_id, int mission_id, const std::string &name,
+                           mapbuffer_lookup_options options ) const
 {
     add_spawn( type, count, p, spawn_point::friendly_to_spawn_disposition( friendly ), faction_id,
                mission_id, name );
 }
 
 void mapbuffer::add_spawn( const mtype_id &type, int count, const tripoint_abs_ms &p,
-                     spawn_disposition disposition, int faction_id, int mission_id,
-                     const std::string &name, mapbuffer_lookup_options options ) const
+                           spawn_disposition disposition, int faction_id, int mission_id,
+                           const std::string &name, mapbuffer_lookup_options options ) const
 {
     auto proj = project_remain<coords::sm>( p );
-    auto place_on_submap = MAPBUFFER_REGISTRY.get(dimension_id_).lookup_submap_in_memory( proj.quotient_tripoint );
+    auto place_on_submap = MAPBUFFER_REGISTRY.get( dimension_id_ ).lookup_submap_in_memory(
+                               proj.quotient_tripoint );
 
     if( !place_on_submap ) {
         debugmsg( "centadodecamonant doesn't exist in grid; within add_spawn(%s, %d, %d, %d, %d)",
@@ -5757,12 +5761,12 @@ void mapbuffer::add_spawn( const mtype_id &type, int count, const tripoint_abs_m
 }
 
 vehicle *mapbuffer::add_vehicle( const std::variant<vgroup_id, vproto_id> &type_,
-                           const tripoint_abs_ms &p,
-                           const units::angle dir, const int veh_fuel,
-                           const int veh_status, const bool merge_wrecks,
-                           std::optional<bool> locked,
-                           std::optional<bool> has_keys,
-                           mapbuffer_lookup_options options )
+                                 const tripoint_abs_ms &p,
+                                 const units::angle dir, const int veh_fuel,
+                                 const int veh_status, const bool merge_wrecks,
+                                 std::optional<bool> locked,
+                                 std::optional<bool> has_keys,
+                                 mapbuffer_lookup_options options )
 {
     constexpr auto pos_selector = []<typename T>( const T & v, int z ) -> tripoint_bub_ms {
         if constexpr( std::is_same_v<T, point_bub_ms> )
@@ -5791,7 +5795,8 @@ vehicle *mapbuffer::add_vehicle( const std::variant<vgroup_id, vproto_id> &type_
         return nullptr;
     }
     auto proj = project_remain<coords::sm>( p );
-    auto place_on_submap = MAPBUFFER_REGISTRY.get(dimension_id_).lookup_submap_in_memory( proj.quotient_tripoint );
+    auto place_on_submap = MAPBUFFER_REGISTRY.get( dimension_id_ ).lookup_submap_in_memory(
+                               proj.quotient_tripoint );
 
     if( !place_on_submap ) {
         debugmsg( "add_vehicle triggered for nonexistent submap t=%s d=%d p=%s",
@@ -5941,10 +5946,11 @@ std::unique_ptr<vehicle> mapbuffer::add_vehicle_to_mapbuffer(
     return veh;
 }
 
-std::set<vehicle *> mapbuffer::get_vehicles( const tripoint_abs_sm &start, const tripoint_abs_sm &end,
-                                             mapbuffer_lookup_options options )
+std::set<vehicle *> mapbuffer::get_vehicles( const tripoint_abs_sm &start,
+        const tripoint_abs_sm &end,
+        mapbuffer_lookup_options options )
 {
-    auto vehs = std::set<vehicle *>{};
+    auto vehs = std::set<vehicle *> {};
 
     if( start.x() > end.x() || start.y() > end.y() ||
         start.z() > end.z() ) {
@@ -5970,7 +5976,7 @@ std::set<vehicle *> mapbuffer::get_vehicles( mapbuffer_lookup_options options )
 }
 
 std::unique_ptr<vehicle> mapbuffer::detach_vehicle( vehicle *veh,
-                                                    mapbuffer_lookup_options options )
+        mapbuffer_lookup_options options )
 {
     if( veh == nullptr ) {
         debugmsg( "mapbuffer::detach_vehicle was passed nullptr" );
@@ -6024,7 +6030,7 @@ std::unique_ptr<vehicle> mapbuffer::detach_vehicle( vehicle *veh,
             }
             inbubble = true;
             g->m.on_vehicle_moved( abs_to_bub( footprint->min ), abs_to_bub( footprint->max ),
-                              footprint->min.z() );
+                                   footprint->min.z() );
         }
     };
 
@@ -6036,13 +6042,13 @@ std::unique_ptr<vehicle> mapbuffer::detach_vehicle( vehicle *veh,
         }
     }
     veh->invalidate_towing( true );
-    auto& here = MAPBUFFER_REGISTRY.get(dimension_id_);
+    auto &here = MAPBUFFER_REGISTRY.get( dimension_id_ );
     submap *current_submap = here.lookup_submap_in_memory( veh->abs_sm_pos );
     if( current_submap == nullptr ) {
         debugmsg( "detach_vehicle can't find submap!  name=%s, submap:%d,%d,%d",
                   veh->name, veh->abs_sm_pos.x(), veh->abs_sm_pos.y(), veh->abs_sm_pos.z() );
         here.unregister_vehicle( veh );
-        if( g->m.dirty_vehicle_list.contains( veh) ) g->m.dirty_vehicle_list.erase( veh );
+        if( g->m.dirty_vehicle_list.contains( veh ) ) { g->m.dirty_vehicle_list.erase( veh ); }
         mark_detached_vehicle_footprint_dirty();
         return std::unique_ptr<vehicle>();
     }
@@ -6073,7 +6079,8 @@ std::unique_ptr<vehicle> mapbuffer::detach_vehicle( vehicle *veh,
                 std::unique_ptr<vehicle> result = std::move( current_submap->vehicles[i] );
                 current_submap->vehicles.erase( current_submap->vehicles.begin() + i );
                 unregister_vehicle( veh );
-                if( veh->tracking_on ) { get_overmapbuffer( dimension_id_ ).remove_vehicle( veh );
+                if( veh->tracking_on ) {
+                    get_overmapbuffer( dimension_id_ ).remove_vehicle( veh );
                 }
                 veh->detach();
                 veh->refresh_position();
@@ -7390,7 +7397,7 @@ auto mapbuffer::forced_door_closing( const tripoint_abs_ms &p, const ter_id &doo
                                      int bash_dmg,
                                      const mapbuffer_lookup_options options ) -> bool
 {
-    const auto valid_location = [&]( const tripoint_abs_ms &p ) {
+    const auto valid_location = [&]( const tripoint_abs_ms & p ) {
         return ( passable( p, options ).value_or( false ) ||
                  has_flag( "LIQUID", p, options ) ) &&
                g->critter_at( p ) == nullptr;
@@ -7398,7 +7405,8 @@ auto mapbuffer::forced_door_closing( const tripoint_abs_ms &p, const ter_id &doo
     const auto get_random_point = [&]() -> tripoint_abs_ms {
         tripoint_abs_ms center;
         // Use radius iteration over simulated tiles to find a valid push point
-        for( const auto &neighbor : simulated_tiles_in_radius( *this, p, 2 ) ) {
+        for( const auto &neighbor : simulated_tiles_in_radius( *this, p, 2 ) )
+        {
             if( neighbor.abs_pos() != p && valid_location( neighbor.abs_pos() ) ) {
                 return tripoint_abs_ms( p.raw() * 2 - neighbor.abs_pos().raw() );
             }
@@ -7412,7 +7420,7 @@ auto mapbuffer::forced_door_closing( const tripoint_abs_ms &p, const ter_id &doo
     // can't pushback any creatures/items anywhere, that means the door can't close.
     const bool cannot_push = kbp == p;
     const bool can_see = g->u.sees( p );
-    
+
     auto creature = creature_at( p, false );
     auto *npc_or_player = creature ? creature->as_character() : nullptr;
     if( npc_or_player != nullptr ) {
@@ -7461,7 +7469,7 @@ auto mapbuffer::forced_door_closing( const tripoint_abs_ms &p, const ter_id &doo
         }
     }
 
-    
+
     if( const optional_vpart_position vp = veh_at( p ) ) {
         if( bash_dmg <= 0 ) {
             return false;
@@ -7528,7 +7536,7 @@ auto mapbuffer::forced_door_closing( const tripoint_abs_ms &p, const ter_id &doo
 static const ter_str_id t_rock_floor_no_roof( "t_rock_floor_no_roof" );
 
 ter_id mapbuffer::get_roof( const tripoint_abs_ms &p, const bool allow_air,
-                             mapbuffer_lookup_options options )
+                            mapbuffer_lookup_options options )
 {
     if( p.z() <= -OVERMAP_DEPTH ) {
         // Could be magma/"void" instead
@@ -7760,7 +7768,7 @@ static auto release_avatar_grabbed_furniture_if_destroyed( const tripoint_abs_ms
 }
 
 bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_params &params,
-                                           mapbuffer_lookup_options options )
+        mapbuffer_lookup_options options )
 {
     bash_results result;
     const auto maybe_ter = ter( p, options );
@@ -7899,7 +7907,7 @@ bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_p
 }
 
 bash_results mapbuffer::bash_furn_success( const tripoint_abs_ms &p, const bash_params &params,
-                                           mapbuffer_lookup_options options )
+        mapbuffer_lookup_options options )
 {
     bash_results result;
     const auto tile = lookup_tile( *this, p, options );
@@ -8202,9 +8210,9 @@ bash_results mapbuffer::bash_ter_furn( const tripoint_abs_ms &p, const bash_para
 }
 
 bash_results mapbuffer::bash( const tripoint_abs_ms &p, const int str,
-                        bool silent, bool destroy, bool bash_floor,
-                        const vehicle *bashing_vehicle,
-                        mapbuffer_lookup_options options )
+                              bool silent, bool destroy, bool bash_floor,
+                              const vehicle *bashing_vehicle,
+                              mapbuffer_lookup_options options )
 {
     const auto bsh = bash_params{
         .strength = str,
@@ -8219,8 +8227,8 @@ bash_results mapbuffer::bash( const tripoint_abs_ms &p, const int str,
 }
 
 bash_results mapbuffer::bash( const tripoint_abs_ms &p, const bash_params &bsh,
-                        const vehicle *bashing_vehicle,
-                        mapbuffer_lookup_options options )
+                              const vehicle *bashing_vehicle,
+                              mapbuffer_lookup_options options )
 {
     bash_results result;
 
@@ -8575,7 +8583,7 @@ auto mapbuffer::propagate_field( const tripoint_abs_ms &center, const field_type
                                  const mapbuffer_lookup_options options ) -> void
 {
     using gas_blast = std::pair<float, tripoint_abs_ms>;
-    auto cmp = []( const gas_blast &a, const gas_blast &b ) {
+    auto cmp = []( const gas_blast & a, const gas_blast & b ) {
         return a.first > b.first;
     };
     std::priority_queue<gas_blast, std::vector<gas_blast>, decltype( cmp )> open( cmp );

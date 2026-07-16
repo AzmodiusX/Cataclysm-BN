@@ -2236,25 +2236,21 @@ auto collect_vehicle_optics(map const& m, tripoint_bub_ms const& origin, int con
 auto pack_float_cache(
     map const& m, std::vector<int> const& levels, int const cache_xy, auto const cache_accessor,
     std::vector<int>& packed_levels, std::vector<float>& out) -> bool {
-    const auto new_size = levels.size() * static_cast<std::size_t>( cache_xy );
+    const auto new_size = levels.size() * static_cast<std::size_t>(cache_xy);
     const bool same_shape = out.size() == new_size && packed_levels == levels;
-    if( !same_shape ) {
-        out.resize( new_size );
-    }
+    if (!same_shape) { out.resize(new_size); }
     auto changed = !same_shape;
     auto level_index = std::size_t{0};
     for (auto const z : levels) {
         auto const& lc = m.get_cache_ref(z);
         auto const& src = cache_accessor(lc);
         auto* dst = out.data() + level_index * cache_xy;
-        auto *previous = dst;
-        std::ranges::transform( src, dst, [&, previous]( const float value ) mutable {
-            if( !same_shape || *previous != value ) {
-                changed = true;
-            }
+        auto* previous = dst;
+        std::ranges::transform(src, dst, [&, previous](const float value) mutable {
+            if (!same_shape || *previous != value) { changed = true; }
             ++previous;
             return value;
-        } );
+        });
         ++level_index;
     }
     packed_levels = levels;
@@ -2266,26 +2262,22 @@ auto pack_float_cache(
 auto pack_char_cache_uint(
     map const& m, std::vector<int> const& levels, int const cache_xy, auto const cache_accessor,
     std::vector<int>& packed_levels, std::vector<uint32_t>& out) -> bool {
-    const auto new_size = levels.size() * static_cast<std::size_t>( cache_xy );
+    const auto new_size = levels.size() * static_cast<std::size_t>(cache_xy);
     const bool same_shape = out.size() == new_size && packed_levels == levels;
-    if( !same_shape ) {
-        out.resize( new_size );
-    }
+    if (!same_shape) { out.resize(new_size); }
     auto changed = !same_shape;
     auto level_index = std::size_t{0};
     for (auto const z : levels) {
         auto const& lc = m.get_cache_ref(z);
         auto const& src = cache_accessor(lc);
         auto* dst = out.data() + level_index * cache_xy;
-        auto *previous = dst;
-        std::ranges::transform( src, dst, [&, previous]( const char c ) mutable -> uint32_t {
+        auto* previous = dst;
+        std::ranges::transform(src, dst, [&, previous](const char c) mutable -> uint32_t {
             const auto value = c != 0 ? 1u : 0u;
-            if( !same_shape || *previous != value ) {
-                changed = true;
-            }
+            if (!same_shape || *previous != value) { changed = true; }
             ++previous;
             return value;
-        } );
+        });
         ++level_index;
     }
     packed_levels = levels;
@@ -2294,27 +2286,24 @@ auto pack_char_cache_uint(
 
 auto pack_vehicle_obscured_cache_uint(
     map const& m, std::vector<int> const& levels, int const cache_xy,
-    std::vector<int>& packed_levels, std::vector<uint32_t>& out ) -> bool {
-    const auto new_size = levels.size() * static_cast<std::size_t>( cache_xy );
+    std::vector<int>& packed_levels, std::vector<uint32_t>& out) -> bool {
+    const auto new_size = levels.size() * static_cast<std::size_t>(cache_xy);
     const bool same_shape = out.size() == new_size && packed_levels == levels;
-    if( !same_shape ) {
-        out.resize( new_size );
-    }
+    if (!same_shape) { out.resize(new_size); }
     auto changed = !same_shape;
     auto level_index = std::size_t{0};
     for (auto const z : levels) {
         auto const& lc = m.get_cache_ref(z);
         auto* dst = out.data() + level_index * cache_xy;
-        auto *previous = dst;
-        std::ranges::transform( lc.vehicle_obscured_cache, dst,
-        [&, previous]( const diagonal_blocks &value ) mutable -> uint32_t {
-            const auto packed = ( value.nw ? 1u : 0u ) | ( value.ne ? 2u : 0u );
-            if( !same_shape || *previous != packed ) {
-                changed = true;
-            }
-            ++previous;
-            return packed;
-        } );
+        auto* previous = dst;
+        std::ranges::transform(
+            lc.vehicle_obscured_cache, dst,
+            [&, previous](const diagonal_blocks& value) mutable -> uint32_t {
+                const auto packed = (value.nw ? 1u : 0u) | (value.ne ? 2u : 0u);
+                if (!same_shape || *previous != packed) { changed = true; }
+                ++previous;
+                return packed;
+            });
         ++level_index;
     }
     packed_levels = levels;
@@ -2873,10 +2862,10 @@ auto begin_gpu_lighting(SDL_GPUDevice* const device, run_gpu_lighting_params con
     auto& vehicle_floor_staging_levels = s_lighting_resources.vehicle_floor_staging_levels;
     auto& vehicle_obscured_staging_levels = s_lighting_resources.vehicle_obscured_staging_levels;
     auto& source_map_staging_levels = s_lighting_resources.source_map_staging_levels;
-    auto const structural_upload = has_structural_upload( input_uploads );
+    auto const structural_upload = has_structural_upload(input_uploads);
     auto structural_data_changed = false;
 
-    if ( structural_upload ) {
+    if (structural_upload) {
         ZoneScopedN("gpu_lm_pack_inputs");
         if (!input_uploads.transparency_levels.empty()) {
             structural_data_changed |= pack_float_cache(
@@ -2884,15 +2873,13 @@ auto begin_gpu_lighting(SDL_GPUDevice* const device, run_gpu_lighting_params con
                 [](level_cache const& lc) -> std::vector<float> const& {
                     return lc.transparency_cache;
                 },
-                transparency_staging_levels,
-                transparency_cpu);
+                transparency_staging_levels, transparency_cpu);
         }
         if (!input_uploads.floor_levels.empty()) {
             structural_data_changed |= pack_char_cache_uint(
                 *p.m, input_uploads.floor_levels, cache_xy,
                 [](level_cache const& lc) -> std::vector<char> const& { return lc.floor_cache; },
-                floor_staging_levels,
-                floor_cpu);
+                floor_staging_levels, floor_cpu);
         }
         if (!input_uploads.vehicle_floor_levels.empty()) {
             structural_data_changed |= pack_char_cache_uint(
@@ -2900,8 +2887,7 @@ auto begin_gpu_lighting(SDL_GPUDevice* const device, run_gpu_lighting_params con
                 [](level_cache const& lc) -> std::vector<char> const& {
                     return lc.vehicle_floor_cache;
                 },
-                vehicle_floor_staging_levels,
-                vehicle_floor_cpu);
+                vehicle_floor_staging_levels, vehicle_floor_cpu);
         }
         if (!input_uploads.vehicle_obscured_levels.empty()) {
             structural_data_changed |= pack_vehicle_obscured_cache_uint(
@@ -2914,8 +2900,7 @@ auto begin_gpu_lighting(SDL_GPUDevice* const device, run_gpu_lighting_params con
         pack_float_cache(
             *p.m, source_map_upload_levels, cache_xy,
             [](level_cache const& lc) -> std::vector<float> const& { return lc.sm; },
-            source_map_staging_levels,
-            source_map_cpu);
+            source_map_staging_levels, source_map_cpu);
     }
 
     // ── Compute ambient constants per z-level ────────────────────────────────

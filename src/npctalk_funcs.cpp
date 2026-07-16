@@ -213,8 +213,8 @@ void talk_function::start_trade( npc &p )
 void talk_function::sort_loot( npc &p )
 {
     p.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<move_loot_activity_actor>()
-    ) );
+                           std::make_unique<move_loot_activity_actor>()
+                       ) );
 }
 
 void talk_function::do_construction( npc &p )
@@ -518,7 +518,7 @@ void talk_function::give_aid( npc &p )
     p.add_effect( effect_currently_busy, 30_minutes );
     const int moves = to_moves<int>( 30_minutes );
     u.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<wait_npc_actor>( p.name ) ) );
+                           std::make_unique<wait_npc_actor>( p.name ) ) );
 }
 
 void talk_function::give_all_aid( npc &p )
@@ -535,7 +535,7 @@ void talk_function::give_all_aid( npc &p )
     p.add_effect( effect_currently_busy, 60_minutes );
     const int moves = to_moves<int>( 60_minutes );
     u.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<wait_npc_actor>( p.name ) ) );
+                           std::make_unique<wait_npc_actor>( p.name ) ) );
 }
 
 static void generic_barber( const std::string &mut_type )
@@ -585,7 +585,7 @@ void talk_function::buy_haircut( npc &p )
     g->u.add_morale( MORALE_HAIRCUT, 5, 5, 720_minutes, 3_minutes );
     const int moves = to_moves<int>( 20_minutes );
     g->u.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<wait_npc_actor>( p.name ) ) );
+                              std::make_unique<wait_npc_actor>( p.name ) ) );
     add_msg( m_good, _( "%s gives you a decent haircut…" ), p.name );
 }
 
@@ -594,7 +594,7 @@ void talk_function::buy_shave( npc &p )
     g->u.add_morale( MORALE_SHAVE, 10, 10, 360_minutes, 3_minutes );
     const int moves = to_moves<int>( 5_minutes );
     g->u.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<wait_npc_actor>( p.name ) ) );
+                              std::make_unique<wait_npc_actor>( p.name ) ) );
     add_msg( m_good, _( "%s gives you a decent shave…" ), p.name );
 }
 
@@ -911,7 +911,7 @@ void talk_function::start_training( npc &p )
         return;
     }
     g->u.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<train_actor>( name, expert_multiplier, p.getID().get_value() ) ) );
+                              std::make_unique<train_actor>( name, expert_multiplier, p.getID().get_value() ) ) );
 
     p.add_effect( effect_asked_to_train, 6_hours );
 }
