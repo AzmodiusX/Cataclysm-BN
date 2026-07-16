@@ -1818,6 +1818,10 @@ auto monster::attitude( const Character *u ) const -> monster_attitude
         return MATT_IGNORE;
     }
 
+    if( has_flag( MF_KEEP_DISTANCE ) && rl_dist( abs_pos(), goal ) < type->tracking_distance ) {
+        return MATT_FLEE;
+    }
+
     return MATT_ATTACK;
 }
 

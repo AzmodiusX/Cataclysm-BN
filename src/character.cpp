@@ -131,7 +131,6 @@ static const activity_id ACT_TRY_SLEEP( "ACT_TRY_SLEEP" );
 static const activity_id ACT_WAIT_STAMINA( "ACT_WAIT_STAMINA" );
 
 static const bionic_id bio_eye_optic( "bio_eye_optic" );
-static const bionic_id bio_infolink( "bio_infolink" );
 
 static const matec_id WBLOCK_1( "WBLOCK_1" );
 static const matec_id WBLOCK_2( "WBLOCK_2" );
@@ -285,7 +284,6 @@ static const bionic_id bio_ods( "bio_ods" );
 static const bionic_id bio_railgun( "bio_railgun" );
 static const bionic_id bio_recycler( "bio_recycler" );
 static const bionic_id bio_shock_absorber( "bio_shock_absorber" );
-static const bionic_id bio_storage( "bio_storage" );
 static const bionic_id bio_synaptic_regen( "bio_synaptic_regen" );
 static const bionic_id bio_tattoo_led( "bio_tattoo_led" );
 static const bionic_id bio_tools( "bio_tools" );
@@ -377,6 +375,19 @@ static const trait_flag_str_id flag_NO_RADIATION( "NO_RADIATION" );
 static const trait_flag_str_id flag_NON_THRESH( "NON_THRESH" );
 
 static const activity_id ACT_ASSIST( "ACT_ASSIST" );
+
+static const enchantment_flag_id ench_flag_NO_THERMAL_WAKE( "NO_THERMAL_WAKE" );
+static const enchantment_flag_id ench_flag_NO_DAMAGE_WAKE( "NO_DAMAGE_WAKE" );
+static const enchantment_flag_id ench_flag_FIRE_FIELD_IMMUNE( "FIRE_FIELD_IMMUNE" );
+static const enchantment_flag_id ench_flag_BLIND( "BLIND" );
+static const enchantment_flag_id ench_flag_ELECTROSENSE( "ELECTROSENSE" );
+static const enchantment_flag_id ench_flag_VIEW_DRONE_CAM( "VIEW_DRONE_CAM" );
+static const enchantment_flag_id ench_flag_UNDERWATER_SIGHT( "UNDERWATER_SIGHT" );
+static const enchantment_flag_id ench_flag_NEARSIGHTED( "NEARSIGHTED" );
+static const enchantment_flag_id ench_flag_ALARMCLOCK( "ALARMCLOCK" );
+static const enchantment_flag_id ench_flag_WATCH( "WATCH" );
+static const enchantment_flag_id ench_flag_SLEEP_SIGHT( "SLEEP_SIGHT" );
+static const enchantment_flag_id ench_flag_INFRARED_VISION( "INFRARED_VISION" );
 
 namespace io
 {
@@ -972,15 +983,11 @@ int Character::clairvoyance() const
 bool Character::sight_impaired() const
 {
     return ( ( ( has_effect( effect_boomered ) || has_effect( effect_no_sight ) ||
-                 has_effect( effect_darkness ) ) &&
-               ( !( has_trait( trait_PER_SLIME_OK ) ) ) ) ||
-             ( is_underwater() && !has_bionic( bio_membrane ) && !has_trait( trait_MEMBRANE ) &&
-               !worn_with_flag( flag_SWIM_GOGGLES ) && !has_trait( trait_PER_SLIME_OK ) &&
-               !has_trait( trait_CEPH_EYES ) && !has_trait( trait_SEESLEEP ) ) ||
-             ( ( has_trait( trait_MYOPIC ) || has_trait( trait_URSINE_EYE ) ) &&
-               !worn_with_flag( flag_FIX_NEARSIGHT ) &&
-               !has_effect( effect_contacts ) &&
-               !has_bionic( bio_eye_optic ) ) ||
+                 has_effect( effect_darkness ) ) && !has_trait( trait_PER_SLIME_OK ) ) ||
+             ( is_underwater() && !worn_with_flag( flag_SWIM_GOGGLES ) &&
+               !has_enchantment_flag( ench_flag_UNDERWATER_SIGHT ) ) ||
+             ( has_enchantment_flag( ench_flag_NEARSIGHTED ) &&
+               !worn_with_flag( flag_FIX_NEARSIGHT ) && !has_effect( effect_contacts ) ) ||
              has_trait( trait_PER_SLIME ) );
 }
 
@@ -990,7 +997,7 @@ bool Character::has_alarm_clock() const
     return ( has_item_with_flag( flag_ALARMCLOCK, true ) ||
              ( here.veh_at( bub_pos() ) &&
                !here.veh_at( bub_pos() )->vehicle().get_avail_parts( "ALARMCLOCK" ).empty() ) ||
-             has_bionic( bio_infolink ) );
+             has_enchantment_flag( ench_flag_ALARMCLOCK ) );
 }
 
 bool Character::has_watch() const
@@ -999,7 +1006,7 @@ bool Character::has_watch() const
     return ( has_item_with_flag( flag_WATCH, true ) ||
              ( here.veh_at( bub_pos() ) &&
                !here.veh_at( bub_pos() )->vehicle().get_avail_parts( "WATCH" ).empty() ) ||
-             has_bionic( bio_infolink ) );
+             has_enchantment_flag( ench_flag_WATCH ) );
 }
 
 void Character::react_to_felt_pain( int intensity )
@@ -2023,23 +2030,22 @@ void Character::recalc_sight_limits()
     vision_mode_cache.reset();
 
     // Set sight_max.
-    if( is_blind() || ( in_sleep_state() && !has_trait( trait_SEESLEEP ) ) ||
+    if( is_blind() || ( in_sleep_state() &&
+                        !has_enchantment_flag( ench_flag_SLEEP_SIGHT ) ) ||
         has_effect( effect_narcosis ) ) {
         sight_max = 0;
     } else if( has_effect( effect_boomered ) && ( !( has_trait( trait_PER_SLIME_OK ) ) ) ) {
         sight_max = 1;
         vision_mode_cache.set( BOOMERED );
     } else if( has_effect( effect_in_pit ) || has_effect( effect_no_sight ) ||
-               ( is_underwater() && !has_bionic( bio_membrane ) &&
-                 !has_trait( trait_MEMBRANE ) && !worn_with_flag( flag_SWIM_GOGGLES ) &&
-                 !has_trait( trait_CEPH_EYES ) && !has_trait( trait_PER_SLIME_OK ) ) ) {
+               ( is_underwater() && !worn_with_flag( flag_SWIM_GOGGLES ) &&
+                 !has_enchantment_flag( ench_flag_UNDERWATER_SIGHT ) ) ) {
         sight_max = 1;
     } else if( has_active_mutation( trait_SHELL2 ) ) {
         // You can kinda see out a bit.
         sight_max = 2;
-    } else if( ( has_trait( trait_MYOPIC ) || has_trait( trait_URSINE_EYE ) ) &&
-               !worn_with_flag( flag_FIX_NEARSIGHT ) && !has_effect( effect_contacts ) &&
-               !has_bionic( bio_eye_optic ) ) {
+    } else if( has_enchantment_flag( ench_flag_NEARSIGHTED ) &&
+               !worn_with_flag( flag_FIX_NEARSIGHT ) && !has_effect( effect_contacts ) ) {
         sight_max = 4;
     } else if( has_trait( trait_PER_SLIME ) ) {
         sight_max = 6;
@@ -2080,14 +2086,13 @@ void Character::recalc_sight_limits()
     }
 
     // Not exactly a sight limit thing, but related enough
-    if( has_active_bionic( bio_infrared ) ||
-        has_trait( trait_INFRARED ) ||
-        has_trait( trait_LIZ_IR ) ||
-        worn_with_flag( flag_IR_EFFECT ) || ( is_mounted() &&
-                mounted_creature->has_flag( MF_MECH_RECON_VISION ) ) ) {
+    if( has_enchantment_flag( ench_flag_INFRARED_VISION ) ||
+        worn_with_flag( flag_IR_EFFECT ) ||
+        ( is_mounted() && mounted_creature->has_flag( MF_MECH_RECON_VISION ) ) ) {
         vision_mode_cache.set( IR_VISION );
     }
 
+    // NOTE: Enchant this eventually, makes no sense to have set values
     if( has_artifact_with( AEP_SUPER_CLAIRVOYANCE ) ||
         has_effect_with_flag( flag_EFFECT_SUPER_CLAIRVOYANCE ) ) {
         vision_mode_cache.set( VISION_CLAIRVOYANCE_SUPER );
@@ -6561,11 +6566,12 @@ void Character::update_bodytemp( const map &m, const weather_manager &weather )
         // AND you have frostbite, then that also prevents you from sleeping
         if( in_sleep_state() ) {
             int curr_temperature = bp_stats.get_temp_cur();
-            if( bp == body_part_torso && curr_temperature <= BODYTEMP_COLD ) {
+            if( bp == body_part_torso && curr_temperature <= BODYTEMP_COLD &&
+                !has_enchantment_flag( ench_flag_NO_THERMAL_WAKE ) ) {
                 add_msg( m_warning, _( "Your shivering prevents you from sleeping." ) );
                 wake_up();
             } else if( bp != body_part_torso && curr_temperature <= BODYTEMP_VERY_COLD &&
-                       has_effect( effect_frostbite ) ) {
+                       has_effect( effect_frostbite ) && !has_enchantment_flag( ench_flag_NO_THERMAL_WAKE ) ) {
                 add_msg( m_warning, _( "You are too cold.  Your frostbite prevents you from sleeping." ) );
                 wake_up();
             }
@@ -7071,6 +7077,10 @@ bool Character::is_immune_field( const field_type_id &fid ) const
     if( has_trait( trait_DEBUG_NODMG ) ) {
         return true;
     }
+    if( enchantment_cache->is_immune_field( fid ) ) {
+        return true;
+    }
+
     // Check to see if we are immune
     const field_type &ft = fid.obj();
     for( const trait_id &t : ft.immunity_data_traits ) {
@@ -7090,7 +7100,7 @@ bool Character::is_immune_field( const field_type_id &fid ) const
         return is_elec_immune();
     }
     if( ft.has_fire ) {
-        return has_active_bionic( bio_heatsink ) || is_wearing( itype_rm13_armor_on );
+        return has_enchantment_flag( ench_flag_FIRE_FIELD_IMMUNE );
     }
     if( ft.has_acid ) {
         return !is_on_ground() && get_env_resist( bodypart_id( "foot_l" ) ) >= 15 &&
@@ -7113,6 +7123,10 @@ bool Character::is_elec_immune() const
 
 bool Character::is_immune_effect( const efftype_id &eff ) const
 {
+    if( enchantment_cache->is_immune_effect( eff ) ) {
+        return true;
+    }
+
     if( eff == effect_downed ) {
         return is_throw_immune() || ( has_trait( trait_LEG_TENT_BRACE ) && footwear_factor() == 0 );
     } else if( eff == effect_onfire ) {
@@ -7263,7 +7277,8 @@ tripoint_abs_omt Character::abs_omt_pos() const
 
 bool Character::is_blind() const
 {
-    return worn_with_flag( flag_BLIND ) || has_effect( effect_blind );
+    return worn_with_flag( flag_BLIND ) || has_effect( effect_blind ) ||
+           has_enchantment_flag( ench_flag_BLIND );
 }
 
 bool Character::is_invisible() const
@@ -7369,7 +7384,7 @@ bool Character::sees_with_specials( const Creature &critter ) const
     }
 
     // electroreceptors grants vision of robots and electric monsters through walls
-    if( ( has_trait( trait_ELECTRORECEPTORS ) || has_active_bionic( bio_electrosense ) ) &&
+    if( has_enchantment_flag( ench_flag_ELECTROSENSE ) &&
         ( critter.in_species( ROBOT ) || critter.has_flag( MF_ELECTRIC ) ) ) {
         return true;
     }
@@ -7383,7 +7398,7 @@ bool Character::sees_with_specials( const Creature &critter ) const
     }
     // Friendly eyebots can designate targets for the player
     if( critter.has_effect( effect_drone_marker ) && ( has_item_with_flag( flag_DRONE_CAM ) ||
-            has_bionic( bio_infolink ) ) ) {
+            has_enchantment_flag( ench_flag_VIEW_DRONE_CAM ) ) ) {
         return true;
     }
 
@@ -9034,6 +9049,11 @@ void Character::rebuild_mutation_cache()
     }
 }
 
+bool Character::has_enchantment_flag( enchantment_flag_id flag ) const
+{
+    return enchantment_cache->has_flag( flag );
+}
+
 double Character::bonus_from_enchantments( double base, enchantment_value_id value,
         bool round ) const
 {
@@ -9862,7 +9882,8 @@ void Character::on_hurt( Creature *source, bool disturb /*= true*/ )
     }
 
     if( disturb ) {
-        if( has_effect( effect_sleep ) && !has_effect( effect_narcosis ) ) {
+        if( has_effect( effect_sleep ) && !has_effect( effect_narcosis ) &&
+            !has_enchantment_flag( ench_flag_NO_DAMAGE_WAKE ) ) {
             wake_up();
         }
         if( !is_npc() && !has_effect( effect_narcosis ) ) {

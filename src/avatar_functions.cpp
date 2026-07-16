@@ -29,6 +29,7 @@
 
 static const trait_id trait_CHLOROMORPH( "CHLOROMORPH" );
 static const trait_id trait_DEBUG_HS( "DEBUG_HS" );
+static const trait_id trait_DEBUG_HT( "DEBUG_HT" );
 static const trait_id trait_M_SKIN3( "M_SKIN3" );
 static const trait_id trait_SHELL2( "SHELL2" );
 static const trait_id trait_THRESH_SPIDER( "THRESH_SPIDER" );
@@ -452,7 +453,7 @@ void gunmod_add( avatar &you, item &gun, item &mod )
         actions[ prompt.ret ]();
     } while( requery );
 
-    const int moves = !you.has_trait( trait_DEBUG_HS ) ? mod.type->gunmod->install_time : 0;
+    const int moves = !you.has_trait( trait_DEBUG_HT ) ? mod.type->gunmod->install_time : 0;
 
     you.assign_activity( std::make_unique<player_activity>(
         std::make_unique<gunmod_add_actor>(

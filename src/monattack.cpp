@@ -3587,7 +3587,7 @@ bool mattack::photograph( monster *z )
             se.origin = z->abs_pos();
             se.volume = 80;
             se.category = sounds::sound_t::alert;
-            se.description = string_format( _( "a robotic boice boom, \"Citizen %s!\"" ), cname );
+            se.description = string_format( _( "a robotic voice boom, \"Citizen %s!\"" ), cname );
             se.movement_noise = false;
             se.from_monster = true;
             se.monfaction = z->faction.id();

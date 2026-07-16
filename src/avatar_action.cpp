@@ -753,19 +753,24 @@ bool avatar_action::move( avatar &you, const tripoint_rel_ms &d )
             you.moves -= 100;
         }
         // Add to map memory if blind
+        // TODO: make this not ugly by having the rotation and connections without
+        // Also revealing the nearby tiles to the player
         if( you.is_blind() ) {
-            std::string obstacle;
-            if( here.veh_at( dest_loc ) ) {
+            const auto vehicle_part = here.veh_at( dest_loc );
+            if( vehicle_part ) {
                 char part_mod = 0;
-                const vpart_id &vp_id = here.veh_at( dest_loc )->vehicle().part_id_string( here.veh_at(
-                                            dest_loc )->part_index(), false, part_mod );
-                obstacle = "vp_" + vp_id.str();
+                const vpart_id &vp_id = vehicle_part->vehicle().part_id_string(
+                                            vehicle_part->part_index(), false, part_mod );
+                you.memorize_tile( dest_loc, "vp_" + vp_id.str(), 0, 0 );
             } else {
-                obstacle = here.furn( dest_loc ) ? here.furn( dest_loc )->id().str() : here.ter(
-                               dest_loc )->id().str();
+                if( const auto furniture = here.furn( dest_loc ) ) {
+                    you.memorize_tile( dest_loc, furniture->id().str(), 0, 0 );
+                } else {
+                    const auto terrain = here.ter( dest_loc )->id().str();
+                    you.memorize_tile( dest_loc, terrain, 0, 0 );
+                    you.memorize_terrain_tile( dest_loc, terrain, 0, 0 );
+                }
             }
-            // TODO: Figure out how to make subtile and rotation work right here
-            you.memorize_tile( dest_loc, obstacle, 0, 0 );
         }
     } else if( here.ter( dest_loc ) == t_door_locked || here.ter( dest_loc ) == t_door_locked_peep ||
                here.ter( dest_loc ) == t_door_locked_alarm || here.ter( dest_loc ) == t_door_locked_interior ) {
@@ -1004,7 +1009,7 @@ auto avatar_action::is_manual_combat_mode() -> bool
     return g->manual_combat_mode;
 }
 
-bool avatar_action::can_fire_weapon( avatar &you, const const item &weapon )
+bool avatar_action::can_fire_weapon( avatar &you, const item &weapon )
 {
     if( !weapon.is_gun() ) {
         debugmsg( "Expected item to be a gun" );
@@ -1068,7 +1073,7 @@ bool avatar_action::will_fire_turret( avatar &you, const turret_data &turret )
     return true;
 }
 
-bool avatar_action::can_fire_turret( avatar &you, const const turret_data &turret )
+bool avatar_action::can_fire_turret( avatar &you, const turret_data &turret )
 {
     const item &weapon = turret.base();
     if( !weapon.is_gun() ) {

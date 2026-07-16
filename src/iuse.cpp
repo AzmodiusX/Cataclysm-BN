@@ -354,7 +354,6 @@ static const mtype_id mon_spore( "mon_spore" );
 static const mtype_id mon_vortex( "mon_vortex" );
 static const mtype_id mon_wasp( "mon_wasp" );
 
-static const bionic_id bio_digestion( "bio_digestion" );
 static const bionic_id bio_eye_optic( "bio_eye_optic" );
 static const bionic_id bio_shock( "bio_shock" );
 
@@ -948,7 +947,7 @@ int iuse::blech( Character *p, item *it, bool, const tripoint_abs_ms *pt )
 
 int iuse::blech_because_unclean( Character *p, item *it, bool, const tripoint_abs_ms *pt )
 {
-    if( !p->is_npc()  && !p->has_bionic( bio_digestion ) ) {
+    if( !p->is_npc()  && !p->has_enchantment_flag( enchantment_flag_id( "CONSUME_UNCLEAN" ) ) ) {
         if( it->made_of( LIQUID ) ) {
             if( !p->query_yn( _( "This looks unclean, sure you want to drink it?" ) ) ) {
                 return 0;
