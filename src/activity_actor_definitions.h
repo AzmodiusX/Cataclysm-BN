@@ -820,6 +820,16 @@ class liquid_transfer_actor : public activity_actor
         static std::unique_ptr<activity_actor> legacy_deserialize( const JsonObject &data );
 };
 
+struct vehicle_work_actor_options {
+    char command = 0;
+    tripoint_abs_ms part_pos = tripoint_abs_ms::zero();
+    tripoint_mnt_veh cursor_mount = tripoint_mnt_veh::zero();
+    vpart_id part_type;
+    int part_index = -1;
+    int moves_total = 0;
+    std::unordered_set<tripoint_abs_ms> vehicle_points;
+};
+
 class vehicle_work_actor : public activity_actor
 {
     private:
@@ -828,6 +838,7 @@ class vehicle_work_actor : public activity_actor
         tripoint_mnt_veh cursor_mount;
         vpart_id part_type;
         int part_index;
+        int moves_total;
         std::unordered_set<tripoint_abs_ms> vehicle_points;
 
         bool can_resume_with_internal( const activity_actor &other,
@@ -837,19 +848,13 @@ class vehicle_work_actor : public activity_actor
                    part_pos == c.part_pos &&
                    cursor_mount == c.cursor_mount &&
                    part_type == c.part_type &&
-                   part_index == c.part_index;
+                   part_index == c.part_index &&
+                   moves_total == c.moves_total;
         }
 
     public:
         vehicle_work_actor() = default;
-        vehicle_work_actor(
-            char cmd,
-            const tripoint_abs_ms &ppos,
-            const tripoint_mnt_veh &cmount,
-            const vpart_id &ptype,
-            int pindex,
-            const std::unordered_set<tripoint_abs_ms> &vpoints = {}
-        );
+        explicit vehicle_work_actor( vehicle_work_actor_options options );
 
         activity_id get_type() const override {
             return activity_id( "ACT_VEHICLE" );

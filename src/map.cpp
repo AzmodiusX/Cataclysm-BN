@@ -7440,6 +7440,19 @@ void map::load( const point_abs_sm &w, const bool update_vehicle, const bool pum
     refresh_active_submap_view();
     validate_active_submap_view_complete( "map::load" );
     reset_vehicle_cache( );
+    invalidate_lightmap_caches();
+    // A direct load replaces the cache frame without going through map::shift.
+    // Force the SDL seen pass to rebuild even when the player's bubble-local
+    // position happens to be unchanged across the load.
+    m_last_seen_cache_origin = tripoint_bub_ms( tripoint_min );
+    for( const auto z : std::views::iota( -OVERMAP_DEPTH, OVERMAP_HEIGHT + 1 ) ) {
+        set_memory_seen_cache_dirty( z );
+    }
+#if defined( CATA_SDL )
+    if( g != nullptr && this == &get_map() && cata_compute::uses_sdl_gpu_compute() ) {
+        cata_gpu::invalidate_lighting_residency();
+    }
+#endif
 
     charge_removal_blacklist::split_deferred();
 }
@@ -7532,11 +7545,7 @@ void map::shift( const point_rel_sm &sp )
         } );
         if( !gpu_residency_shifted ) {
             debugmsg( "SDL_GPU resident lighting input shift failed; see debug.log for details" );
-            auto shifted_levels = std::vector<int> {};
-            for( const auto gridz : std::views::iota( -OVERMAP_DEPTH, OVERMAP_HEIGHT + 1 ) ) {
-                shifted_levels.push_back( gridz );
-            }
-            cata_gpu::invalidate_lighting_transparency_levels( shifted_levels );
+            cata_gpu::invalidate_lighting_residency();
         }
     }
 #endif

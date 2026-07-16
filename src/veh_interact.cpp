@@ -165,18 +165,22 @@ std::unique_ptr<player_activity> veh_interact::serialize_activity()
     // if we're working on an existing part, use that part as the reference point
     // otherwise (e.g. installing a new frame), just use part 0
     const vehicle_part *vpt = pt ? pt : &veh->part( 0 );
-    const auto q = bub_to_abs( veh->bub_part_location( *vpt ) );
+    const auto q = veh->abs_part_location( *vpt );
     std::unordered_set<tripoint_abs_ms> veh_points;
     for( const tripoint_abs_ms &p : veh->get_points( true ) ) {
         veh_points.insert( p );
     }
 
     std::unique_ptr<player_activity> res = std::make_unique<player_activity>(
-        std::make_unique<vehicle_work_actor>(
-            static_cast<char>( sel_cmd ), q,
-            vehicle_cursor, vp->get_id(),
-            veh->index_of_part( vpt ), veh_points
-        )
+        std::make_unique<vehicle_work_actor>( vehicle_work_actor_options{
+            .command = static_cast<char>( sel_cmd ),
+            .part_pos = q,
+            .cursor_mount = vehicle_cursor,
+            .part_type = vp->get_id(),
+            .part_index = veh->index_of_part( vpt ),
+            .moves_total = time,
+            .vehicle_points = std::move( veh_points ),
+        } )
     );
     if( target ) {
         res->targets.emplace_back( target );
@@ -3231,7 +3235,7 @@ void veh_interact::complete_vehicle( Character &who )
         // check the vehicle points that were stored at beginning of activity.
         if( !who.activity->coord_set.empty() ) {
             for( const auto pt : who.activity->coord_set ) {
-                vp = here.veh_at( abs_to_bub( pt ) );
+                vp = here.veh_at( pt );
                 if( vp ) {
                     break;
                 }

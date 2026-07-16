@@ -55,7 +55,10 @@ static void full_map_test(
     const ter_id t_open_air("t_open_air");
 
     Character& player_character = get_player_character();
-    player_character.setpos( test_origin );
+    // Keep the absolute fixture comfortably inside the loaded bubble while
+    // avoiding the negative-coordinate edge of the test world's origin.
+    const auto fixture_player = test_origin + tripoint_rel_ms( 30, 30, 0 );
+    player_character.setpos( fixture_player );
     get_weather().weather_id = weather_type_id("clear");
     calendar::turn = time;
     g->reset_light_level();
@@ -163,6 +166,11 @@ static void full_map_test(
         }
     }
 
+    if( veh != nullptr ) {
+        map.clear_vehicle_cache();
+        map.add_vehicle_to_cache( veh );
+    }
+
     // We have to run the whole thing twice, because the first time through the
     // player's vision_threshold is based on the previous lighting level (so
     // they might, for example, have poor nightvision due to having just been
@@ -171,7 +179,11 @@ static void full_map_test(
         map.set_floor_cache_dirty(z);
         map.invalidate_map_cache(z);
     }
-    map.build_map_cache(origin.z());
+    // Rebuild structural caches without dispatching lighting first.  This
+    // invalidates the SDL GPU floor/vehicle inputs, so the following canonical
+    // rebuild uploads the complete absolute-space fixture instead of reusing
+    // residency from an earlier test.
+    map.build_map_cache(origin.z(), true);
     map.update_visibility_cache(origin.z());
     for (int z = -OVERMAP_DEPTH; z <= OVERMAP_HEIGHT; ++z) {
         map.invalidate_map_cache(z);
@@ -323,6 +335,7 @@ static void full_map_test(
 
     INFO("observed:\n" << observed.str());
     INFO("expected:\n" << expected.str());
+
     CHECK(success);
 }
 
@@ -686,9 +699,9 @@ TEST_CASE("vision_see_out_of_vehicle", "[shadowcasting][vision]") {
         {
             "66666666666666666",
             "66666666666666666",
-            "66666666661166666",
-            "66666666441666666",
-            "66666666411666666",
+            "66666666661116666",
+            "66666666441166666",
+            "66666666411116666",
             "66666661111466666",
             "66666661114466666",
             "66666666666666666",

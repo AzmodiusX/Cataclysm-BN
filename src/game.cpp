@@ -13133,9 +13133,13 @@ void game::place_player_overmap( const tripoint_abs_omt &om_dest )
         project_to<coords::sm>( om_dest ) + point( -g_half_mapsize, -g_half_mapsize ) );
     const tripoint_bub_ms player_pos( u.bub_pos().xy(), map_sm_pos.z() );
     load_map( map_sm_pos.xy() );
+    // `player_pos` was captured in the old bubble frame.  Convert it through
+    // the newly loaded map before setpos() so the destination remains absolute
+    // instead of resolving through the old reality-bubble origin.
+    const auto destination = map_local_to_abs( m, player_pos );
     // update weather now as it could be different on the new location
     get_weather().nextweather = calendar::turn;
-    place_player( player_pos );
+    place_player( destination );
     m.spawn_monsters( true ); // Static monsters
     update_overmap_seen();
     // load_npcs() scans around the player's absolute position, updated by place_player().

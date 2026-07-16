@@ -486,7 +486,10 @@ void vehicle_part::process_contents( const tripoint_bub_ms &pos, const bool e_he
             flag = temperature_flag::TEMP_FREEZER;
         }
 
-        base = item::process( base.release(), nullptr, false, flag );
+        auto *const base_location = base.get_loc_hack();
+        detached_ptr<item> detached_base = base.release();
+        detached_base->set_location( base_location );
+        base = item::process( std::move( detached_base ), nullptr, false, flag );
     }
 }
 

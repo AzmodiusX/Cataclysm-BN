@@ -934,17 +934,21 @@ static bool vehicle_activity( player &p, const tripoint_bub_ms &src_loc, int vpi
     } else if( type == 'o' ) {
         time_to_take = vp.removal_time( p );
     }
-    const auto src_abs = bub_to_abs( src_loc );
+    const auto part_pos = veh->abs_part_location( veh->part( vpindex ) );
     std::unordered_set<tripoint_abs_ms> veh_points;
     for( const auto pt : veh->get_points( true ) ) {
         veh_points.insert( pt );
     }
     p.assign_activity( std::make_unique<player_activity>(
-        std::make_unique<vehicle_work_actor>(
-            type, src_abs, tripoint_mnt_veh( 0, 0, 0 ),
-            vp.get_id(), veh->index_of_part( &veh->part( vpindex ) ),
-            veh_points
-        )
+        std::make_unique<vehicle_work_actor>( vehicle_work_actor_options{
+            .command = type,
+            .part_pos = part_pos,
+            .cursor_mount = tripoint_mnt_veh::zero(),
+            .part_type = vp.get_id(),
+            .part_index = veh->index_of_part( &veh->part( vpindex ) ),
+            .moves_total = time_to_take,
+            .vehicle_points = std::move( veh_points ),
+        } )
     ) );
     p.activity_vehicle_part_index = -1;
     return true;

@@ -121,6 +121,7 @@ void clear_overmap() {
 void clear_map() {
     // Clearing all z-levels is rather slow, so just clear the ones I know the
     // tests use for now.
+    g->update_map( g->u );
     for (int z = -2; z <= 0; ++z) { clear_fields(z); }
     wipe_map_terrain();
     clear_npcs();
@@ -131,8 +132,6 @@ void clear_map() {
     // test's Catch2 WHEN section do not bleed into the next run.  The tracker
     // is a global singleton; grid_at() rebuilds on demand, so clearing here is safe.
     get_distribution_grid_tracker().clear();
-
-    g->m.set_abs_sub( bub_abs_sub() );
 
     // Ensure simulated islands exist so simulated_tiles_in_radius and
     // for_each_simulated_submap work for tests that use this map.
@@ -162,8 +161,9 @@ monster& spawn_test_monster(const std::string& monster_type, const tripoint_bub_
 // the full vertical range — otherwise map::shift interior lookups at
 // z=-OVERMAP_DEPTH would find nothing.
 void build_test_map(const ter_id& terrain) {
-    g->m.set_abs_sub( bub_abs_sub() );
+    clear_vehicles();
     MAPBUFFER.clear();
+    g->m.set_abs_sub( bub_abs_sub() );
 
     // Step 1: create uniform submaps for ALL z-levels.
     //   z=0: uniform terrain (overwritten per-tile below)

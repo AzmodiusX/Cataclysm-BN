@@ -3019,19 +3019,14 @@ void liquid_transfer_actor::finish( player_activity &, Character & ) {}
 // vehicle_work_actor (ACT_VEHICLE)
 // ─────────────────────────────────────────────────────────────────────────────
 
-vehicle_work_actor::vehicle_work_actor(
-    char cmd,
-    const tripoint_abs_ms &ppos,
-    const tripoint_mnt_veh &cmount,
-    const vpart_id &ptype,
-    int pindex,
-    const std::unordered_set<tripoint_abs_ms> &vpoints
-) : command( cmd )
-  , part_pos( ppos )
-  , cursor_mount( cmount )
-  , part_type( ptype )
-  , part_index( pindex )
-  , vehicle_points( vpoints )
+vehicle_work_actor::vehicle_work_actor( vehicle_work_actor_options options )
+    : command( options.command )
+    , part_pos( options.part_pos )
+    , cursor_mount( options.cursor_mount )
+    , part_type( options.part_type )
+    , part_index( options.part_index )
+    , moves_total( options.moves_total )
+    , vehicle_points( std::move( options.vehicle_points ) )
 {}
 
 void vehicle_work_actor::serialize( JsonOut &jsout ) const
@@ -3043,6 +3038,7 @@ void vehicle_work_actor::serialize( JsonOut &jsout ) const
     jsout.member( "cursor_mount", cursor_mount );
     jsout.member( "part_type", part_type );
     jsout.member( "part_index", part_index );
+    jsout.member( "moves_total", moves_total );
     jsout.member( "vehicle_points", vehicle_points );
     jsout.end_object();
 }
@@ -3061,6 +3057,7 @@ std::unique_ptr<activity_actor> vehicle_work_actor::deserialize( JsonIn &jsin )
     data.read( "cursor_mount", actor->cursor_mount );
     data.read( "part_type", actor->part_type );
     data.read( "part_index", actor->part_index );
+    data.read( "moves_total", actor->moves_total );
     data.read( "vehicle_points", actor->vehicle_points );
 
     return actor;
@@ -3094,6 +3091,8 @@ std::unique_ptr<activity_actor> vehicle_work_actor::legacy_deserialize( const Js
     }
 
     int part_index = values[6];
+    const int moves_total = data.get_int( "moves_total", 0 );
+    const int moves_left = data.get_int( "moves_left", moves_total );
 
     // Part type from str_values
     auto str_values = data.get_string_array( "str_values" );
@@ -3109,11 +3108,29 @@ std::unique_ptr<activity_actor> vehicle_work_actor::legacy_deserialize( const Js
     auto vehicle_points = std::unordered_set<tripoint_abs_ms>();
     data.read( "coord_set", vehicle_points );
 
-    return std::make_unique<vehicle_work_actor>(
-               command, part_pos, cursor_mount, part_type, part_index, vehicle_points );
+    auto actor = std::make_unique<vehicle_work_actor>( vehicle_work_actor_options{
+        .command = command,
+        .part_pos = part_pos,
+        .cursor_mount = cursor_mount,
+        .part_type = part_type,
+        .part_index = part_index,
+        .moves_total = moves_total,
+        .vehicle_points = std::move( vehicle_points ),
+    } );
+    if( moves_total > 0 ) {
+        actor->progress.emplace( part_type.str().empty() ? "vehicle part" : part_type.str(),
+                                 moves_total, std::max( 0, moves_left ) );
+    }
+    return actor;
 }
 
-void vehicle_work_actor::start( player_activity &act, Character &who ) {}
+void vehicle_work_actor::start( player_activity &/*act*/, Character &/*who*/ )
+{
+    if( progress.empty() ) {
+        progress.emplace( part_type.str().empty() ? "vehicle part" : part_type.str(),
+                          moves_total );
+    }
+}
 void vehicle_work_actor::do_turn( player_activity &act, Character &who ) {}
 
 void vehicle_work_actor::finish( player_activity &act, Character &who )

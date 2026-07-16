@@ -1,4 +1,5 @@
 #include "avatar.h"
+#include "activity_actor_definitions.h"
 #include "calendar.h"
 #include "catch/catch.hpp"
 #include "coordinates.h"
@@ -144,4 +145,40 @@ TEST_CASE("debug_hammerspace_installs_full_vehicle_battery", "[vehicle][veh_inte
 
     REQUIRE(installed_battery != all_parts.end());
     CHECK(installed_battery->part().ammo_remaining() == installed_battery->part().ammo_capacity());
+}
+
+TEST_CASE("vehicle_activity_progress_message_handles_empty_actor_progress", "[activity][vehicle]") {
+    clear_all_state();
+
+    auto activity = std::make_unique<player_activity>(
+        std::make_unique<vehicle_work_actor>( vehicle_work_actor_options{
+            .command = 'o',
+            .part_pos = test_origin,
+            .cursor_mount = tripoint_mnt_veh::zero(),
+            .part_type = vpart_id("frame"),
+            .part_index = 0,
+        } ) );
+
+    const auto progress_message = activity->get_progress_message(get_avatar());
+
+    CHECK(progress_message.has_value());
+}
+
+TEST_CASE("vehicle_activity_initializes_actor_progress", "[activity][vehicle]") {
+    clear_all_state();
+
+    auto activity = std::make_unique<player_activity>(
+        std::make_unique<vehicle_work_actor>( vehicle_work_actor_options{
+            .command = 'o',
+            .part_pos = test_origin,
+            .cursor_mount = tripoint_mnt_veh::zero(),
+            .part_type = vpart_id("frame"),
+            .part_index = 0,
+            .moves_total = 100,
+        } ) );
+
+    activity->start_or_resume(get_avatar(), false);
+
+    CHECK(activity->get_moves_left() == 100);
+    CHECK_FALSE(activity->complete());
 }

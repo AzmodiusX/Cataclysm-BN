@@ -216,6 +216,9 @@ auto invalidate_lighting_transparency_levels(std::vector<int> const& levels) -> 
 // dispatch lighting.  The next lighting pass must upload the complete floor
 // volume, including levels that are now empty.
 auto invalidate_lighting_floor_inputs() -> void;
+// Invalidate all resident lighting inputs and derived outputs after map::load()
+// replaces the bubble directly instead of shifting it incrementally.
+auto invalidate_lighting_residency() -> void;
 
 struct resident_lighting_visibility_params {
     SDL_GPUDevice* device = nullptr;

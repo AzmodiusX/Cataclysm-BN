@@ -55,7 +55,6 @@ static void set_ramp(const int transit_x, bool use_ramp, bool up) {
     
     auto& map = get_map();
     auto& here = map.get_mapbuffer();
-    clear_vehicles();
     build_test_map(ter_id("t_pavement"));
     const auto bubx = transit_x;
     if (use_ramp) {

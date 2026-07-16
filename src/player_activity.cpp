@@ -259,39 +259,41 @@ std::optional<std::string> player_activity::get_progress_message( const avatar &
          * TODO progress for targets
          * proper use of activity_actor::targets for all activities
          * must be implementated for proper work of multiple targets
-         */
-        if( actor ) {
-            if( actor->progress.empty() ) {
-                target = string_format( ": %s", actor->progress.front().target_name );
-                progress_desc = "";
-                //shouldn't ever happend actually
-                debugmsg( "Progress counter is empty, despite activity using actor, total tasks %s",
-                          actor->progress.get_total_tasks() );
-            } else {
-                target = string_format( ": %s", actor->progress.front().target_name );
-                if( actor->progress.get_total_tasks() > 1 ) {
-                    progress_desc += "\n - Total: ";
-                    progress_desc += string_format( "%.1f%%\n",
-                                                    ( 1.0f - float( actor->progress.get_moves_left() ) / actor->progress.get_moves_total() ) * 100.0f );
-                    progress_desc += string_format( _( "  - Processing %s out of %s\n" ), actor->progress.get_index(),
-                                                    actor->progress.get_total_tasks() );
-                    progress_desc += string_format( _( "  - Estimated time: %s\n" ),
-                                                    to_string( time_duration::from_turns(
-                                                            action_time_scale::turns_for_progress( actor->progress.get_moves_left(),
-                                                                    progress_per_calendar_turn ) ) ) );
-                    progress_desc += " - Current: ";
-                }
+        */
+        if( actor && !actor->progress.empty() ) {
+            target = string_format( ": %s", actor->progress.front().target_name );
+            if( actor->progress.get_total_tasks() > 1 && actor->progress.get_moves_total() > 0 ) {
+                progress_desc += "\n - Total: ";
                 progress_desc += string_format( "%.1f%%\n",
-                                                ( 1.0f - float( actor->progress.front().moves_left ) / actor->progress.front().moves_total ) *
-                                                100.0f );
-                if( actor->progress.get_total_tasks() > 1 ) {
-                    progress_desc += "  - ";
-                }
-                progress_desc += string_format( _( "Time left: %s\n" ),
+                                                ( 1.0f - float( actor->progress.get_moves_left() ) /
+                                                  actor->progress.get_moves_total() ) * 100.0f );
+                progress_desc += string_format( _( "  - Processing %s out of %s\n" ),
+                                                actor->progress.get_index(),
+                                                actor->progress.get_total_tasks() );
+                progress_desc += string_format( _( "  - Estimated time: %s\n" ),
                                                 to_string( time_duration::from_turns(
-                                                        action_time_scale::turns_for_progress( actor->progress.front().moves_left,
+                                                        action_time_scale::turns_for_progress(
+                                                                actor->progress.get_moves_left(),
                                                                 progress_per_calendar_turn ) ) ) );
+                progress_desc += " - Current: ";
             }
+            if( actor->progress.front().moves_total > 0 ) {
+                progress_desc += string_format( "%.1f%%\n",
+                                                ( 1.0f - float( actor->progress.front().moves_left ) /
+                                                  actor->progress.front().moves_total ) * 100.0f );
+            }
+            if( actor->progress.get_total_tasks() > 1 && actor->progress.get_moves_total() > 0 ) {
+                progress_desc += "  - ";
+            }
+            progress_desc += string_format( _( "Time left: %s\n" ),
+                                            to_string( time_duration::from_turns(
+                                                    action_time_scale::turns_for_progress(
+                                                            actor->progress.front().moves_left,
+                                                            progress_per_calendar_turn ) ) ) );
+        } else if( actor ) {
+            // Actor-backed activities can be redrawn before start() initializes
+            // their progress queue.  Leave the progress block empty until then.
+            progress_desc = "";
         } else {
             if( !targets.empty() && targets.front().is_accessible() && !targets.front().is_destroyed() ) {
                 target = string_format( ": %s", targets.front()->tname( targets.front()->count() ) );
