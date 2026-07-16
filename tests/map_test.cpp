@@ -256,6 +256,15 @@ TEST_CASE("mapbuffer_resident_lookup_uses_absolute_coordinates") {
         REQUIRE(h);
         CHECK(h->ter() == ter_id("t_rock"));
     }
+    {
+        auto h = abs_tile_handle::fetch_terrain_only(buffer, tile_pos, resident_only);
+        REQUIRE(h);
+        CHECK(h->ter() == ter_id("t_rock"));
+    }
+    CHECK(buffer.ter(tile_pos, resident_only) == ter_id("t_rock"));
+    CHECK_FALSE(buffer.ter(tile_pos, {
+        .mode = mapbuffer_lookup_mode::simulated_only,
+    }).has_value());
     CHECK(buffer.set_ter(tile_pos, ter_id("t_dirt"), resident_only));
     {
         auto h = abs_tile_handle::fetch(buffer, tile_pos);
@@ -606,7 +615,9 @@ TEST_CASE("mapbuffer_load_or_generate_lookup_is_explicit") {
     submap* const generated = buffer.get_submap(sm_pos, load_or_generate);
     REQUIRE(generated != nullptr);
     CHECK(buffer.lookup_submap_in_memory(sm_pos) == generated);
-    CHECK(abs_tile_handle::fetch(buffer, project_to<coords::ms>(sm_pos)).has_value());
+    const auto tile_pos = project_to<coords::ms>( sm_pos );
+    CHECK(abs_tile_handle::fetch_terrain_only(buffer, tile_pos, load_or_generate).has_value());
+    CHECK(buffer.ter(tile_pos, load_or_generate).has_value());
 }
 
 TEST_CASE("creature_mapbuffer_cache_tracks_dimension_registry_slots") {

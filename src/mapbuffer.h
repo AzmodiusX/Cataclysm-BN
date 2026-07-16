@@ -369,11 +369,21 @@ class abs_tile_handle
         static auto fetch( mapbuffer &buf, tripoint_abs_ms p )
         -> std::optional<abs_tile_handle>;
 
+        /// Fetch a handle using an explicit submap residency/loading policy.
+        static auto fetch( mapbuffer &buf, tripoint_abs_ms p,
+                           mapbuffer_lookup_options options )
+        -> std::optional<abs_tile_handle>;
+
         /**
          * Same as fetch() but skips the vehicle-footprint lookup.
          * Use only when vehicle data is known to be irrelevant.
          */
         static auto fetch_terrain_only( mapbuffer &buf, tripoint_abs_ms p )
+        -> std::optional<abs_tile_handle>;
+
+        /// Same as the policy-aware fetch(), without vehicle-footprint lookup.
+        static auto fetch_terrain_only( mapbuffer &buf, tripoint_abs_ms p,
+                                        mapbuffer_lookup_options options )
         -> std::optional<abs_tile_handle>;
 
     private:
@@ -1056,7 +1066,7 @@ class mapbuffer
         auto get_vehicles( const tripoint_abs_sm &start, const tripoint_abs_sm &end,
         mapbuffer_lookup_options options = {} ) -> std::set<vehicle *>;
 
-        auto get_vehicles( mapbuffer_lookup_options options = {} ) -> std::set<vehicle *>;
+        auto get_vehicles() -> std::set<vehicle *>;
 
         auto detach_vehicle( vehicle *veh,
         mapbuffer_lookup_options options = {} ) -> std::unique_ptr<vehicle>;
@@ -1766,5 +1776,3 @@ auto simulated_tiles_on_zlevel( mapbuffer &buf, int z )
 // Included after the full mapbuffer definition to avoid circular dependencies.
 // Provides the MAPBUFFER macro and MAPBUFFER_REGISTRY global.
 #include "mapbuffer_registry.h"
-
-

@@ -1233,8 +1233,17 @@ auto abs_tile_handle::disp_name() const -> std::string
 auto abs_tile_handle::fetch( mapbuffer &buf, const tripoint_abs_ms p )
 -> std::optional<abs_tile_handle> // *NOPAD*
 {
+    return fetch( buf, p, {
+        .mode = mapbuffer_lookup_mode::resident_only,
+    } );
+}
+
+auto abs_tile_handle::fetch( mapbuffer &buf, const tripoint_abs_ms p,
+                             const mapbuffer_lookup_options options )
+-> std::optional<abs_tile_handle> // *NOPAD*
+{
     const auto split = project_remain<coords::sm>( p );
-    auto *const sm = buf.lookup_submap_in_memory( split.quotient_tripoint );
+    auto *const sm = buf.get_submap( split.quotient_tripoint, options );
     if( sm == nullptr ) {
         return std::nullopt;
     }
@@ -1245,8 +1254,17 @@ auto abs_tile_handle::fetch( mapbuffer &buf, const tripoint_abs_ms p )
 auto abs_tile_handle::fetch_terrain_only( mapbuffer &buf, const tripoint_abs_ms p )
 -> std::optional<abs_tile_handle> // *NOPAD*
 {
+    return fetch_terrain_only( buf, p, {
+        .mode = mapbuffer_lookup_mode::resident_only,
+    } );
+}
+
+auto abs_tile_handle::fetch_terrain_only( mapbuffer &buf, const tripoint_abs_ms p,
+        const mapbuffer_lookup_options options )
+-> std::optional<abs_tile_handle> // *NOPAD*
+{
     const auto split = project_remain<coords::sm>( p );
-    auto *const sm = buf.lookup_submap_in_memory( split.quotient_tripoint );
+    auto *const sm = buf.get_submap( split.quotient_tripoint, options );
     if( sm == nullptr ) {
         return std::nullopt;
     }
@@ -4084,7 +4102,7 @@ auto mapbuffer::crush( const tripoint_abs_ms &p,
     if( auto crushed_player = crushed_creature->as_player() ) {
         bool player_inside = false;
         if( crushed_player->in_vehicle ) {
-            const optional_vpart_position vp = veh_at( p );
+            const optional_vpart_position vp = veh_at( p, options );
             player_inside = vp && vp->is_inside();
         }
         if( !player_inside ) { //If there's a player at p and he's not in a covered vehicle...
@@ -4124,7 +4142,7 @@ auto mapbuffer::crush( const tripoint_abs_ms &p,
         monhit->check_dead_state();
     }
 
-    if( const optional_vpart_position vp = veh_at( p ) ) {
+    if( const optional_vpart_position vp = veh_at( p, options ) ) {
         // Arbitrary number is better than collapsing house roof crushing APCs
         vp->vehicle().damage( vp->part_index(), rng( 100, 1000 ), DT_BASH, false );
     }
@@ -4224,7 +4242,7 @@ auto mapbuffer::emit_field( const tripoint_abs_ms &pos, const emit_id &src, cons
 
 auto mapbuffer::get_fishable_locations( const int radius, const tripoint_abs_ms &fish_pos,
                                         const mapbuffer_lookup_options options )
-- > std::unordered_set<tripoint_abs_ms>
+-> std::unordered_set<tripoint_abs_ms> // *NOPAD*
 {
     std::unordered_set<tripoint_abs_ms> visited;
 
@@ -4454,7 +4472,7 @@ auto mapbuffer::valid_move( const tripoint_abs_ms &from, const tripoint_abs_ms &
     }
 
     if( from.z() == to.z() ) {
-        const auto target_tile = abs_tile_handle::fetch( *this, to );
+        const auto target_tile = abs_tile_handle::fetch( *this, to, options.lookup );
         if( !target_tile ) {
             return false;
         }
@@ -4468,7 +4486,7 @@ auto mapbuffer::valid_move( const tripoint_abs_ms &from, const tripoint_abs_ms &
     const auto up_p = going_up ? to : from;
     const auto down_p = going_up ? from : to;
 
-    const auto up_tile = abs_tile_handle::fetch_terrain_only( *this, up_p );
+    const auto up_tile = abs_tile_handle::fetch_terrain_only( *this, up_p, options.lookup );
     if( !up_tile ) {
         return false;
     }
@@ -4484,7 +4502,7 @@ auto mapbuffer::valid_move( const tripoint_abs_ms &from, const tripoint_abs_ms &
         return false;
     }
 
-    const auto down_tile = abs_tile_handle::fetch_terrain_only( *this, down_p );
+    const auto down_tile = abs_tile_handle::fetch_terrain_only( *this, down_p, options.lookup );
     if( !down_tile ) {
         return false;
     }
@@ -4515,12 +4533,12 @@ auto mapbuffer::valid_move( const tripoint_abs_ms &from, const tripoint_abs_ms &
         return true;
     }
 
-    const auto up_vehicle = vehicle_part_at_loaded_tile( up_p );
+    const auto up_vehicle = veh_at( up_p, options.lookup );
     if( up_vehicle && !up_vehicle.part_with_feature( VPFLAG_NOCOLLIDEBELOW, false ) ) {
         return false;
     }
 
-    const auto down_vehicle = vehicle_part_at_loaded_tile( down_p );
+    const auto down_vehicle = veh_at( down_p, options.lookup );
     if( down_vehicle &&
         down_vehicle->vehicle().roof_at_part( static_cast<int>( down_vehicle->part_index() ) ) >= 0 ) {
         return false;
@@ -4536,7 +4554,7 @@ auto mapbuffer::climb_difficulty( const tripoint_abs_ms &p,
         return std::nullopt;
     }
 
-    const auto center_tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto center_tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !center_tile ) {
         return std::nullopt;
     }
@@ -4556,7 +4574,7 @@ auto mapbuffer::climb_difficulty( const tripoint_abs_ms &p,
     }
 
     for( const auto &pt : points_in_radius( p, 1 ) ) {
-        const auto tile = abs_tile_handle::fetch( *this, pt );
+        const auto tile = abs_tile_handle::fetch( *this, pt, options );
         if( !tile || !tile->passable() ) {
             best_difficulty = std::min( best_difficulty, 10 );
             blocks_movement++;
@@ -4603,7 +4621,7 @@ auto mapbuffer::clear_path( const tripoint_abs_ms &f, const tripoint_abs_ms &t, 
         bool is_clear = true;
         point_abs_ms last_point = f.xy();
         bresenham( f.xy().raw(), t.xy().raw(), 0,
-        [this, &is_clear, cost_min, cost_max, &t, &last_point]( const point & new_point ) {
+        [this, &is_clear, cost_min, cost_max, &t, &last_point, options]( const point & new_point ) {
             // Exit before checking the last square, it's still reachable even if it is an obstacle.
             if( new_point == t.xy().raw() ) {
                 return false;
@@ -4611,7 +4629,7 @@ auto mapbuffer::clear_path( const tripoint_abs_ms &f, const tripoint_abs_ms &t, 
 
             const tripoint_abs_ms p( point_abs_ms( new_point ), t.z() );
             const tripoint_abs_ms lp( point_abs_ms( last_point ), t.z() );
-            const int cost = move_cost( p );
+            const int cost = move_cost( p, nullptr, options );
             if( cost < cost_min || cost > cost_max ||
                 obstructed_by_vehicle_rotation( lp, p ) ) {
                 is_clear = false;
@@ -4630,7 +4648,7 @@ auto mapbuffer::clear_path( const tripoint_abs_ms &f, const tripoint_abs_ms &t, 
     bool is_clear = true;
     tripoint_abs_ms last_point = f;
     bresenham( f.raw(), t.raw(), 0, 0,
-    [this, &is_clear, cost_min, cost_max, t, &last_point]( const tripoint & new_point ) {
+    [this, &is_clear, cost_min, cost_max, t, &last_point, options]( const tripoint & new_point ) {
         // Exit before checking the last square, it's still reachable even if it is an obstacle.
         if( new_point == t.raw() ) {
             return false;
@@ -4639,7 +4657,7 @@ auto mapbuffer::clear_path( const tripoint_abs_ms &f, const tripoint_abs_ms &t, 
         const tripoint_abs_ms pt( new_point );
         // We have to check a weird case where the move is both vertical and horizontal
         if( new_point.z == last_point.z() ) {
-            const int cost = move_cost( pt );
+            const int cost = move_cost( pt, nullptr, options );
             if( cost < cost_min || cost > cost_max ||
                 obstructed_by_vehicle_rotation( last_point, pt ) ) {
                 is_clear = false;
@@ -4652,7 +4670,7 @@ auto mapbuffer::clear_path( const tripoint_abs_ms &f, const tripoint_abs_ms &t, 
             const tripoint_abs_ms no_floor_check( new_xy, max_z );
             if( !has_floor_or_support( no_floor_check ) ) {
                 const tripoint_abs_ms from_prev_z( new_xy, last_point.z() );
-                const int cost = move_cost( from_prev_z );
+                const int cost = move_cost( from_prev_z, nullptr, options );
                 if( cost > cost_min && cost < cost_max &&
                     !obstructed_by_vehicle_rotation( last_point, pt ) ) {
                     this_clear = true;
@@ -4663,7 +4681,7 @@ auto mapbuffer::clear_path( const tripoint_abs_ms &f, const tripoint_abs_ms &t, 
                 const tripoint_abs_ms floor_check( last_point.xy(), max_z );
                 if( has_floor_or_support( floor_check ) ) {
                     const tripoint_abs_ms from_new_z( last_point.xy(), new_point.z );
-                    const int cost = move_cost( from_new_z );
+                    const int cost = move_cost( from_new_z, nullptr, options );
                     if( cost > cost_min && cost < cost_max &&
                         !obstructed_by_vehicle_rotation( last_point, pt ) ) {
                         this_clear = true;
@@ -4788,7 +4806,7 @@ auto mapbuffer::get_field_intensity( const tripoint_abs_ms &p, const field_type_
 auto mapbuffer::passable( const tripoint_abs_ms &p,
                           const mapbuffer_lookup_options options ) -> std::optional<bool>
 {
-    const auto tile = abs_tile_handle::fetch( *this, p );
+    const auto tile = abs_tile_handle::fetch( *this, p, options );
     if( !tile ) {
         return std::nullopt;
     }
@@ -5745,8 +5763,8 @@ void mapbuffer::add_spawn( const mtype_id &type, int count, const tripoint_abs_m
                            const std::string &name, mapbuffer_lookup_options options ) const
 {
     auto proj = project_remain<coords::sm>( p );
-    auto place_on_submap = MAPBUFFER_REGISTRY.get( dimension_id_ ).lookup_submap_in_memory(
-                               proj.quotient_tripoint );
+    auto &buffer = MAPBUFFER_REGISTRY.get( dimension_id_ );
+    auto *const place_on_submap = buffer.get_submap( proj.quotient_tripoint, options );
 
     if( !place_on_submap ) {
         debugmsg( "centadodecamonant doesn't exist in grid; within add_spawn(%s, %d, %d, %d, %d)",
@@ -5795,8 +5813,7 @@ vehicle *mapbuffer::add_vehicle( const std::variant<vgroup_id, vproto_id> &type_
         return nullptr;
     }
     auto proj = project_remain<coords::sm>( p );
-    auto place_on_submap = MAPBUFFER_REGISTRY.get( dimension_id_ ).lookup_submap_in_memory(
-                               proj.quotient_tripoint );
+    auto *const place_on_submap = get_submap( proj.quotient_tripoint, options );
 
     if( !place_on_submap ) {
         debugmsg( "add_vehicle triggered for nonexistent submap t=%s d=%d p=%s",
@@ -5814,7 +5831,7 @@ vehicle *mapbuffer::add_vehicle( const std::variant<vgroup_id, vproto_id> &type_
     veh->set_facing_and_pivot( dir, tripoint_mnt_veh::zero(), false );
     //debugmsg("adding veh: %d, sm: %d,%d,%d, pos: %d, %d", veh, veh->smx, veh->smy, veh->smz, veh->posx, veh->posy);
     std::unique_ptr<vehicle> placed_vehicle_up =
-        add_vehicle_to_mapbuffer( std::move( veh ), merge_wrecks );
+        add_vehicle_to_mapbuffer( std::move( veh ), merge_wrecks, options );
     vehicle *placed_vehicle = placed_vehicle_up.get();
 
     if( placed_vehicle != nullptr ) {
@@ -5870,19 +5887,19 @@ std::unique_ptr<vehicle> mapbuffer::add_vehicle_to_mapbuffer(
         const auto abs_pos = veh->abs_part_location( *part );
 
         //Don't spawn anything in water
-        if( has_flag( TFLAG_DEEP_WATER, abs_pos ) && !can_float ) {
+        if( has_flag( TFLAG_DEEP_WATER, abs_pos, options ) && !can_float ) {
             return nullptr;
         }
 
         // Don't spawn shopping carts on top of another vehicle or other obstacle.
         if( veh->type == vproto_id( "shopping_cart" ) ) {
-            if( veh_at( abs_pos ) || !passable( abs_pos ) ) {
+            if( veh_at( abs_pos, options ) || !passable( abs_pos, options ).value_or( false ) ) {
                 return nullptr;
             }
         }
 
         //For other vehicles, simulate collisions with (non-shopping cart) stuff
-        vehicle *const other_veh = veh_pointer_or_null( veh_at( abs_pos ) );
+        vehicle *const other_veh = veh_pointer_or_null( veh_at( abs_pos, options ) );
         if( other_veh != nullptr && other_veh->type != vproto_id( "shopping_cart" ) ) {
             if( !merge_wrecks ) {
                 return nullptr;
@@ -5895,7 +5912,7 @@ std::unique_ptr<vehicle> mapbuffer::add_vehicle_to_mapbuffer(
             }
 
             // We must remove the vehicle from the map before we move away its parts
-            std::unique_ptr<vehicle> old_veh = detach_vehicle( other_veh );
+            std::unique_ptr<vehicle> old_veh = detach_vehicle( other_veh, options );
             if( old_veh == nullptr ) {
                 return nullptr;
             }
@@ -5912,26 +5929,26 @@ std::unique_ptr<vehicle> mapbuffer::add_vehicle_to_mapbuffer(
 
 
             // Try again with the wreckage
-            std::unique_ptr<vehicle> new_veh = add_vehicle_to_mapbuffer( std::move( veh ), true );
+            std::unique_ptr<vehicle> new_veh = add_vehicle_to_mapbuffer( std::move( veh ), true, options );
             if( new_veh != nullptr ) {
                 new_veh->smash();
                 return new_veh;
             }
 
             // If adding the wreck failed, we want to restore the vehicle we tried to merge with
-            add_vehicle_to_mapbuffer( std::move( old_veh ), false );
+            add_vehicle_to_mapbuffer( std::move( old_veh ), false, options );
             return nullptr;
 
-        } else if( !passable( abs_pos ) ) {
+        } else if( !passable( abs_pos, options ).value_or( false ) ) {
             if( !merge_wrecks ) {
                 return nullptr;
             }
 
             // There's a wall or other obstacle here; destroy it
-            destroy( abs_pos, true );
+            destroy( abs_pos, true, options );
 
             // Some weird terrain, don't place the vehicle
-            if( !passable( abs_pos ) ) {
+            if( !passable( abs_pos, options ).value_or( false ) ) {
                 return nullptr;
             }
 
@@ -5957,7 +5974,7 @@ std::set<vehicle *> mapbuffer::get_vehicles( const tripoint_abs_sm &start,
         return vehs;
     }
     for( const auto sm_pos : tripoint_range<tripoint_abs_sm>( start, end ) ) {
-        auto sm = lookup_submap_in_memory( sm_pos );
+        auto *const sm = get_submap( sm_pos, options );
         if( !sm ) {
             continue;
         }
@@ -5970,7 +5987,7 @@ std::set<vehicle *> mapbuffer::get_vehicles( const tripoint_abs_sm &start,
     return vehs;
 }
 
-std::set<vehicle *> mapbuffer::get_vehicles( mapbuffer_lookup_options options )
+std::set<vehicle *> mapbuffer::get_vehicles()
 {
     return loaded_vehicles_;
 }
@@ -6043,7 +6060,7 @@ std::unique_ptr<vehicle> mapbuffer::detach_vehicle( vehicle *veh,
     }
     veh->invalidate_towing( true );
     auto &here = MAPBUFFER_REGISTRY.get( dimension_id_ );
-    submap *current_submap = here.lookup_submap_in_memory( veh->abs_sm_pos );
+    submap *current_submap = here.get_submap( veh->abs_sm_pos, options );
     if( current_submap == nullptr ) {
         debugmsg( "detach_vehicle can't find submap!  name=%s, submap:%d,%d,%d",
                   veh->name, veh->abs_sm_pos.x(), veh->abs_sm_pos.y(), veh->abs_sm_pos.z() );
@@ -6342,7 +6359,7 @@ auto mapbuffer::has_nearby_fire( const tripoint_abs_ms &p, const int radius,
             return true;
         }
         {
-            auto h = abs_tile_handle::fetch_terrain_only( *this, pt );
+            auto h = abs_tile_handle::fetch_terrain_only( *this, pt, options );
             if( h && h->has_flag_ter_or_furn( "USABLE_FIRE" ) ) {
                 return true;
             }
@@ -6357,7 +6374,7 @@ auto mapbuffer::has_nearby_table( const tripoint_abs_ms &p, const int radius,
     for( const tripoint_abs_ms &pt : points_in_radius( p, radius ) ) {
         const auto vp = veh_at( pt, options );
         {
-            auto h = abs_tile_handle::fetch_terrain_only( *this, pt );
+            auto h = abs_tile_handle::fetch_terrain_only( *this, pt, options );
             if( h && h->has_flag_ter_or_furn( "FLAT_SURF" ) ) {
                 return true;
             }
@@ -6375,7 +6392,7 @@ auto mapbuffer::has_nearby_chair( const tripoint_abs_ms &p, const int radius,
     for( const tripoint_abs_ms &pt : points_in_radius( p, radius ) ) {
         const auto vp = veh_at( pt, options );
         {
-            auto h = abs_tile_handle::fetch_terrain_only( *this, pt );
+            auto h = abs_tile_handle::fetch_terrain_only( *this, pt, options );
             if( h && h->has_flag_ter_or_furn( "CAN_SIT" ) ) {
                 return true;
             }
@@ -6402,7 +6419,7 @@ auto mapbuffer::can_put_items( const tripoint_abs_ms &p,
 auto mapbuffer::can_put_items_ter_furn( const tripoint_abs_ms &p,
                                         const mapbuffer_lookup_options options ) -> bool
 {
-    auto h = abs_tile_handle::fetch_terrain_only( *this, p );
+    auto h = abs_tile_handle::fetch_terrain_only( *this, p, options );
     return h && !h->has_flag( "NOITEM" ) && !h->has_flag( "SEALED" );
 }
 
@@ -6433,7 +6450,7 @@ auto mapbuffer::is_harvestable( const tripoint_abs_ms &p,
 auto mapbuffer::accessible_items( const tripoint_abs_ms &p,
                                   const mapbuffer_lookup_options options ) -> bool
 {
-    auto h = abs_tile_handle::fetch_terrain_only( *this, p );
+    auto h = abs_tile_handle::fetch_terrain_only( *this, p, options );
     return h && ( !h->has_flag( "SEALED" ) || h->has_flag( "LIQUIDCONT" ) );
 }
 
@@ -6442,7 +6459,7 @@ auto mapbuffer::is_wall_adjacent( const tripoint_abs_ms &p,
 {
     for( const tripoint_abs_ms &pt : points_in_radius( p, 1 ) ) {
         if( pt != p ) {
-            auto h = abs_tile_handle::fetch( *this, pt );
+            auto h = abs_tile_handle::fetch( *this, pt, options );
             if( h && h->move_cost() == 0 ) {
                 return true;
             }
@@ -6458,7 +6475,7 @@ auto mapbuffer::is_flammable( const tripoint_abs_ms &p,
         return true;
     }
     {
-        auto h = abs_tile_handle::fetch_terrain_only( *this, p );
+        auto h = abs_tile_handle::fetch_terrain_only( *this, p, options );
         if( h && ( h->has_flag( "FLAMMABLE" ) || h->has_flag( "FLAMMABLE_ASH" ) ) ) {
             return true;
         }
@@ -6644,7 +6661,7 @@ auto mapbuffer::sees( const tripoint_abs_ms &F, const tripoint_abs_ms &T, const 
                       mapbuffer_lookup_options options ) -> const bool
 {
     int dummy = 0;
-    return sees( F, T, range, dummy );
+    return sees( F, T, range, dummy, options );
 }
 
 /**
@@ -6669,13 +6686,13 @@ auto mapbuffer::sees( const tripoint_abs_ms &F, const tripoint_abs_ms &T, const 
         auto last_point = F.xy();
         // Please someone make bresenham work with typed points, I'm running out of willpower
         bresenham( F.xy().raw(), T.xy().raw(), bresenham_slope,
-        [this, &visible, &T, &last_point]( const point & new_point ) {
+        [this, &visible, &T, &last_point, options]( const point & new_point ) {
             // Exit before checking the last square, it's still visible even if opaque.
             if( new_point.x == T.x() && new_point.y == T.y() ) {
                 return false;
             }
             const auto new_tripoint = tripoint_abs_ms( point_abs_ms( new_point ), T.z() );
-            if( !is_transparent( new_tripoint ) ||
+            if( !is_transparent( new_tripoint, options ) ||
                 obstructed_by_vehicle_rotation( tripoint_abs_ms( last_point, T.z() ),
                                                 new_tripoint ) ) {
                 visible = false;
@@ -6689,7 +6706,7 @@ auto mapbuffer::sees( const tripoint_abs_ms &F, const tripoint_abs_ms &T, const 
 
     auto last_point = F;
     bresenham( F.raw(), T.raw(), bresenham_slope, 0,
-    [this, &visible, &T, &last_point]( const tripoint & new_point ) {
+    [this, &visible, &T, &last_point, options]( const tripoint & new_point ) {
         // Exit before checking the last square if it's not a vertical transition,
         // it's still visible even if opaque.
         if( new_point == T.raw() && last_point.z() == T.z() ) {
@@ -6698,17 +6715,17 @@ auto mapbuffer::sees( const tripoint_abs_ms &F, const tripoint_abs_ms &T, const 
 
         // TODO: Allow transparent floors (and cache them!)
         if( new_point.z == last_point.z() ) {
-            if( !is_transparent( tripoint_abs_ms( new_point ) ) ||
+            if( !is_transparent( tripoint_abs_ms( new_point ), options ) ||
                 obstructed_by_vehicle_rotation( last_point, tripoint_abs_ms( new_point ) ) ) {
                 visible = false;
                 return false;
             }
         } else {
             const int max_z = std::max( new_point.z, last_point.z() );
-            if( ( has_floor( tripoint_abs_ms{ new_point.x, new_point.y, max_z }, true ) ||
-                  !is_transparent( tripoint_abs_ms{ new_point.x, new_point.y, last_point.z() } ) ) &&
-                ( has_floor( {last_point.xy(), max_z}, true ) ||
-                  !is_transparent( {last_point.xy(), new_point.z} ) ) ) {
+            if( ( has_floor( tripoint_abs_ms{ new_point.x, new_point.y, max_z }, true, options ) ||
+                  !is_transparent( tripoint_abs_ms{ new_point.x, new_point.y, last_point.z() }, options ) ) &&
+                ( has_floor( {last_point.xy(), max_z}, true, options ) ||
+                  !is_transparent( {last_point.xy(), new_point.z}, options ) ) ) {
                 visible = false;
                 return false;
             }
@@ -6729,7 +6746,7 @@ auto mapbuffer::obstacle_coverage( const tripoint_abs_ms &loc1, const tripoint_a
         return 100;
     }
     // Can't hide if you are standing on furniture, or non-flat slowing-down terrain tile.
-    if( tile1->sm->get_furn( tile1->local ).obj().id || ( move_cost( loc2 ) > 2 &&
+    if( tile1->sm->get_furn( tile1->local ).obj().id || ( move_cost( loc2, nullptr, options ) > 2 &&
             !tile2->sm->get_ter( tile2->local ).obj().has_flag( TFLAG_FLAT ) ) ) {
         return 0;
     }
@@ -6749,7 +6766,7 @@ auto mapbuffer::obstacle_coverage( const tripoint_abs_ms &loc1, const tripoint_a
     if( obstacle_f != f_null ) {
         return obstacle_f->coverage;
     }
-    if( const auto vp = veh_at( obstaclepos ) ) {
+    if( const auto vp = veh_at( obstaclepos, options ) ) {
         if( vp->obstacle_at_part() ) {
             return 60;
         } else if( !vp->part_with_feature( VPFLAG_AISLE, true ) ) {
@@ -6823,7 +6840,7 @@ auto mapbuffer::features( const tripoint_abs_ms &p,
 auto mapbuffer::ranged_target_size( const tripoint_abs_ms &p,
                                     const mapbuffer_lookup_options options ) -> double
 {
-    auto h = abs_tile_handle::fetch( *this, p );
+    auto h = abs_tile_handle::fetch( *this, p, options );
     if( h && h->move_cost() == 0 ) {
         return 1.0;
     }
@@ -7049,7 +7066,7 @@ auto mapbuffer::passable_ter_furn( const tripoint_abs_ms &p,
 auto mapbuffer::ter( const tripoint_abs_ms &p,
                      const mapbuffer_lookup_options options ) -> std::optional<ter_id>
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return std::nullopt;
     }
@@ -7059,7 +7076,7 @@ auto mapbuffer::ter( const tripoint_abs_ms &p,
 auto mapbuffer::furn( const tripoint_abs_ms &p,
                       const mapbuffer_lookup_options options ) -> std::optional<furn_id>
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return std::nullopt;
     }
@@ -7069,7 +7086,7 @@ auto mapbuffer::furn( const tripoint_abs_ms &p,
 auto mapbuffer::furnname( const tripoint_abs_ms &p,
                           const mapbuffer_lookup_options options ) -> std::string
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return std::string();
     }
@@ -7079,7 +7096,7 @@ auto mapbuffer::furnname( const tripoint_abs_ms &p,
 auto mapbuffer::has_flag( const std::string &flag, const tripoint_abs_ms &p,
                           const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return false;
     }
@@ -7089,7 +7106,7 @@ auto mapbuffer::has_flag( const std::string &flag, const tripoint_abs_ms &p,
 auto mapbuffer::has_flag( ter_bitflags flag, const tripoint_abs_ms &p,
                           const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return false;
     }
@@ -7099,7 +7116,7 @@ auto mapbuffer::has_flag( ter_bitflags flag, const tripoint_abs_ms &p,
 auto mapbuffer::has_flag_ter( const std::string &flag, const tripoint_abs_ms &p,
                               const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return false;
     }
@@ -7109,7 +7126,7 @@ auto mapbuffer::has_flag_ter( const std::string &flag, const tripoint_abs_ms &p,
 auto mapbuffer::has_flag_ter_or_furn( const std::string &flag, const tripoint_abs_ms &p,
                                       const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return false;
     }
@@ -7119,7 +7136,7 @@ auto mapbuffer::has_flag_ter_or_furn( const std::string &flag, const tripoint_ab
 auto mapbuffer::has_flag_ter_or_furn( ter_bitflags flag, const tripoint_abs_ms &p,
                                       const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return false;
     }
@@ -7129,7 +7146,7 @@ auto mapbuffer::has_flag_ter_or_furn( ter_bitflags flag, const tripoint_abs_ms &
 auto mapbuffer::has_floor_or_support( const tripoint_abs_ms &p,
                                       const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return false;
     }
@@ -7141,7 +7158,7 @@ auto mapbuffer::has_floor_or_support( const tripoint_abs_ms &p,
     }
 
     const auto below = p + tripoint_rel_ms::below();
-    const auto below_tile = abs_tile_handle::fetch_terrain_only( *this, below );
+    const auto below_tile = abs_tile_handle::fetch_terrain_only( *this, below, options );
     if( !below_tile ) {
         return false;
     }
@@ -7181,7 +7198,7 @@ auto mapbuffer::has_floor( const tripoint_abs_ms &p, bool visible_only,
 auto mapbuffer::is_transparent( const tripoint_abs_ms &p,
                                 const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return false;
     }
@@ -7219,7 +7236,11 @@ auto mapbuffer::combined_movecost( const tripoint_abs_ms &from, const tripoint_a
         return ( cost1 + cost2 ) * mults[match] / 2;
     }
     // Inter-z-level movement by foot (not flying)
-    if( !valid_move( from, to, { .flying = flying, .via_ramp = via_ramp } ) ) {
+    if( !valid_move( from, to, {
+        .flying = flying,
+        .via_ramp = via_ramp,
+        .lookup = options,
+    } ) ) {
         return 0;
     }
     return ( cost1 + cost2 + modifier ) * mults[match] / 2;
@@ -7228,7 +7249,7 @@ auto mapbuffer::combined_movecost( const tripoint_abs_ms &from, const tripoint_a
 auto mapbuffer::move_cost( const tripoint_abs_ms &p, const vehicle *ignored_vehicle,
                            const mapbuffer_lookup_options options ) -> int
 {
-    const auto tile = abs_tile_handle::fetch( *this, p );
+    const auto tile = abs_tile_handle::fetch( *this, p, options );
     if( !tile ) {
         return 0;
     }
@@ -7238,7 +7259,7 @@ auto mapbuffer::move_cost( const tripoint_abs_ms &p, const vehicle *ignored_vehi
 auto mapbuffer::hit_with_acid( const tripoint_abs_ms &p,
                                const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch( *this, p );
+    const auto tile = abs_tile_handle::fetch( *this, p, options );
     if( !tile ) {
         return false;
     }
@@ -7280,7 +7301,7 @@ auto mapbuffer::hit_with_acid( const tripoint_abs_ms &p,
 auto mapbuffer::hit_with_fire( const tripoint_abs_ms &p,
                                const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch( *this, p );
+    const auto tile = abs_tile_handle::fetch( *this, p, options );
     if( !tile ) {
         return false;
     }
@@ -7298,7 +7319,7 @@ auto mapbuffer::hit_with_fire( const tripoint_abs_ms &p,
 auto mapbuffer::can_open_door( const tripoint_abs_ms &p, bool inside,
                                const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return false;
     }
@@ -7321,7 +7342,7 @@ auto mapbuffer::can_open_door( const tripoint_abs_ms &p, bool inside,
 auto mapbuffer::open_door( const tripoint_abs_ms &p, bool inside,
                            const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return false;
     }
@@ -7351,7 +7372,7 @@ auto mapbuffer::open_door( const tripoint_abs_ms &p, bool inside,
 auto mapbuffer::close_door( const tripoint_abs_ms &p, bool inside, bool check_only,
                             const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return false;
     }
@@ -7470,12 +7491,12 @@ auto mapbuffer::forced_door_closing( const tripoint_abs_ms &p, const ter_id &doo
     }
 
 
-    if( const optional_vpart_position vp = veh_at( p ) ) {
+    if( const optional_vpart_position vp = veh_at( p, options ) ) {
         if( bash_dmg <= 0 ) {
             return false;
         }
         vp->vehicle().damage( vp->part_index(), bash_dmg );
-        if( veh_at( p ) ) {
+        if( veh_at( p, options ) ) {
             return false;
         }
     }
@@ -7542,7 +7563,7 @@ ter_id mapbuffer::get_roof( const tripoint_abs_ms &p, const bool allow_air,
         // Could be magma/"void" instead
         return t_rock_floor;
     }
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( !tile ) {
         return t_null;
     }
@@ -7778,7 +7799,7 @@ bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_p
     result.success = true;
     const ter_t &ter_before = maybe_ter->obj();
     const map_bash_info &bash = ter_before.bash;
-    if( has_flag_ter( "FUNGUS", p ) ) {
+    if( has_flag_ter( "FUNGUS", p, options ) ) {
         fungal_effects( *g, *this ).create_spores( p );
     }
     const std::string soundfxvariant = ter_before.id.str();
@@ -7788,27 +7809,27 @@ bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_p
     if( params.bashing_from_above && bash.ter_set_bashed_from_above ) {
         // If this terrain is being bashed from above and this terrain
         // has a valid post-destroy bashed-from-above terrain, set it
-        set_ter( p, bash.ter_set_bashed_from_above );
+        set_ter( p, bash.ter_set_bashed_from_above, options );
     } else if( bash.ter_set ) {
         // If the terrain has a valid post-destroy terrain, set it
-        set_ter( p, bash.ter_set );
+        set_ter( p, bash.ter_set, options );
         follow_below |= bash.bash_below;
     } else if( suspended ) {
         // Its important that we change the ter value before recursing, otherwise we'll hit an infinite loop.
         // This could be prevented by assembling a visited list, but in order to avoid that cost, we're going
         // build our recursion to just be resilient.
-        set_ter( p, t_open_air );
+        set_ter( p, t_open_air, options );
         propagate_suspension_check( p );
     } else {
         tripoint_abs_ms below( p.xy(), p.z() - 1 );
-        const ter_t &ter_below = ter( below )->obj();
+        const ter_t &ter_below = ter( below, options )->obj();
         // Only setting the flag here because we want drops and sounds in correct order
         follow_below |= bash.bash_below && ter_below.roof;
 
-        set_ter( p, t_open_air );
+        set_ter( p, t_open_air, options );
     }
 
-    spawn_items( p, item_group::items_from( bash.drop_group, calendar::turn ) );
+    spawn_items( p, item_group::items_from( bash.drop_group, calendar::turn ), options );
 
     if( !bash.sound.empty() && !params.silent ) {
         static const std::string soundfxid = "smash_success";
@@ -7824,7 +7845,7 @@ bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_p
         sounds::sound( se );
     }
 
-    if( follow_below || ter( p ) == t_open_air ) {
+    if( follow_below || ter( p, options ) == t_open_air ) {
         const tripoint_abs_ms below( p.xy(), p.z() - 1 );
         // We may need multiple bashes in some weird cases
         // Example:
@@ -7843,10 +7864,10 @@ bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_p
             // Note: we're bashing the new roof, not the tile supported by it!
             int down_bash_tries = 10;
             do {
-                const ter_id &ter_now = ter( p )->id();
+                const ter_id &ter_now = ter( p, options )->id();
                 if( encountered_types.contains( ter_now ) ) {
                     // We have encountered this type before and destroyed it (didn't block us)
-                    set_ter( p, t_open_air );
+                    set_ter( p, t_open_air, options );
                     bash_params params_below = params;
                     params_below.bashing_from_above = true;
                     params_below.bash_floor = false;
@@ -7855,15 +7876,16 @@ bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_p
                     int impassable_bash_tries = 10;
                     // Unconditionally destroy, but don't go deeper
                     do {
-                        result |= bash_ter_success( below, params_below );
-                    } while( ter( below )->obj().movecost == 0 && impassable_bash_tries-- > 0 );
+                        result |= bash_ter_success( below, params_below, options );
+                    } while( ter( below, options )->obj().movecost == 0 && impassable_bash_tries-- > 0 );
                     if( impassable_bash_tries <= 0 ) {
                         debugmsg( "Loop in terrain bashing for type %s", ter_before.id.str() );
                     }
                 } else if( ter_now == t_open_air ) {
-                    const ter_id &roof = get_roof( below, params.bash_floor && ter( below )->obj().movecost != 0 );
+                    const ter_id &roof = get_roof( below, params.bash_floor && ter( below, options )->obj().movecost != 0,
+                                                  options );
                     if( roof != t_open_air ) {
-                        set_ter( p, roof );
+                        set_ter( p, roof, options );
                     }
                 } else {
                     // This floor/roof tile wasn't destroyed in this loop yet
@@ -7872,7 +7894,7 @@ bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_p
                     params_copy.do_recurse = false;
                     // TODO: Unwrap the calls, don't recurse
                     // TODO: Don't bash furn
-                    bash_results results_sub = bash_ter_furn( p, params_copy );
+                    bash_results results_sub = bash_ter_furn( p, params_copy, options );
                     result |= results_sub;
                     if( !results_sub.success ) {
                         // Blocked, as in "the roof was too strong to bash"
@@ -7880,19 +7902,21 @@ bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_p
                     }
                 }
             } while( down_bash_tries-- > 0 && !blocked_by_roof &&
-                     ( ter( p ) != t_open_air || ter( p )->obj().movecost == 0 || ter( below )->obj().roof ) );
+                     ( ter( p, options ) != t_open_air || ter( p, options )->obj().movecost == 0 ||
+                       ter( below, options )->obj().roof ) );
             if( down_bash_tries <= 0 ) {
                 debugmsg( "Loop in terrain bashing for type %s", ter_before.id.str() );
             }
         } else {
-            const ter_id &roof = get_roof( below, params.bash_floor && ter( below )->obj().movecost != 0 );
+            const ter_id &roof = get_roof( below, params.bash_floor && ter( below, options )->obj().movecost != 0,
+                                          options );
 
-            set_ter( p, roof );
+            set_ter( p, roof, options );
         }
     }
 
-    if( will_collapse && !has_flag( TFLAG_SUPPORTS_ROOF, p ) ) {
-        collapse_at( p, params.silent, true, bash.explosive > 0 );
+    if( will_collapse && !has_flag( TFLAG_SUPPORTS_ROOF, p, options ) ) {
+        collapse_at( p, params.silent, true, bash.explosive > 0, options );
     }
 
     if( bash.explosive > 0 ) {
@@ -7917,10 +7941,10 @@ bash_results mapbuffer::bash_furn_success( const tripoint_abs_ms &p, const bash_
     const auto &furnid = tile->sm->get_furn( tile->local ).obj();
     const map_bash_info &bash = furnid.bash;
 
-    if( has_flag( TFLAG_FUNGUS, p ) ) {
+    if( has_flag( TFLAG_FUNGUS, p, options ) ) {
         fungal_effects( *g, *this ).create_spores( p );
     }
-    if( has_flag( "MIGO_NERVE", p ) ) {
+    if( has_flag( "MIGO_NERVE", p, options ) ) {
         map_funcs::migo_nerve_cage_removal( *this, p, true );
     }
     std::string soundfxvariant = furnid.id.str();
@@ -7940,33 +7964,33 @@ bash_results mapbuffer::bash_furn_success( const tripoint_abs_ms &p, const bash_
 
         // Find the center of the tent
         // First check if we're not currently bashing the center
-        if( centers.contains( *furn( p ) ) ) {
-            tentp.emplace( p, *furn( p ) );
+        if( const auto furniture = furn( p, options ); furniture && centers.contains( *furniture ) ) {
+            tentp.emplace( p, *furniture );
         } else {
             for( const auto &pt : simulated_tiles_in_radius( *this, p, bash.collapse_radius ) ) {
-                const furn_id &f_at = pt.furn();
+                const auto f_at = furn( pt.abs_pos(), options );
                 // Check if we found the center of the current tent
-                if( centers.contains( f_at ) ) {
-                    tentp.emplace( pt.abs_pos(), f_at );
+                if( f_at && centers.contains( *f_at ) ) {
+                    tentp.emplace( pt.abs_pos(), *f_at );
                     break;
                 }
             }
         }
         // Didn't find any tent center, wreck the current tile
         if( !tentp ) {
-            spawn_items( p, item_group::items_from( bash.drop_group, calendar::turn ) );
+            spawn_items( p, item_group::items_from( bash.drop_group, calendar::turn ), options );
             release_avatar_grabbed_furniture_if_destroyed( p, furnid, bash.furn_set );
-            set_furn( p, bash.furn_set );
+            set_furn( p, bash.furn_set, options );
         } else {
             // Take the tent down
             const int rad = tentp->second.obj().bash.collapse_radius;
             for( const auto &pt : simulated_tiles_in_radius( *this, tentp->first, rad ) ) {
-                const furn_id frn = pt.furn();
-                if( frn == f_null ) {
+                const auto frn = furn( pt.abs_pos(), options );
+                if( !frn || *frn == f_null ) {
                     continue;
                 }
 
-                const auto &furn_obj = frn.obj();
+                const auto &furn_obj = frn->obj();
                 const auto &recur_bash = furn_obj.bash;
                 // Check if we share a center type and thus a "tent type"
                 for( const auto &cur_id : recur_bash.tent_centers ) {
@@ -7976,9 +8000,9 @@ bash_results mapbuffer::bash_furn_success( const tripoint_abs_ms &p, const bash_
                             furn_obj.fluid_grid->role == fluid_grid_role::tank ) {
                             fluid_grid::on_tank_removed( pt.abs_pos() );
                         }
-                        spawn_items( p, item_group::items_from( recur_bash.drop_group, calendar::turn ) );
+                        spawn_items( p, item_group::items_from( recur_bash.drop_group, calendar::turn ), options );
                         release_avatar_grabbed_furniture_if_destroyed( pt.abs_pos(), furn_obj, recur_bash.furn_set );
-                        set_furn( pt.abs_pos(), recur_bash.furn_set );
+                        set_furn( pt.abs_pos(), recur_bash.furn_set, options );
                         break;
                     }
                 }
@@ -7990,8 +8014,8 @@ bash_results mapbuffer::bash_furn_success( const tripoint_abs_ms &p, const bash_
             fluid_grid::on_tank_removed( p );
         }
         release_avatar_grabbed_furniture_if_destroyed( p, furnid, bash.furn_set );
-        set_furn( p, bash.furn_set );
-        for( auto it : *get_items( p ) )  {
+        set_furn( p, bash.furn_set, options );
+        for( auto it : *get_items( p, options ) )  {
             it->on_drop();
         }
         // HACK: Hack alert.
@@ -7999,11 +8023,11 @@ bash_results mapbuffer::bash_furn_success( const tripoint_abs_ms &p, const bash_
         // furniture can't store dynamic data to disk. To prevent writing
         // mysteriously appearing for a sign later built here, remove the
         // writing from the submap.
-        delete_signage( p );
+        delete_signage( p, options );
     }
 
     if( !tent ) {
-        spawn_items( p, item_group::items_from( bash.drop_group, calendar::turn ) );
+        spawn_items( p, item_group::items_from( bash.drop_group, calendar::turn ), options );
     }
 
     if( !bash.sound.empty() && !params.silent ) {
@@ -8065,12 +8089,12 @@ bash_results mapbuffer::bash_ter_furn( const tripoint_abs_ms &p, const bash_para
             // HACK: A hack for destroy && !bash_floor
             // We have to check what would we create and cancel if it is what we have now
             auto below = p + tripoint_rel_ms::below();
-            const auto roof = get_roof( below, false );
-            if( roof == ter( p ) ) {
+            const auto roof = get_roof( below, false, options );
+            if( roof == ter( p, options ) ) {
                 smash_ter = false;
                 bash = nullptr;
             }
-        } else if( !bash->ter_set && ter( p ) == t_dirt ) {
+        } else if( !bash->ter_set && ter( p, options ) == t_dirt ) {
             // As above, except for no-z-levels case
             smash_ter = false;
             bash = nullptr;
@@ -8078,7 +8102,7 @@ bash_results mapbuffer::bash_ter_furn( const tripoint_abs_ms &p, const bash_para
     }
 
     // TODO: what if silent is true?
-    if( has_flag( "ALARMED", p ) && !g->timed_events.queued( TIMED_EVENT_WANTED ) ) {
+    if( has_flag( "ALARMED", p, options ) && !g->timed_events.queued( TIMED_EVENT_WANTED ) ) {
         sound_event se;
         se.origin = p;
         se.volume = 90;
@@ -8098,7 +8122,7 @@ bash_results mapbuffer::bash_ter_furn( const tripoint_abs_ms &p, const bash_para
 
     if( bash == nullptr || ( bash->destroy_only && !params.destroy ) ) {
         // Nothing bashable here
-        if( !passable( p ) ) {
+        if( !passable( p, options ).value_or( false ) ) {
             if( !params.silent ) {
                 sound_event se;
                 se.origin = p;
@@ -8138,7 +8162,7 @@ bash_results mapbuffer::bash_ter_furn( const tripoint_abs_ms &p, const bash_para
 
         if( bash->str_min_supported != -1 || bash->str_max_supported != -1 ) {
             auto below = p + tripoint_rel_ms::below();
-            if( has_flag( TFLAG_SUPPORTS_ROOF, below ) ) {
+            if( has_flag( TFLAG_SUPPORTS_ROOF, below, options ) ) {
                 if( bash->str_min_supported != -1 ) {
                     smin = bash->str_min_supported;
                 }
@@ -8177,7 +8201,7 @@ bash_results mapbuffer::bash_ter_furn( const tripoint_abs_ms &p, const bash_para
             if( flipped_version != furn_str_id::NULL_ID() ) {
                 const int damage_percent = ( params.strength * 100 ) / smax;
                 if( rng( 1, 100 ) <= damage_percent ) {
-                    set_furn( p, flipped_version );
+                    set_furn( p, flipped_version, options );
                 }
             }
         }
@@ -8185,7 +8209,7 @@ bash_results mapbuffer::bash_ter_furn( const tripoint_abs_ms &p, const bash_para
         if( params.strength >= smin / 2 && one_in( smin / 2 ) ) {
             auto above = p + tripoint_rel_ms::above();
             Character *character = g->critter_at<Character>( above );
-            if( has_flag( TFLAG_UNSTABLE, above ) && character != nullptr ) {
+            if( has_flag( TFLAG_UNSTABLE, above, options ) && character != nullptr ) {
                 character->add_msg_if_player( m_warning,
                                               _( "You feel the ground beneath you shake from the impact!" ) );
 
@@ -8200,9 +8224,9 @@ bash_results mapbuffer::bash_ter_furn( const tripoint_abs_ms &p, const bash_para
         }
     } else {
         if( smash_ter ) {
-            result |= bash_ter_success( p, params );
+            result |= bash_ter_success( p, params, options );
         } else {
-            result |= bash_furn_success( p, params );
+            result |= bash_furn_success( p, params, options );
         }
     }
 
@@ -8223,7 +8247,7 @@ bash_results mapbuffer::bash( const tripoint_abs_ms &p, const int str,
         .bashing_from_above = false,
         .do_recurse = true
     };
-    return bash( p, bsh, bashing_vehicle );
+    return bash( p, bsh, bashing_vehicle, options );
 }
 
 bash_results mapbuffer::bash( const tripoint_abs_ms &p, const bash_params &bsh,
@@ -8245,26 +8269,26 @@ bash_results mapbuffer::bash( const tripoint_abs_ms &p, const bash_params &bsh,
     }
 
     bool bashed_sealed = false;
-    if( has_flag( "SEALED", p ) ) {
-        result |= bash_ter_furn( p, bsh );
+    if( has_flag( "SEALED", p, options ) ) {
+        result |= bash_ter_furn( p, bsh, options );
         bashed_sealed = true;
     }
 
-    result |= bash_field( p, bsh );
+        result |= bash_field( p, bsh, options );
 
     // Don't bash items inside terrain/furniture with SEALED flag
     if( !bashed_sealed ) {
-        result |= bash_items( p, bsh );
+        result |= bash_items( p, bsh, options );
     }
     // Don't bash the vehicle doing the bashing
-    const vehicle *veh = veh_pointer_or_null( veh_at( p ) );
+    const vehicle *veh = veh_pointer_or_null( veh_at( p, options ) );
     if( veh != nullptr && veh != bashing_vehicle ) {
-        result |= bash_vehicle( p, bsh );
+        result |= bash_vehicle( p, bsh, options );
     }
 
     // If we still didn't bash anything solid (a vehicle) or a tile with SEALED flag, bash ter/furn
     if( !result.bashed_solid && !bashed_sealed ) {
-        result |= bash_ter_furn( p, bsh );
+        result |= bash_ter_furn( p, bsh, options );
     }
 
     return result;
@@ -8274,12 +8298,12 @@ bash_results mapbuffer::bash_items( const tripoint_abs_ms &p, const bash_params 
                                     mapbuffer_lookup_options options )
 {
     bash_results result;
-    if( !has_items( p ) ) {
+    if( !has_items( p, options ) ) {
         return result;
     }
 
     std::vector<detached_ptr<item>> smashed_contents;
-    auto &bashed_items = *get_items( p );
+    auto &bashed_items = *get_items( p, options );
     bool smashed_glass = false;
     for( auto bashed_item = bashed_items.begin(); bashed_item != bashed_items.end(); ) {
         // the check for active suppresses Molotovs smashing themselves with their own explosion
@@ -8296,7 +8320,7 @@ bash_results mapbuffer::bash_items( const tripoint_abs_ms &p, const bash_params 
         }
     }
     // Now plunk in the contents of the smashed items.
-    spawn_items( p, std::move( smashed_contents ) );
+    spawn_items( p, std::move( smashed_contents ), options );
 
     // Add a glass sound even when something else also breaks
     if( smashed_glass && !params.silent ) {
@@ -8318,7 +8342,7 @@ bash_results mapbuffer::bash_vehicle( const tripoint_abs_ms &p, const bash_param
 {
     bash_results result;
     // Smash vehicle if present
-    if( const optional_vpart_position vp = veh_at( p ) ) {
+    if( const optional_vpart_position vp = veh_at( p, options ) ) {
         vp->vehicle().damage( vp->part_index(), params.strength, DT_BASH, true );
         if( !params.silent ) {
             sound_event se;
@@ -8343,10 +8367,10 @@ bash_results mapbuffer::bash_field( const tripoint_abs_ms &p, const bash_params 
                                     mapbuffer_lookup_options options )
 {
     bash_results result;
-    if( get_field_entry( p, fd_web ) != nullptr ) {
+    if( get_field_entry( p, fd_web, options ) != nullptr ) {
         result.did_bash = true;
         result.bashed_solid = true; // To prevent bashing furniture/vehicles
-        remove_field( p, fd_web );
+        remove_field( p, fd_web, options );
     }
 
     return result;
@@ -8360,7 +8384,7 @@ auto mapbuffer::destroy( const tripoint_abs_ms &p, bool silent,
         return;
     }
 
-    const auto tile = abs_tile_handle::fetch( *this, p );
+    const auto tile = abs_tile_handle::fetch( *this, p, options );
     if( !tile ) {
         return;
     }
@@ -8370,11 +8394,11 @@ auto mapbuffer::destroy( const tripoint_abs_ms &p, bool silent,
 
     // If we were destroying a floor, allow destroying floors
     // If we were destroying something unpassable, destroy only that
-    bool was_impassable = !passable( p );
+    bool was_impassable = !passable( p, options ).value_or( false );
     int count = 0;
     while( count <= 25
-           && bash( p, 999, silent, true ).success
-           && ( !was_impassable || !passable( p ) ) ) {
+           && bash( p, 999, silent, true, false, nullptr, options ).success
+           && ( !was_impassable || !passable( p, options ).value_or( false ) ) ) {
         count++;
     }
 }
@@ -8517,7 +8541,7 @@ auto mapbuffer::cheap_light_at( const tripoint_abs_ms &p,
     }
 
     // Step 4: Check terrain/furniture luminance
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p );
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
     if( tile ) {
         const auto lum = tile->lum();
         if( lum > 0 ) {
@@ -8699,14 +8723,14 @@ auto mapbuffer::make_rubble( const tripoint_abs_ms &p, const furn_id &rubble_typ
         }
         // Leave the terrain alone unless it interferes with furniture placement
         {
-            auto h_mc = abs_tile_handle::fetch( *this, p );
+            auto h_mc = abs_tile_handle::fetch( *this, p, options );
             if( h_mc && h_mc->move_cost() == 0 && is_bashable_ter( p, true, options ) ) {
                 set_ter( p, floor_type, options );
             }
         }
         // Check again for new terrain after potential destruction
         {
-            auto h_mc2 = abs_tile_handle::fetch( *this, p );
+            auto h_mc2 = abs_tile_handle::fetch( *this, p, options );
             if( h_mc2 && h_mc2->move_cost() == 0 ) {
                 set_ter( p, floor_type, options );
             }
