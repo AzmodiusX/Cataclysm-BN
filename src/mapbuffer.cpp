@@ -47,7 +47,7 @@
 #include "map.h"
 #include "mapdata.h"
 #include "mapgen_constructor.h"
-#include "map\utils\map_functions.h"
+#include "map/utils/map_functions.h"
 #include "map_iterator.h"
 #include "map_mutation_hooks.h"
 #include "omdata.h"
