@@ -83,7 +83,7 @@ TEST_CASE("avatar diving", "[diving][!mayfail]") {
         dummy.setpos(test_origin + tripoint_below);
 
         WHEN("avatar dives down") {
-            const auto target_pos = test_origin + tripoint_rel_ms( 0, 0, -2 );
+            const auto target_pos = test_origin + tripoint_rel_ms(0, 0, -2);
             g->vertical_move(-1, false);
 
             THEN("avatar is underwater at z-2") {

@@ -7237,10 +7237,10 @@ auto mapbuffer::combined_movecost( const tripoint_abs_ms &from, const tripoint_a
     }
     // Inter-z-level movement by foot (not flying)
     if( !valid_move( from, to, {
-        .flying = flying,
-        .via_ramp = via_ramp,
-        .lookup = options,
-    } ) ) {
+    .flying = flying,
+    .via_ramp = via_ramp,
+    .lookup = options,
+} ) ) {
         return 0;
     }
     return ( cost1 + cost2 + modifier ) * mults[match] / 2;
@@ -7882,8 +7882,9 @@ bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_p
                         debugmsg( "Loop in terrain bashing for type %s", ter_before.id.str() );
                     }
                 } else if( ter_now == t_open_air ) {
-                    const ter_id &roof = get_roof( below, params.bash_floor && ter( below, options )->obj().movecost != 0,
-                                                  options );
+                    const ter_id &roof = get_roof( below, params.bash_floor &&
+                                                   ter( below, options )->obj().movecost != 0,
+                                                   options );
                     if( roof != t_open_air ) {
                         set_ter( p, roof, options );
                     }
@@ -7908,8 +7909,9 @@ bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_p
                 debugmsg( "Loop in terrain bashing for type %s", ter_before.id.str() );
             }
         } else {
-            const ter_id &roof = get_roof( below, params.bash_floor && ter( below, options )->obj().movecost != 0,
-                                          options );
+            const ter_id &roof = get_roof( below, params.bash_floor &&
+                                           ter( below, options )->obj().movecost != 0,
+                                           options );
 
             set_ter( p, roof, options );
         }
@@ -8274,7 +8276,7 @@ bash_results mapbuffer::bash( const tripoint_abs_ms &p, const bash_params &bsh,
         bashed_sealed = true;
     }
 
-        result |= bash_field( p, bsh, options );
+    result |= bash_field( p, bsh, options );
 
     // Don't bash items inside terrain/furniture with SEALED flag
     if( !bashed_sealed ) {
