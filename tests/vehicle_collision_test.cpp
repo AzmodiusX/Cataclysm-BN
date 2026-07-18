@@ -1,4 +1,5 @@
 #include "catch/catch.hpp"
+#include "cache_validation.h"
 #include "coordinates.h"
 #include "game.h"
 #include "map.h"
@@ -62,6 +63,24 @@ TEST_CASE("vehicle_collision_with_wall_terminates", "[vehicle]") {
 
     CHECK(ret.type != veh_coll_nothing);
     CHECK(std::abs(veh_ptr->velocity) < 222);
+}
+
+TEST_CASE("vehicle_cache_matches_defensive_rebuild", "[vehicle][cache]") {
+    clear_all_state();
+    auto& here = get_map();
+    build_test_map(ter_id("t_pavement"));
+    clear_vehicles();
+
+    const auto vehicle_pos = bub_test_origin();
+    auto *const vehicle = here.add_vehicle( vproto_id("bicycle_test"), vehicle_pos,
+                                            270_degrees, 0, 0 );
+    REQUIRE( vehicle != nullptr );
+    REQUIRE( here.veh_at( vehicle_pos ).has_value() );
+
+    CHECK( test_cache_validation::matches_after_defensive_rebuild(
+               here, vehicle_pos.z(), [&]() {
+                   return here.veh_at( vehicle_pos ).has_value();
+               } ) );
 }
 
 TEST_CASE("hallucination_monsters_do_not_shove_vehicles", "[vehicle][monster][hallucination]") {

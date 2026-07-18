@@ -141,6 +141,14 @@ struct mapbuffer_item_lum_options {
 
 class mapbuffer;
 
+struct vehicle_submap_footprint {
+    tripoint_abs_sm min;
+    tripoint_abs_sm max;
+};
+
+using vehicle_submap_footprints = std::array<std::optional<vehicle_submap_footprint>,
+        OVERMAP_LAYERS>;
+
 struct mapbuffer_add_item_or_charges_options {
     bool overflow = true;
     mapbuffer_lookup_options lookup;
@@ -585,7 +593,7 @@ class mapbuffer_load_region
     public:
         struct options {
             mapbuffer &buffer;
-            load_request_source source = load_request_source::script;
+            load_request_source source;
             point_abs_sm begin;
             point_abs_sm end;
             mapbuffer_lookup_options lookup = {
@@ -626,7 +634,7 @@ class mapbuffer_load_region
 
     private:
         mapbuffer *buffer_ = nullptr;
-        load_request_source source_ = load_request_source::script;
+        std::optional<load_request_source> source_;
         mapbuffer_lookup_options options_ = { .mode = mapbuffer_lookup_mode::resident_only };
         point_abs_sm begin_;
         point_abs_sm end_;
@@ -852,6 +860,10 @@ class mapbuffer
         auto register_vehicle( vehicle *veh ) -> void;
         auto unregister_vehicle( vehicle *veh ) -> void;
         auto refresh_vehicle_footprint( vehicle *veh ) -> void;
+        auto invalidate_vehicle_footprint( const vehicle &veh ) -> bool;
+        /** Return the current absolute submap envelope occupied by @p veh. */
+        auto get_vehicle_submap_footprints( const vehicle &veh ) const
+        -> vehicle_submap_footprints;
         auto refresh_vehicle_registry_for_submap( const tripoint_abs_sm &p,
         mapbuffer_lookup_options options = {} ) -> void;
 

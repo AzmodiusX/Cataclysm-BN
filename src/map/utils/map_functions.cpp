@@ -11,6 +11,7 @@
 #include "monster.h"
 #include "sounds.h"
 #include "veh_type.h"
+#include "vehicle.h"
 #include "vpart_position.h"
 
 #include <algorithm>
@@ -93,7 +94,10 @@ auto physical_floor_between(mapbuffer& m, const tripoint_abs_ms& from, const tri
     return m.floor_between(from, to) || vehicle_vertical_barrier_between(m, from, to);
 }
 
-auto is_inside_vehicle(const optional_vpart_position& vp) -> bool { return vp && vp->is_inside(); }
+auto is_inside_vehicle( const optional_vpart_position &vp ) -> bool
+{
+    return vp && vp->vehicle().enclosed_at( vp->abs_pos() );
+}
 
 auto vehicle_enclosure_between(mapbuffer& m, const tripoint_abs_ms& from, const tripoint_abs_ms& to)
     -> bool {

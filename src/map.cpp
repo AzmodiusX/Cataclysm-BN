@@ -843,13 +843,44 @@ void map::reset_vehicle_cache( )
     last_full_vehicle_list_dirty = true;
     clear_vehicle_cache();
 
-    // Cache all vehicles
-    for( int zlev = -OVERMAP_DEPTH; zlev <= OVERMAP_HEIGHT; zlev++ ) {
+    // Rebuild the list from absolute vehicle footprints.  A vehicle's pivot
+    // submap may be outside the bubble while its parts still overlap it; in
+    // that case pivot-based list rebuilding silently drops the vehicle from
+    // rendering even though the absolute footprint index still finds it.
+    for( const auto zlev : std::views::iota( -OVERMAP_DEPTH, OVERMAP_HEIGHT + 1 ) ) {
         auto &ch = get_cache( zlev );
-        for( const auto &elem : ch.vehicle_list ) {
-            elem->adjust_zlevel( 0, tripoint_rel_ms::zero() );
-            add_vehicle_to_cache( elem );
+        ch.vehicle_list.clear();
+        ch.zone_vehicles.clear();
+    }
+
+    const auto bubble_min = map_local_to_abs( *this, bubble_submaps().min() );
+    const auto bubble_max = map_local_to_abs( *this, bubble_submaps().max() );
+    for( vehicle *const veh : get_mapbuffer().get_vehicles() ) {
+        if( veh == nullptr || !get_mapbuffer().has_loaded_vehicle( veh ) ) {
+            continue;
         }
+        const auto footprints = get_mapbuffer().get_vehicle_submap_footprints( *veh );
+        const auto overlaps_bubble = std::ranges::any_of( footprints,
+        [&]( const auto &footprint ) {
+            return footprint && footprint->max.x() >= bubble_min.x() &&
+                   footprint->min.x() <= bubble_max.x() &&
+                   footprint->max.y() >= bubble_min.y() &&
+                   footprint->min.y() <= bubble_max.y() &&
+                   footprint->max.z() >= bubble_min.z() &&
+                   footprint->min.z() <= bubble_max.z();
+        } );
+        if( !overlaps_bubble ) {
+            continue;
+        }
+        if( !inbounds_z( veh->abs_sm_pos.z() ) ) {
+            continue;
+        }
+        auto &ch = get_cache( veh->abs_sm_pos.z() );
+        ch.vehicle_list.insert( veh );
+        if( !veh->loot_zones.empty() ) {
+            ch.zone_vehicles.insert( veh );
+        }
+        add_vehicle_to_cache( veh );
     }
 }
 
@@ -1170,6 +1201,9 @@ void map::vehmove()
         ZoneScopedN( "veh_gain_moves" );
         for( int z = -OVERMAP_DEPTH; z <= OVERMAP_HEIGHT; ++z ) {
             for( vehicle *veh : get_cache( z ).vehicle_list ) {
+                if( veh == nullptr || !get_mapbuffer().has_loaded_vehicle( veh ) ) {
+                    continue;
+                }
                 veh->gain_moves();
                 veh->slow_leak();
                 vehicle_list.push_back( wrapped_vehicle{ .pos = abs_to_map_local( *this,
@@ -1349,7 +1383,7 @@ bool map::vehproceed( VehicleList &vehicle_list )
     }
 
     // confirm that veh_in_active_range is still correct for each z-level
-    for( int zlev = -OVERMAP_DEPTH; zlev <= OVERMAP_HEIGHT; ++zlev ) {
+    for( const auto zlev : std::views::iota( -OVERMAP_DEPTH, OVERMAP_HEIGHT + 1 ) ) {
         level_cache &cache = get_cache( zlev );
 
         // Check if any vehicles exist in the active range for this z-level
@@ -1448,19 +1482,37 @@ VehicleList map::get_vehicles( const tripoint_bub_sm &start, const tripoint_bub_
         return vehs;
     }
 
-    for( const auto sm_pos : tripoint_range<tripoint_bub_sm>( chunk_start, chunk_end ) ) {
-        const auto sm_view = active_load_region_.view().get_submap_view(
-                                 point_rel_sm( sm_pos.x(), sm_pos.y() ),
-                                 sm_pos.z() );
-        if( !sm_view ) {
-            continue;
-        }
-        const submap *current_submap = sm_view->sm;
-        for( const auto &elem : current_submap->vehicles ) {
-            auto w = wrapped_vehicle{};
-            w.v = elem.get();
-            w.pos = abs_to_map_local( *this, w.v->abs_ms_location() );
-            vehs.push_back( w );
+    const auto abs_start = map_local_to_abs( *this, chunk_start );
+    const auto abs_end = map_local_to_abs( *this, chunk_end );
+    auto seen = std::set<vehicle *> {};
+
+    // Vehicles are cached by z-level and may have their pivot outside the
+    // requested map window while their footprint overlaps it.  Enumerating
+    // the cache rather than only the pivot submaps keeps those parts visible
+    // and available to map-side collision queries.
+    for( const auto zlev : std::views::iota( -OVERMAP_DEPTH, OVERMAP_HEIGHT + 1 ) ) {
+        for( vehicle *const veh : get_cache( zlev ).vehicle_list ) {
+            if( veh == nullptr || !get_mapbuffer().has_loaded_vehicle( veh ) ||
+                !seen.insert( veh ).second ) {
+                continue;
+            }
+            const auto footprints = get_mapbuffer().get_vehicle_submap_footprints( *veh );
+            const auto overlaps_window = std::ranges::any_of( footprints,
+            [&]( const auto &footprint ) {
+                return footprint && footprint->max.x() >= abs_start.x() &&
+                       footprint->min.x() <= abs_end.x() &&
+                       footprint->max.y() >= abs_start.y() &&
+                       footprint->min.y() <= abs_end.y() &&
+                       footprint->max.z() >= abs_start.z() &&
+                       footprint->min.z() <= abs_end.z();
+            } );
+            if( !overlaps_window ) {
+                continue;
+            }
+            vehs.push_back( wrapped_vehicle {
+                .pos = abs_to_map_local( *this, veh->abs_ms_location() ),
+                .v = veh,
+            } );
         }
     }
 

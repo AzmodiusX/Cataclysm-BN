@@ -3257,7 +3257,8 @@ void sfx::do_vehicle_exterior_engine_sfx()
 
     static const channel ch = channel::exterior_engine_sound;
     const avatar &player_character = get_avatar();
-    const auto &ploc = player_character.abs_pos();
+    const auto &paloc = player_character.abs_pos();
+    const auto &pbloc = player_character.bub_pos();
     // early bail-outs for efficiency
     if( player_character.in_vehicle ) {
         fade_audio_channel( ch, 300 );
@@ -3278,27 +3279,29 @@ void sfx::do_vehicle_exterior_engine_sfx()
     vehicle *veh = nullptr;
 
 
-    const short t_absorp_player = map.get_cache_ref( ploc.z() ).absorption_cache[map.get_cache_ref(
-                                      ploc.z() ).idx( ploc.x(), ploc.y() )];
+    const short t_absorp_player = map.get_cache_ref( pbloc.z() ).absorption_cache[map.get_cache_ref(
+                                      pbloc.z() ).idx( pbloc.x(), pbloc.y() )];
 
     for( wrapped_vehicle vehicle : vehs ) {
         if( vehicle.v->vehicle_noise > 0 ) {
-            const auto &veh_loc = vehicle.v->abs_ms_location();
-            // This is a jank fix to get vehicles to not be deafening from accross the map.
-            const int dist = rl_dist( ploc, veh_loc );
-            const short unadjusted_vol = std::min( MAXIMUM_VOLUME_ATMOSPHERE,
-                                                   dBspl_to_mdBspl( static_cast<short>( vehicle.v->vehicle_noise ) ) );
-            const auto &veh_idx = map.get_cache_ref( veh_loc.z() ).idx( veh_loc.x(), veh_loc.y() );
-            const auto &t_absorp_avg = static_cast<short>( std::round( ( t_absorp_player + ( map.get_cache_ref(
-                                           veh_loc.z() ).absorption_cache[veh_idx] ) ) / 2 ) );
-            const short adjusted_vol = mdBspl_to_dBspl( std::max( 0,
-                                       unadjusted_vol - get_cumulative_vol_dist_loss( 1, dist, t_absorp_avg ) -
-                                       vol_z_adjust( abs_to_bub( veh_loc ),
-                                               abs_to_bub( ploc ), player_character.sees( veh_loc ) ) ) );
-            if( adjusted_vol > noise_factor ) {
+            const auto &veh_bloc = vehicle.v->bub_ms_location();
+            if( map.inbounds( veh_bloc ) ) {
+                const auto &veh_aloc = vehicle.v->abs_ms_location();
+                // This is a jank fix to get vehicles to not be deafening from accross the map.
+                const int dist = rl_dist( paloc, veh_aloc );
+                const short unadjusted_vol = std::min( MAXIMUM_VOLUME_ATMOSPHERE,
+                                                       dBspl_to_mdBspl( static_cast<short>( vehicle.v->vehicle_noise ) ) );
+                const auto &veh_idx = map.get_cache_ref( veh_bloc.z() ).idx( veh_bloc.x(), veh_bloc.y() );
+                const auto &t_absorp_avg = static_cast<short>( std::round( ( t_absorp_player + ( map.get_cache_ref(
+                                               veh_bloc.z() ).absorption_cache[veh_idx] ) ) / 2 ) );
+                const short adjusted_vol = mdBspl_to_dBspl( std::max( 0,
+                                           unadjusted_vol - get_cumulative_vol_dist_loss( 1, dist, t_absorp_avg ) -
+                                           vol_z_adjust( veh_bloc, pbloc, player_character.sees( veh_aloc ) ) ) );
+                if( adjusted_vol > noise_factor ) {
 
-                noise_factor = adjusted_vol;
-                veh = vehicle.v;
+                    noise_factor = adjusted_vol;
+                    veh = vehicle.v;
+                }
             }
         }
 

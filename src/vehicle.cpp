@@ -7595,6 +7595,17 @@ bool vehicle::enclosed_at( const tripoint_bub_ms &pos )
     return false;
 }
 
+bool vehicle::enclosed_at( const tripoint_abs_ms &pos )
+{
+    refresh_insides();
+    std::vector<vehicle_part *> parts_here = get_parts_at( pos, "BOARDABLE",
+            part_status_flag::working );
+    if( !parts_here.empty() ) {
+        return parts_here.front()->inside;
+    }
+    return false;
+}
+
 void vehicle::refresh_insides()
 {
     if( !insides_dirty ) {

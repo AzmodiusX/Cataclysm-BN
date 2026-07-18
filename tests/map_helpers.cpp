@@ -19,23 +19,61 @@
 #include "submap.h"
 #include "submap_load_manager.h"
 #include "type_id.h"
+#include "vehicle.h"
 
 #include <algorithm>
 #include <cassert>
 #include <iterator>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
 
 // Remove all vehicles from the map
 void clear_vehicles() {
-    std::vector<vehicle*> vehicles;
-    vehicles.reserve(g->m.get_vehicles().size());
+    auto& map_buffer = get_map().get_mapbuffer();
+    const auto owns_vehicle = [&map_buffer]( vehicle *veh ) {
+        const auto *const owning_submap = map_buffer.lookup_submap_in_memory( veh->abs_sm_pos );
+        return owning_submap != nullptr && std::ranges::any_of(
+                   owning_submap->vehicles, [veh]( const auto &candidate ) {
+                       return candidate.get() == veh;
+                   } );
+    };
 
-    for (wrapped_vehicle& veh : g->m.get_vehicles()) { vehicles.push_back(veh.v); }
+    std::vector<vehicle*> active_vehicles;
+    active_vehicles.reserve(g->m.get_vehicles().size());
 
-    for (vehicle* veh : vehicles) { g->m.destroy_vehicle(veh); }
+    for( wrapped_vehicle &veh : g->m.get_vehicles() ) {
+        active_vehicles.push_back( veh.v );
+    }
+    for( vehicle *veh : active_vehicles ) {
+        if( owns_vehicle( veh ) ) {
+            g->m.destroy_vehicle( veh );
+        } else {
+            map_buffer.unregister_vehicle( veh );
+        }
+    }
+
+    std::vector<vehicle*> resident_vehicles;
+    resident_vehicles.reserve(map_buffer.get_vehicles().size());
+
+    for( vehicle *veh : map_buffer.get_vehicles() ) {
+        resident_vehicles.push_back( veh );
+    }
+
+    for( vehicle *veh : resident_vehicles ) {
+        if( auto *const owning_submap = map_buffer.lookup_submap_in_memory( veh->abs_sm_pos ) ) {
+            const auto vehicle_iter = std::ranges::find_if(
+                owning_submap->vehicles, [veh]( const auto &candidate ) {
+                    return candidate.get() == veh;
+                } );
+            if( vehicle_iter != owning_submap->vehicles.end() ) {
+                owning_submap->vehicles.erase( vehicle_iter );
+            }
+        }
+        map_buffer.unregister_vehicle( veh );
+    }
 }
 
 void wipe_map_terrain() {

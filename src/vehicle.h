@@ -915,6 +915,7 @@ class vehicle
         monster *get_pet( int p ) const;
 
         bool enclosed_at( const tripoint_bub_ms &pos ); // not const because it calls refresh_insides
+        bool enclosed_at( const tripoint_abs_ms &pos );
         // Returns the location of the vehicle in global map square coordinates.
         tripoint_abs_ms abs_ms_location() const;
         // Returns the coordinates (in map squares) of the vehicle relative to the local map.

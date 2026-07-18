@@ -112,6 +112,72 @@ struct add_submap_spawn_options {
     spawn_disposition disposition;
 };
 
+auto calculate_vehicle_submap_footprints( const vehicle &veh, const tripoint_abs_ms &base,
+        const std::size_t precalc_index ) -> vehicle_submap_footprints
+{
+    auto footprints = vehicle_submap_footprints {};
+    for( const vpart_reference &vpr : veh.get_all_parts() ) {
+        if( vpr.part().removed ) {
+            continue;
+        }
+        const auto &part = vpr.part();
+        const auto part_pos = base + tripoint_rel_ms( part.precalc[precalc_index],
+                              part.mount.z() + part.z_terrain[precalc_index] );
+        const auto part_sm = project_to<coords::sm>( part_pos );
+        if( part_sm.z() < -OVERMAP_DEPTH || part_sm.z() > OVERMAP_HEIGHT ) {
+            continue;
+        }
+        auto &footprint = footprints[part_sm.z() + OVERMAP_DEPTH];
+        if( !footprint ) {
+            footprint = vehicle_submap_footprint { .min = part_sm, .max = part_sm };
+            continue;
+        }
+        footprint->min.x() = std::min( footprint->min.x(), part_sm.x() );
+        footprint->min.y() = std::min( footprint->min.y(), part_sm.y() );
+        footprint->max.x() = std::max( footprint->max.x(), part_sm.x() );
+        footprint->max.y() = std::max( footprint->max.y(), part_sm.y() );
+    }
+    return footprints;
+}
+
+auto calculate_vehicle_submap_footprints( const vehicle &veh ) -> vehicle_submap_footprints
+{
+    return calculate_vehicle_submap_footprints( veh, veh.abs_ms_location(), 0 );
+}
+
+auto vehicle_submap_footprint_overlaps_active_bubble( const mapbuffer &buffer,
+        const vehicle_submap_footprint &footprint ) -> bool
+{
+    if( g == nullptr || g->m.get_bound_dimension() != buffer.get_dimension_id() ) {
+        return false;
+    }
+
+    const auto bubble_min = g->m.get_abs_sub();
+    const auto bubble_max = bubble_min + point_rel_sm( g->m.getmapsize() - 1,
+                              g->m.getmapsize() - 1 );
+    return footprint.max.x() >= bubble_min.x() && footprint.min.x() <= bubble_max.x() &&
+           footprint.max.y() >= bubble_min.y() && footprint.min.y() <= bubble_max.y();
+}
+
+auto invalidate_active_vehicle_footprints( const mapbuffer &buffer,
+        const vehicle_submap_footprints &footprints ) -> bool
+{
+    if( g == nullptr || g->m.get_bound_dimension() != buffer.get_dimension_id() ) {
+        return false;
+    }
+
+    bool invalidated = false;
+    for( const auto &footprint : footprints ) {
+        if( !footprint || !vehicle_submap_footprint_overlaps_active_bubble( buffer, *footprint ) ) {
+            continue;
+        }
+        invalidated = true;
+        g->m.on_vehicle_moved( abs_to_map_local( g->m, footprint->min ),
+                               abs_to_map_local( g->m, footprint->max ), footprint->min.z() );
+    }
+    return invalidated;
+}
+
 static const auto fault_bionic_nonsterile = fault_id( "fault_bionic_nonsterile" );
 static const std::string str_OPENCLOSE_INSIDE( "OPENCLOSE_INSIDE" );
 static const auto itype_burnt_out_bionic = itype_id( "burnt_out_bionic" );
@@ -1937,7 +2003,8 @@ auto mapbuffer_load_region::update( const point_abs_sm &begin,
     }
 
     if( handle_ == 0 ) {
-        handle_ = submap_loader.request_load( source_,
+        assert( source_.has_value() );
+        handle_ = submap_loader.request_load( source_.value(),
                                               buffer_->get_dimension_id(), begin_, end_ );
     } else {
         submap_loader.update_request( handle_, begin_, end_ );
@@ -1978,10 +2045,16 @@ auto mapbuffer::register_submap_vehicles(
         veh->set_dimension( dimension_id_ );
         loaded_vehicles_.insert( veh.get() );
         index_vehicle_footprint_unlocked( *veh );
-        if( const auto bubble_pos = active_reality_bubble_local( veh->abs_ms_location() ) ) {
+        const auto footprints = calculate_vehicle_submap_footprints( *veh );
+        const auto overlaps_active_bubble = std::ranges::any_of( footprints,
+        [&]( const auto &footprint ) {
+            return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this,
+                    *footprint );
+        } );
+        if( overlaps_active_bubble ) {
             map &here = get_map();
-            here.invalidate_max_populated_zlev( bubble_pos->z() );
-            auto &ch = here.get_cache( bubble_pos->z() );
+            here.invalidate_max_populated_zlev( veh->abs_sm_pos.z() );
+            auto &ch = here.get_cache( veh->abs_sm_pos.z() );
             ch.vehicle_list.insert( veh.get() );
             here.add_vehicle_to_cache( veh.get() );
         }
@@ -1994,9 +2067,15 @@ auto mapbuffer::unregister_submap_vehicles( const tripoint_abs_sm &p ) -> void
         const auto *const veh = *iter;
         if( veh == nullptr || veh->abs_sm_pos == p ) {
             if( veh != nullptr ) {
-                if( const auto bubble_pos = active_reality_bubble_local( veh->abs_ms_location() ) ) {
+                const auto footprints = calculate_vehicle_submap_footprints( *veh );
+                const auto overlaps_active_bubble = std::ranges::any_of( footprints,
+                [&]( const auto &footprint ) {
+                    return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this,
+                            *footprint );
+                } );
+                if( overlaps_active_bubble ) {
                     map &here = get_map();
-                    auto &ch = here.get_cache( bubble_pos->z() );
+                    auto &ch = here.get_cache( veh->abs_sm_pos.z() );
                     ch.vehicle_list.erase( const_cast<vehicle *>( veh ) );
                     ch.zone_vehicles.erase( const_cast<vehicle *>( veh ) );
                     for( const vpart_reference &vpr : veh->get_all_parts() ) {
@@ -2940,6 +3019,30 @@ auto mapbuffer::unregister_vehicle( vehicle *veh ) -> void
     std::lock_guard<std::recursive_mutex> lk( submaps_mutex_ );
     unindex_vehicle_footprint_unlocked( veh );
     loaded_vehicles_.erase( veh );
+
+    // A footprint-promoted vehicle can be present in the map-side caches even
+    // when its pivot is outside the bubble.  Remove every such reference
+    // before the owning submap releases the vehicle object.
+    if( veh != nullptr && g != nullptr && g->m.get_bound_dimension() == dimension_id_ ) {
+        map &here = g->m;
+        for( const auto zlev : std::views::iota( -OVERMAP_DEPTH, OVERMAP_HEIGHT + 1 ) ) {
+            auto &cache = here.get_cache( zlev );
+            cache.vehicle_list.erase( veh );
+            cache.zone_vehicles.erase( veh );
+        }
+        for( const vpart_reference &vpr : veh->get_all_parts() ) {
+            if( !vpr.part().removed ) {
+                const auto part_pos = veh->abs_part_location( vpr.part() );
+                if( !here.inbounds_z( part_pos.z() ) ) {
+                    continue;
+                }
+                here.clear_vehicle_point_from_cache( veh,
+                                                     abs_to_map_local( here,
+                                                             part_pos ) );
+            }
+        }
+        here.last_full_vehicle_list_dirty = true;
+    }
 }
 
 auto mapbuffer::refresh_vehicle_footprint( vehicle *veh ) -> void
@@ -2953,6 +3056,40 @@ auto mapbuffer::refresh_vehicle_footprint( vehicle *veh ) -> void
         return;
     }
     index_vehicle_footprint_unlocked( *veh );
+
+    // A vehicle can remain resident with its pivot outside the active bubble
+    // while one or more parts overlap the bubble.  Keep the map-side cache in
+    // sync with the absolute footprint index so rendering and collision
+    // queries see those parts as well.
+    const auto footprints = calculate_vehicle_submap_footprints( *veh );
+    const auto overlaps_active_bubble = std::ranges::any_of( footprints,
+    [&]( const auto &footprint ) {
+        return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this,
+                *footprint );
+    } );
+    if( !overlaps_active_bubble ) {
+        return;
+    }
+
+    map &here = get_map();
+    here.invalidate_max_populated_zlev( veh->abs_sm_pos.z() );
+    auto &cache = here.get_cache( veh->abs_sm_pos.z() );
+    cache.vehicle_list.insert( veh );
+    if( !veh->loot_zones.empty() ) {
+        cache.zone_vehicles.insert( veh );
+    }
+    here.add_vehicle_to_cache( veh );
+}
+
+auto mapbuffer::invalidate_vehicle_footprint( const vehicle &veh ) -> bool
+{
+    return invalidate_active_vehicle_footprints( *this, calculate_vehicle_submap_footprints( veh ) );
+}
+
+auto mapbuffer::get_vehicle_submap_footprints( const vehicle &veh ) const
+-> vehicle_submap_footprints
+{
+    return calculate_vehicle_submap_footprints( veh );
 }
 
 auto mapbuffer::refresh_vehicle_registry_for_submap( const tripoint_abs_sm &p,
@@ -3497,24 +3634,19 @@ auto mapbuffer::shift_vehicle_z( vehicle &veh, int z_shift ) -> void
     auto src = veh.abs_sm_pos;
     auto dst = src + tripoint_rel_sm( 0, 0, z_shift );
 
-    // Gate map cache invalidation behind the reality bubble
-    if( const auto local_src = active_reality_bubble_local( veh.abs_ms_location() ) ) {
-        map &here = get_map();
-        here.invalidate_lightmap_caches();
-        auto dirty_vertical_vehicle_caches = [&here]( const int zlev ) {
-            if( !here.inbounds_z( zlev ) ) {
-                return;
-            }
-            here.invalidate_map_cache( zlev );
-        };
-        dirty_vertical_vehicle_caches( src.z() );
-        dirty_vertical_vehicle_caches( src.z() + 1 );
-        dirty_vertical_vehicle_caches( dst.z() );
-        dirty_vertical_vehicle_caches( dst.z() + 1 );
-    }
+    const auto old_footprints = calculate_vehicle_submap_footprints( veh );
+    const auto old_inbubble = std::ranges::any_of( old_footprints, [&]( const auto &footprint ) {
+        return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this, *footprint );
+    } );
 
     submap *src_submap = lookup_submap_in_memory( src );
     submap *dst_submap = lookup_submap_in_memory( dst );
+
+    if( src_submap == nullptr || dst_submap == nullptr ) {
+        debugmsg( "shift_vehicle [%s] failed because source or destination submap is not resident",
+                  veh.name );
+        return;
+    }
 
     int our_i = -1;
     for( size_t i = 0; i < src_submap->vehicles.size(); i++ ) {
@@ -3539,31 +3671,31 @@ auto mapbuffer::shift_vehicle_z( vehicle &veh, int z_shift ) -> void
     src_submap->vehicles.erase( src_submap_veh_it );
     dst_submap->is_uniform = false;
 
-    // Update vehicle list in map cache if in bubble
-    if( const auto local_dst = active_reality_bubble_local(
-                                   tripoint_abs_ms( point_abs_ms( dst.x() * SEEX, dst.y() * SEEY ), dst.z() ) ) ) {
-        map &here = get_map();
-        here.invalidate_max_populated_zlev( dst.z() );
-        here.update_vehicle_list( dst_submap, dst.z() );
-    }
-
-    // Clean up from src z-level cache
-    if( const auto local_src_z = active_reality_bubble_local(
-                                     tripoint_abs_ms( point_abs_ms( src.x() * SEEX, src.y() * SEEY ), src.z() ) ) ) {
-        map &here = get_map();
-        level_cache &ch = here.get_cache( src.z() );
-        for( const vehicle *elem : ch.vehicle_list ) {
-            if( elem == &veh ) {
-                ch.vehicle_list.erase( &veh );
-                ch.zone_vehicles.erase( &veh );
-                break;
-            }
-        }
-    }
-
     veh.abs_sm_pos = dst;
     refresh_vehicle_footprint( &veh );
     veh.update_overmap( src );
+
+    const auto new_footprints = calculate_vehicle_submap_footprints( veh );
+    const auto new_inbubble = std::ranges::any_of( new_footprints, [&]( const auto &footprint ) {
+        return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this, *footprint );
+    } );
+
+    if( new_inbubble ) {
+        map &here = get_map();
+        here.invalidate_max_populated_zlev( dst.z() );
+        here.update_vehicle_list( dst_submap, dst.z() );
+        here.add_vehicle_to_cache( &veh );
+    }
+
+    if( old_inbubble ) {
+        map &here = get_map();
+        level_cache &ch = here.get_cache( src.z() );
+        ch.vehicle_list.erase( &veh );
+        ch.zone_vehicles.erase( &veh );
+    }
+
+    invalidate_active_vehicle_footprints( *this, old_footprints );
+    invalidate_active_vehicle_footprints( *this, new_footprints );
 }
 
 auto mapbuffer::move_vehicle( vehicle &veh, const tripoint_rel_ms &dp,
@@ -3601,6 +3733,12 @@ auto mapbuffer::move_vehicle( vehicle &veh, const tripoint_rel_ms &dp,
         return &veh;
     }
 
+    const auto old_footprints = calculate_vehicle_submap_footprints( veh );
+    const auto vehicle_overlaps_active_bubble = std::ranges::any_of( old_footprints,
+    [&]( const auto &footprint ) {
+        return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this, *footprint );
+    } );
+
     veh.precalc_mounts( 1, veh.skidding ? veh.turn_dir : facing.dir(), veh.pivot_point() );
 
     tripoint_rel_ms dp1 = tripoint_rel_ms( dp - veh.pivot_displacement() );
@@ -3608,6 +3746,13 @@ auto mapbuffer::move_vehicle( vehicle &veh, const tripoint_rel_ms &dp,
     if( !vertical ) {
         veh.adjust_zlevel( 1, dp1 );
     }
+
+    const auto projected_footprints = calculate_vehicle_submap_footprints(
+                                          veh, veh.abs_ms_location() + dp1, 1 );
+    const auto projected_vehicle_overlaps_active_bubble = std::ranges::any_of(
+    projected_footprints, [&]( const auto &footprint ) {
+        return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this, *footprint );
+    } );
 
     int impulse = 0;
 
@@ -3768,8 +3913,8 @@ auto mapbuffer::move_vehicle( vehicle &veh, const tripoint_rel_ms &dp,
         }
         veh.on_move();
 
-        // displace_vehicle requires the local map — gate behind bubble
-        if( const auto local = active_reality_bubble_local( veh.abs_ms_location() ) ) {
+        // displace_vehicle requires the local map — gate on complete footprint overlap
+        if( vehicle_overlaps_active_bubble || projected_vehicle_overlaps_active_bubble ) {
             get_map().displace_vehicle( veh, tripoint_rel_ms( dp1 ) );
         }
         veh.shift_zlevel();
@@ -5835,18 +5980,17 @@ vehicle *mapbuffer::add_vehicle( const std::variant<vgroup_id, vproto_id> &type_
     vehicle *placed_vehicle = placed_vehicle_up.get();
 
     if( placed_vehicle != nullptr ) {
-        const auto placed_vehicle_sm = placed_vehicle->abs_sm_pos;
         place_on_submap->vehicles.push_back( std::move( placed_vehicle_up ) );
         place_on_submap->is_uniform = false;
-        if( active_reality_bubble_local( p ) ) {
+        register_vehicle( placed_vehicle );
+        const auto footprints = calculate_vehicle_submap_footprints( *placed_vehicle );
+        if( invalidate_active_vehicle_footprints( *this, footprints ) ) {
             auto &map = get_map();
+            const auto placed_vehicle_sm = placed_vehicle->abs_sm_pos;
             map.invalidate_max_populated_zlev( placed_vehicle_sm.z() );
-            auto &ch = map.get_cache( placed_vehicle_sm.z() );
-            ch.vehicle_list.insert( placed_vehicle );
+            map.get_cache( placed_vehicle_sm.z() ).vehicle_list.insert( placed_vehicle );
             map.add_vehicle_to_cache( placed_vehicle );
         }
-        register_vehicle( placed_vehicle );
-
         //debugmsg ("grid[%d]->vehicles.size=%d veh.parts.size=%d", nonant, grid[nonant]->vehicles.size(),veh.parts.size());
     }
     return placed_vehicle;
@@ -5939,7 +6083,8 @@ std::unique_ptr<vehicle> mapbuffer::add_vehicle_to_mapbuffer(
             add_vehicle_to_mapbuffer( std::move( old_veh ), false, options );
             return nullptr;
 
-        } else if( !passable( abs_pos, options ).value_or( false ) ) {
+        } else if( !( veh->has_lift() && has_flag( TFLAG_NO_FLOOR, abs_pos, options ) ) &&
+                   !passable( abs_pos, options ).value_or( false ) ) {
             if( !merge_wrecks ) {
                 return nullptr;
             }
@@ -5989,6 +6134,7 @@ std::set<vehicle *> mapbuffer::get_vehicles( const tripoint_abs_sm &start,
 
 std::set<vehicle *> mapbuffer::get_vehicles()
 {
+    std::lock_guard<std::recursive_mutex> lk( submaps_mutex_ );
     return loaded_vehicles_;
 }
 
@@ -6008,46 +6154,17 @@ std::unique_ptr<vehicle> mapbuffer::detach_vehicle( vehicle *veh,
         z = veh->abs_sm_pos.z() = z > OVERMAP_HEIGHT ? OVERMAP_HEIGHT : -OVERMAP_DEPTH;
     }
 
-    struct detached_vehicle_footprint {
-        tripoint_abs_sm min;
-        tripoint_abs_sm max;
-    };
-
-    auto footprints = std::array<std::optional<detached_vehicle_footprint>, OVERMAP_LAYERS> {};
-    for( const vpart_reference &vp : veh->get_all_parts() ) {
-        if( vp.part().removed ) {
-            continue;
-        }
-        const auto part_sm = project_to<coords::sm>( veh->abs_part_location( vp.part() ) );
-        if( part_sm.z() > OVERMAP_HEIGHT || part_sm.z() < -OVERMAP_DEPTH ) {
-            continue;
-        }
-        auto &footprint = footprints[part_sm.z() + OVERMAP_DEPTH];
-        if( !footprint ) {
-            footprint = detached_vehicle_footprint{ .min = part_sm, .max = part_sm };
-            continue;
-        }
-        footprint->min.x() = std::min( footprint->min.x(), part_sm.x() );
-        footprint->min.y() = std::min( footprint->min.y(), part_sm.y() );
-        footprint->max.x() = std::max( footprint->max.x(), part_sm.x() );
-        footprint->max.y() = std::max( footprint->max.y(), part_sm.y() );
-    }
+    const auto footprints = calculate_vehicle_submap_footprints( *veh );
     bool inbubble = false;
 
     const auto mark_detached_vehicle_footprint_dirty = [&]() {
         for( const auto &footprint : footprints ) {
-            if( !footprint || g->m.get_bound_dimension() != dimension_id_ ) {
-                continue;
-            }
-
-            const auto local = abs_to_map_local( g->m, footprint->min );
-            if( !g->m.inbounds( abs_to_map_local( g->m, footprint->min ) ) ||
-                !g->m.inbounds( abs_to_map_local( g->m, footprint->max ) ) ) {
+            if( !footprint || !vehicle_submap_footprint_overlaps_active_bubble( *this, *footprint ) ) {
                 continue;
             }
             inbubble = true;
-            g->m.on_vehicle_moved( abs_to_bub( footprint->min ), abs_to_bub( footprint->max ),
-                                   footprint->min.z() );
+            g->m.on_vehicle_moved( abs_to_map_local( g->m, footprint->min ),
+                                   abs_to_map_local( g->m, footprint->max ), footprint->min.z() );
         }
     };
 

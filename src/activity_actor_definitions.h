@@ -1259,9 +1259,10 @@ class hotwire_car_actor : public activity_actor
     private:
         tripoint_abs_ms veh_pos;
         int mechanics_skill = 0;
+        int moves_total = 0;
     public:
         hotwire_car_actor() = default;
-        explicit hotwire_car_actor( const tripoint_abs_ms &pos, int skill );
+        hotwire_car_actor( const tripoint_abs_ms &pos, int skill, int moves );
         activity_id get_type() const override { return activity_id( "ACT_HOTWIRE_CAR" ); }
         void start( player_activity &act, Character &who ) override;
         void do_turn( player_activity &act, Character &who ) override;
@@ -1276,9 +1277,10 @@ class start_engines_actor : public activity_actor
     private:
         int take_control = 0;
         tripoint_abs_ms placement;
+        int moves_total = 0;
     public:
         start_engines_actor() = default;
-        explicit start_engines_actor( int control, const tripoint_abs_ms &pos );
+        start_engines_actor( int control, const tripoint_abs_ms &pos, int moves );
         activity_id get_type() const override { return activity_id( "ACT_START_ENGINES" ); }
         void start( player_activity &act, Character &who ) override;
         void do_turn( player_activity &act, Character &who ) override;

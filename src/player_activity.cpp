@@ -419,6 +419,13 @@ void player_activity::start_or_resume( Character &who, bool resuming )
 {
     if( actor && !resuming ) {
         actor->start( *this, who );
+        // Legacy activity saves carry their duration on player_activity while
+        // the migrated actor starts with an empty progress queue.  Seed that
+        // queue after the actor has had a chance to initialize itself so the
+        // generic move-consumption path cannot dereference an empty task list.
+        if( actor->progress.empty() && moves_total > 0 ) {
+            actor->progress.emplace( id().str(), moves_total, moves_left );
+        }
     }
     init_all_moves( who );
     if( rooted() ) {

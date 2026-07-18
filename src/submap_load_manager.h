@@ -21,25 +21,55 @@
 #include "type_id.h"
 
 class mapbuffer;
+class vehicle;
 
 
 
 /** Identifies the system that created a load request. */
 enum class load_request_source : int {
-    reality_bubble,  ///< Player's active reality bubble
-    player_base,     ///< A persistent player base that should stay loaded
-    script,          ///< Lua/scripted event that needs a region loaded
-    fire_spread,     ///< Fire-spread loader keeping adjacent submaps resident
-    lazy_border,     ///< Kept in memory around the bubble but not simulated
-    portal_preload,  ///< portal_tile keeping its target area resident
+    reality_bubble,    ///< Player's active reality bubble
+    power_portal,      ///< Distribution-grid power portal link
+    player_claim,      ///< A player-claimed region that is currently requested
+    player_priority,   ///< A player-priority region requested for active simulation
+    unstable_lua,      ///< Lua/scripted event that needs a region loaded
+    stable_lua,        ///< Lua/scripted event that needs a region loaded for stable mechanics
+    fire_spread,       ///< Fire-spread loader keeping adjacent submaps resident
+    vehicle_footprint, ///< Vehicle footprint promoted from a stable load source
+    lazy_border,       ///< Kept in memory around the bubble but not simulated
+    portal_preload,    ///< portal_tile keeping its target area resident
 };
+
+/**
+ * Return whether a request source may anchor dependent simulation requests.
+ *
+ * This is deliberately an allowlist: transient or propagating sources must
+ * not become stable merely because they happen to cause submaps to simulate.
+ */
+constexpr auto load_request_source_is_stable( const load_request_source source ) noexcept -> bool
+{
+    switch( source ) {
+        case load_request_source::reality_bubble:
+        case load_request_source::power_portal:
+        case load_request_source::player_claim:
+        case load_request_source::player_priority:
+        case load_request_source::stable_lua:
+            return true;
+        case load_request_source::unstable_lua:
+        case load_request_source::fire_spread:
+        case load_request_source::vehicle_footprint:
+        case load_request_source::lazy_border:
+        case load_request_source::portal_preload:
+            return false;
+    }
+    return false;
+}
 
 /** Opaque handle returned by request_load(); used to update or release. */
 using load_request_handle = uint64_t;
 
 /** A single outstanding load request. */
 struct submap_load_request {
-    load_request_source source = load_request_source::reality_bubble;
+    load_request_source source;
     dimension_id dim_id;
     point_abs_sm begin;
     point_abs_sm end;
@@ -94,8 +124,10 @@ class submap_load_manager
          * Process all active requests, load newly-simulated submaps, and
          * evict departed OMT columns.
          *
-         * Simulated positions (reality_bubble, fire_spread, player_base,
-         * script) are loaded synchronously, then pushed to mapbuffer via
+         * Simulated positions (reality_bubble, fire_spread, power_portal,
+         * player claims, player priorities, and Lua requests) are loaded
+         * synchronously,
+         * then pushed to mapbuffer via
          * set_simulated_submaps().  Lazy-border positions, when enabled,
          * are kept resident but do NOT enter the simulated set.  OMTs that
          * leave the desired set are retained briefly in memory, then evicted
@@ -146,6 +178,21 @@ class submap_load_manager
         auto is_requested( const dimension_id &dim_id, const point_abs_sm &pos ) const -> bool;
         auto is_requested( const dimension_id &dim_id, const tripoint_abs_sm &pos ) const -> bool {
             return is_requested( dim_id, pos.xy() );
+        }
+
+        /**
+         * Return true if @p pos in @p dim_id is covered by an active request
+         * whose source is allowed to anchor dependent simulation requests.
+         *
+         * This intentionally does not require the submap to be loaded and is
+         * separate from is_simulated(): propagating requests such as fire and
+         * vehicle footprints must not qualify as stable anchors.
+         */
+        auto is_stably_requested( const dimension_id &dim_id,
+                                  const point_abs_sm &pos ) const -> bool;
+        auto is_stably_requested( const dimension_id &dim_id,
+                                  const tripoint_abs_sm &pos ) const -> bool {
+            return is_stably_requested( dim_id, pos.xy() );
         }
 
         /**
@@ -252,9 +299,17 @@ class submap_load_manager
             bool use_selected_mapgen = false;
             std::shared_ptr<mapgen_function> selected_mapgen;
         };
+        struct vehicle_footprint_request {
+            dimension_id dim_id;
+            point_abs_sm begin;
+            point_abs_sm end;
+            load_request_handle handle = 0;
+        };
 
         load_request_handle next_handle_ = 1;
         std::map<load_request_handle, submap_load_request> requests_;
+        std::unordered_map<vehicle *, vehicle_footprint_request>
+                vehicle_footprint_requests_;
 
         /** Previous all_desired set for departed-omt detection in update(). */
         key_set previous_all_desired_;
@@ -312,6 +367,8 @@ class submap_load_manager
         auto process_or_defer_lazy_border_work( bool defer_lazy_border_work ) -> void;
         auto process_lazy_border_work() -> void;
         auto process_lazy_border_preload() -> void;
+        auto update_vehicle_footprint_requests() -> void;
+        auto release_vehicle_footprint_requests() -> void;
 
         // dirty_omts_ removed in Phase 1 — mapbuffer owns dirty tracking
         // via mapbuffer::dirty_columns_.  See set_simulated_submaps().

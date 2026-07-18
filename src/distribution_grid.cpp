@@ -327,7 +327,7 @@ void distribution_grid_tracker::add_export_node( cross_dimension_export_node nod
         const auto target_begin = target_sm.xy() - point_rel_sm( radius, radius );
         const auto target_end = target_sm.xy() + point_rel_sm( radius + 1, radius + 1 );
         node.far_load_handle = submap_loader.request_load(
-                                   load_request_source::player_base,
+                                   load_request_source::power_portal,
                                    node.target_dim_id,
                                    target_begin,
                                    target_end );
@@ -340,7 +340,7 @@ void distribution_grid_tracker::add_export_node( cross_dimension_export_node nod
         const auto source_begin = source_sm.xy() - point_rel_sm( radius, radius );
         const auto source_end = source_sm.xy() + point_rel_sm( radius + 1, radius + 1 );
         node.local_load_handle = submap_loader.request_load(
-                                     load_request_source::player_base,
+                                     load_request_source::power_portal,
                                      dimension_id_,
                                      source_begin,
                                      source_end );
@@ -441,7 +441,7 @@ void distribution_grid_tracker::resume_export_node( const tripoint_abs_ms &sourc
         const auto target_begin = target_sm.xy() - point_rel_sm( radius, radius );
         const auto target_end = target_sm.xy() + point_rel_sm( radius + 1, radius + 1 );
         it->far_load_handle = submap_loader.request_load(
-                                  load_request_source::player_base,
+                                  load_request_source::power_portal,
                                   it->target_dim_id,
                                   target_begin,
                                   target_end );
@@ -450,7 +450,7 @@ void distribution_grid_tracker::resume_export_node( const tripoint_abs_ms &sourc
         const auto source_begin = source_sm.xy() - point_rel_sm( radius, radius );
         const auto source_end = source_sm.xy() + point_rel_sm( radius + 1, radius + 1 );
         it->local_load_handle = submap_loader.request_load(
-                                    load_request_source::player_base,
+                                    load_request_source::power_portal,
                                     dimension_id_,
                                     source_begin,
                                     source_end );

@@ -183,3 +183,19 @@ TEST_CASE("vehicle_activity_initializes_actor_progress", "[activity][vehicle]") 
     CHECK(activity->get_moves_left() == 100);
     CHECK_FALSE(activity->complete());
 }
+
+TEST_CASE("vehicle_start_actors_initialize_progress", "[activity][vehicle]") {
+    clear_all_state();
+
+    auto start_engines = std::make_unique<player_activity>(
+        std::make_unique<start_engines_actor>( 1, test_origin, 100 ) );
+    start_engines->start_or_resume( get_avatar(), false );
+    CHECK( start_engines->get_moves_left() == 100 );
+    CHECK_FALSE( start_engines->complete() );
+
+    auto hotwire = std::make_unique<player_activity>(
+        std::make_unique<hotwire_car_actor>( test_origin, 4, 200 ) );
+    hotwire->start_or_resume( get_avatar(), false );
+    CHECK( hotwire->get_moves_left() == 200 );
+    CHECK_FALSE( hotwire->complete() );
+}

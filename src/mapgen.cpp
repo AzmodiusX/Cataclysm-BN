@@ -6040,6 +6040,7 @@ vehicle *map::add_vehicle( const std::variant<vgroup_id, vproto_id> &type_,
         auto *place_on_submap = get_mapbuffer().lookup_submap_in_memory( placed_vehicle->abs_sm_pos );
         place_on_submap->vehicles.push_back( std::move( placed_vehicle_up ) );
         place_on_submap->is_uniform = false;
+        get_mapbuffer().invalidate_vehicle_footprint( *placed_vehicle );
         invalidate_max_populated_zlev( placed_vehicle_sm.z() );
 
         auto &ch = get_cache( placed_vehicle_sm.z() );

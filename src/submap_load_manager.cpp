@@ -28,6 +28,7 @@
 #include "point.h"
 #include "profile.h"
 #include "thread_pool.h"
+#include "vehicle.h"
 
 namespace
 {
@@ -869,6 +870,12 @@ auto submap_load_manager::update( const bool defer_lazy_border_work ) -> void
 {
     ZoneScoped;
 
+    if( vehicle_footprint_simulation_enabled ) {
+        update_vehicle_footprint_requests();
+    } else {
+        release_vehicle_footprint_requests();
+    }
+
     if( lazy_border_work_deferred_ ) {
         if( !has_lazy_border_work_pending() ) {
             lazy_border_work_deferred_ = false;
@@ -1116,6 +1123,113 @@ auto submap_load_manager::is_requested( const dimension_id &dim_id,
     } );
 }
 
+auto submap_load_manager::is_stably_requested( const dimension_id &dim_id,
+        const point_abs_sm &pos ) const -> bool
+{
+    return std::ranges::any_of( requests_, [&]( const auto & kv ) {
+        const submap_load_request &req = kv.second;
+        return req.dim_id == dim_id && load_request_source_is_stable( req.source ) &&
+               contains_request_pos( req, pos );
+    } );
+}
+
+auto submap_load_manager::release_vehicle_footprint_requests() -> void
+{
+    for( const auto &[veh, request] : vehicle_footprint_requests_ ) {
+        release_load( request.handle );
+    }
+    vehicle_footprint_requests_.clear();
+}
+
+auto submap_load_manager::update_vehicle_footprint_requests() -> void
+{
+    auto active_vehicles = std::unordered_set<vehicle *> {};
+
+    MAPBUFFER_REGISTRY.for_each( [&]( const dimension_id &dim_id, mapbuffer &buffer ) {
+        buffer.for_each_vehicle( [&]( vehicle &veh ) {
+            active_vehicles.insert( &veh );
+
+            const auto footprints = buffer.get_vehicle_submap_footprints( veh );
+            auto footprint_begin = std::optional<point_abs_sm> {};
+            auto footprint_end = std::optional<point_abs_sm> {};
+            bool has_stable_contact = false;
+            bool fully_stable = true;
+
+            for( const auto &footprint : footprints ) {
+                if( !footprint ) {
+                    continue;
+                }
+                const auto begin = footprint->min.xy();
+                const auto end = footprint->max.xy();
+                if( !footprint_begin ) {
+                    footprint_begin = begin;
+                    footprint_end = end;
+                } else {
+                    footprint_begin->x() = std::min( footprint_begin->x(), begin.x() );
+                    footprint_begin->y() = std::min( footprint_begin->y(), begin.y() );
+                    footprint_end->x() = std::max( footprint_end->x(), end.x() );
+                    footprint_end->y() = std::max( footprint_end->y(), end.y() );
+                }
+
+                for( const auto &submap_pos : point_range<point_abs_sm>( begin, end ) ) {
+                    if( is_stably_requested( dim_id, tripoint_abs_sm{ submap_pos, 0 } ) ) {
+                        has_stable_contact = true;
+                    } else {
+                        fully_stable = false;
+                    }
+                }
+            }
+
+            auto request_it = vehicle_footprint_requests_.find( &veh );
+            if( !has_stable_contact || fully_stable || !footprint_begin || !footprint_end ) {
+                if( request_it != vehicle_footprint_requests_.end() ) {
+                    release_load( request_it->second.handle );
+                    vehicle_footprint_requests_.erase( request_it );
+                }
+                return;
+            }
+
+            const auto request_begin = *footprint_begin;
+            const auto request_end = *footprint_end + point_rel_sm{ 1, 1 };
+            if( request_it == vehicle_footprint_requests_.end() ) {
+                const auto handle = request_load( load_request_source::vehicle_footprint,
+                                                  dim_id, request_begin, request_end );
+                vehicle_footprint_requests_.emplace( &veh, vehicle_footprint_request {
+                    .dim_id = dim_id,
+                    .begin = request_begin,
+                    .end = request_end,
+                    .handle = handle,
+                } );
+                return;
+            }
+
+            auto &request = request_it->second;
+            if( request.dim_id != dim_id ) {
+                release_load( request.handle );
+                request = vehicle_footprint_request {
+                    .dim_id = dim_id,
+                    .begin = request_begin,
+                    .end = request_end,
+                    .handle = request_load( load_request_source::vehicle_footprint,
+                                            dim_id, request_begin, request_end ),
+                };
+            } else if( request.begin != request_begin || request.end != request_end ) {
+                update_request( request.handle, request_begin, request_end );
+                request.begin = request_begin;
+                request.end = request_end;
+            }
+        } );
+    } );
+
+    std::erase_if( vehicle_footprint_requests_, [&]( const auto &entry ) {
+        if( active_vehicles.contains( entry.first ) ) {
+            return false;
+        }
+        release_load( entry.second.handle );
+        return true;
+    } );
+}
+
 auto submap_load_manager::is_properly_requested( const dimension_id &dim_id,
         const tripoint_abs_sm &pos ) const -> bool
 {
@@ -1204,6 +1318,7 @@ auto submap_load_manager::non_bubble_requests() const -> std::vector<submap_load
 
 void submap_load_manager::flush_prev_desired()
 {
+    release_vehicle_footprint_requests();
     previous_all_desired_.clear();
     simulated_submaps_by_dimension_.clear();
     prev_requests_.clear();
@@ -1217,5 +1332,3 @@ void submap_load_manager::flush_prev_desired()
     lazy_omt_budget_credit_ = 0.0;
     lazy_omt_last_credit_turn_ = -1;
 }
-
-

@@ -609,7 +609,7 @@ TEST_CASE("physical_clear_path_respects_vehicle_floors", "[map][z-level]") {
         REQUIRE(seat_part != -1);
         const auto seat_pos = helicopter->abs_part_location(seat_part);
 
-        CHECK(here.veh_at(seat_pos)->is_inside());
+        CHECK(helicopter->enclosed_at(seat_pos));
         CHECK_FALSE(map_funcs::physical_clear_path({
             .here = here,
             .from = seat_pos + tripoint_below + tripoint_east * 4,

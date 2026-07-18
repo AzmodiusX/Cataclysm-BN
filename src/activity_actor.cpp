@@ -4870,14 +4870,15 @@ void pulp_actor::finish( player_activity &act, Character &who )
 
 // ─── hotwire_car_actor ───────────────────────────────────────────────────────
 
-hotwire_car_actor::hotwire_car_actor( const tripoint_abs_ms &pos, int skill )
-    : veh_pos( pos ), mechanics_skill( skill ) {}
+hotwire_car_actor::hotwire_car_actor( const tripoint_abs_ms &pos, int skill, int moves )
+    : veh_pos( pos ), mechanics_skill( skill ), moves_total( moves ) {}
 void hotwire_car_actor::serialize( JsonOut &jsout ) const
 {
     jsout.start_object();
     jsout.member( "progress", activity_actor::progress );
     jsout.member( "veh_pos", veh_pos );
     jsout.member( "mechanics_skill", mechanics_skill );
+    jsout.member( "moves_total", moves_total );
     jsout.end_object();
 }
 std::unique_ptr<activity_actor> hotwire_car_actor::deserialize( JsonIn &jsin )
@@ -4887,16 +4888,27 @@ std::unique_ptr<activity_actor> hotwire_car_actor::deserialize( JsonIn &jsin )
     data.read( "progress", actor->activity_actor::progress );
     data.read( "veh_pos", actor->veh_pos );
     data.read( "mechanics_skill", actor->mechanics_skill );
+    data.read( "moves_total", actor->moves_total );
     return actor;
 }
 std::unique_ptr<activity_actor> hotwire_car_actor::legacy_deserialize( const JsonObject &data )
 {
     auto values = data.get_int_array( "values" );
     if( values.size() < 3 ) { return nullptr; }
-    return std::make_unique<hotwire_car_actor>(
-               tripoint_abs_ms( values[0], values[1], 0 ), values[2] );
+    auto actor = std::make_unique<hotwire_car_actor>(
+                     tripoint_abs_ms( values[0], values[1], 0 ), values[2],
+                     data.get_int( "moves_total", 0 ) );
+    const auto moves_left = data.get_int( "moves_left", actor->moves_total );
+    if( actor->moves_total > 0 ) {
+        actor->progress.emplace( "hotwiring", actor->moves_total, moves_left );
+    }
+    return actor;
 }
-void hotwire_car_actor::start( player_activity &, Character & ) {}
+void hotwire_car_actor::start( player_activity &, Character & ) {
+    if( progress.empty() ) {
+        progress.emplace( "hotwiring", moves_total );
+    }
+}
 void hotwire_car_actor::do_turn( player_activity &act, Character &who ) {}
 void hotwire_car_actor::finish( player_activity &act, Character &who )
 {
@@ -4927,14 +4939,15 @@ void hotwire_car_actor::finish( player_activity &act, Character &who )
 
 // ─── start_engines_actor ─────────────────────────────────────────────────────
 
-start_engines_actor::start_engines_actor( int control, const tripoint_abs_ms &pos )
-    : take_control( control ), placement( pos ) {}
+start_engines_actor::start_engines_actor( int control, const tripoint_abs_ms &pos, int moves )
+    : take_control( control ), placement( pos ), moves_total( moves ) {}
 void start_engines_actor::serialize( JsonOut &jsout ) const
 {
     jsout.start_object();
     jsout.member( "progress", activity_actor::progress );
     jsout.member( "take_control", take_control );
     jsout.member( "placement", placement );
+    jsout.member( "moves_total", moves_total );
     jsout.end_object();
 }
 std::unique_ptr<activity_actor> start_engines_actor::deserialize( JsonIn &jsin )
@@ -4944,6 +4957,7 @@ std::unique_ptr<activity_actor> start_engines_actor::deserialize( JsonIn &jsin )
     data.read( "progress", actor->activity_actor::progress );
     data.read( "take_control", actor->take_control );
     data.read( "placement", actor->placement );
+    data.read( "moves_total", actor->moves_total );
     return actor;
 }
 std::unique_ptr<activity_actor> start_engines_actor::legacy_deserialize( const JsonObject &data )
@@ -4952,9 +4966,18 @@ std::unique_ptr<activity_actor> start_engines_actor::legacy_deserialize( const J
     auto values = data.get_int_array( "values" );
     if( !values.empty() ) { actor->take_control = values[0]; }
     data.read( "placement", actor->placement );
+    actor->moves_total = data.get_int( "moves_total", 0 );
+    const auto moves_left = data.get_int( "moves_left", actor->moves_total );
+    if( actor->moves_total > 0 ) {
+        actor->progress.emplace( "starting vehicle", actor->moves_total, moves_left );
+    }
     return actor;
 }
-void start_engines_actor::start( player_activity &, Character & ) {}
+void start_engines_actor::start( player_activity &, Character & ) {
+    if( progress.empty() ) {
+        progress.emplace( "starting vehicle", moves_total );
+    }
+}
 void start_engines_actor::do_turn( player_activity &act, Character &who ) {}
 void start_engines_actor::finish( player_activity &act, Character &who )
 {
