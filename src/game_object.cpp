@@ -164,6 +164,12 @@ bool game_object<T>::has_position() const
 }
 
 template<typename T>
+const location<T> *game_object<T>::get_location() const
+{
+    return loc ? loc : saved_loc;
+}
+
+template<typename T>
 tripoint_bub_ms game_object<T>::bub_pos( ) const
 {
     if( !loc ) {

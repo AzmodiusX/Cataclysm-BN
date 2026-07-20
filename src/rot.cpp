@@ -1,6 +1,7 @@
 #include "rot.h"
 
 #include "item.h"
+#include "locations.h"
 #include "map.h"
 #include "vehicle.h"
 #include "vehicle_part.h"
@@ -29,6 +30,11 @@ auto for_location( const item &loc ) -> temperature_flag
 {
     if( !loc.has_position() ) {
         return temperature_flag::TEMP_NORMAL;
+    }
+
+    if( const auto *vehicle_loc = dynamic_cast<const vehicle_item_location *>
+        ( loc.get_location() ) ) {
+        return vehicle_loc->storage_temperature();
     }
 
     switch( loc.where() ) {

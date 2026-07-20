@@ -812,7 +812,8 @@ auto item::prepare_for_location_removal() -> void
     }
 
     auto storage_temperature = temperature_flag::TEMP_NORMAL;
-    const auto vehicle_loc = dynamic_cast<vehicle_item_location *>( loc );
+    const auto location = get_location();
+    const auto vehicle_loc = dynamic_cast<const vehicle_item_location *>( location );
     if( vehicle_loc != nullptr ) {
         storage_temperature = vehicle_loc->storage_temperature();
     } else if( where() == item_location_type::map ) {

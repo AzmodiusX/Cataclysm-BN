@@ -57,6 +57,7 @@ class game_object
         bool is_detached() const;
         bool is_loaded() const;
         bool has_position() const;
+        const location<T> *get_location() const;
         void set_location( location<T> *own );
 
         tripoint_bub_ms bub_pos( ) const;
@@ -66,5 +67,4 @@ class game_object
         /** Returns the name that will be used when referring to the object in error messages */
         virtual std::string debug_name() const = 0;
 };
-
 
