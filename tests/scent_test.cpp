@@ -148,7 +148,7 @@ TEST_CASE("scent_matches_old", "[.]") {
 
     g->place_player(test_origin);
 
-    auto &here = get_map().get_mapbuffer();
+    auto& here = get_map().get_mapbuffer();
 
     here.set_ter(test_origin + tripoint_south_west, t_brick_wall);
     here.set_ter(test_origin + tripoint_west, t_brick_wall);

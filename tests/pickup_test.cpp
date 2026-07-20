@@ -21,10 +21,12 @@ static auto count_pickup_items(
 TEST_CASE("nearby pickup finds items on all adjacent ground tiles", "[pickup]") {
     clear_all_state();
 
-    auto &here = get_map().get_mapbuffer();
+    auto& here = get_map().get_mapbuffer();
     g->place_player(test_origin);
 
-    for (const auto& pos : simulated_tiles_in_radius(here, test_origin, 2)) { here.clear_items(pos.abs_pos()); }
+    for (const auto& pos : simulated_tiles_in_radius(here, test_origin, 2)) {
+        here.clear_items(pos.abs_pos());
+    }
 
     here.add_item_or_charges(test_origin, item::spawn("rock"));
     here.add_item_or_charges(test_origin + tripoint_east, item::spawn("stick"));
@@ -41,8 +43,8 @@ TEST_CASE("nearby pickup finds items on all adjacent ground tiles", "[pickup]") 
 
 TEST_CASE("nearby pickup finds adjacent vehicle cargo", "[pickup][vehicle]") {
     clear_all_state();
-    
-    auto &here = get_map().get_mapbuffer();
+
+    auto& here = get_map().get_mapbuffer();
     g->place_player(test_origin);
     const auto cart_pos = test_origin + tripoint_east;
 

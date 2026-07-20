@@ -177,8 +177,8 @@ static int test_efficiency(
     int min_dist = target_distance * 0.99;
     int max_dist = target_distance * 1.01;
     prepare_efficiency_map(terrain);
-    
-    auto &map = get_map();
+
+    auto& map = get_map();
     auto& here = map.get_mapbuffer();
     vehicle* veh_ptr = here.add_vehicle(veh_id, test_origin, -90_degrees, 0, 0);
 
@@ -268,8 +268,8 @@ TEST_CASE("vehicle_efficiency_movement_keeps_vehicle_on_valid_terrain", "[vehicl
     clear_all_state();
     reset_efficiency_state();
     prepare_efficiency_map(ter_id("t_pavement"));
-    
-    auto &map = get_map();
+
+    auto& map = get_map();
     auto& here = map.get_mapbuffer();
     vehicle* veh_ptr =
         here.add_vehicle(vproto_id("fire_truck_test"), test_origin, -90_degrees, 0, 0);

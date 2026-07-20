@@ -322,8 +322,8 @@ TEST_CASE("taking_control_of_vehicle_without_engine", "[vehicle]") {
     auto& player_character = get_avatar();
     player_character.setpos(test_origin);
 
-    auto* veh_ptr =
-        get_map().get_mapbuffer().add_vehicle(vproto_id("shopping_cart"), test_origin, 0_degrees, 0, 0);
+    auto* veh_ptr = get_map().get_mapbuffer().add_vehicle(
+        vproto_id("shopping_cart"), test_origin, 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
     REQUIRE_FALSE(player_character.controlling_vehicle);
     REQUIRE_FALSE(veh_ptr->engine_on);
@@ -338,8 +338,8 @@ TEST_CASE("taking_control_of_vehicle_without_engine", "[vehicle]") {
 TEST_CASE("moving_flying_vehicle_can_use_wait_menu", "[vehicle][wait]") {
     clear_all_state();
 
-    auto* veh_ptr =
-        get_map().get_mapbuffer().add_vehicle(vproto_id("plane_small"), test_origin, 0_degrees, 0, 0);
+    auto* veh_ptr = get_map().get_mapbuffer().add_vehicle(
+        vproto_id("plane_small"), test_origin, 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     veh_ptr->velocity = 100;
@@ -360,7 +360,8 @@ TEST_CASE("vehicle control scale modifies throttle move cost", "[vehicle][speed]
     auto& you = get_avatar();
     you.set_moves(25);
 
-    auto* veh_ptr = get_map().get_mapbuffer().add_vehicle(vproto_id("bicycle"), test_origin, 0_degrees, 0, 0);
+    auto* veh_ptr =
+        get_map().get_mapbuffer().add_vehicle(vproto_id("bicycle"), test_origin, 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     veh_ptr->cruise_on = false;
@@ -375,7 +376,8 @@ TEST_CASE("vehicle speed control free in cruise mode", "[vehicle][speed]") {
     auto& you = get_avatar();
     you.set_moves(25);
 
-    auto* veh_ptr = get_map().get_mapbuffer().add_vehicle(vproto_id("bicycle"), test_origin, 0_degrees, 0, 0);
+    auto* veh_ptr =
+        get_map().get_mapbuffer().add_vehicle(vproto_id("bicycle"), test_origin, 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     veh_ptr->cruise_on = true;
@@ -496,8 +498,8 @@ TEST_CASE("damage_vehicle_oob") {
     g->place_player(test_origin);
     const tripoint_rel_ms vehicle_offset(SEEX, 0, 0);
     auto vehicle_origin = test_origin + vehicle_offset;
-    vehicle* veh_ptr =
-        get_map().get_mapbuffer().add_vehicle(vproto_id("bicycle"), vehicle_origin, 0_degrees, 0, 0);
+    vehicle* veh_ptr = get_map().get_mapbuffer().add_vehicle(
+        vproto_id("bicycle"), vehicle_origin, 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     // Put an item in the vehicle
@@ -560,7 +562,8 @@ static void test_coord_translate(
 
 TEST_CASE("check_vehicle_rotation_against_old", "[.]") {
     clear_all_state();
-    vehicle* veh_ptr = get_map().get_mapbuffer().add_vehicle(vproto_id("bicycle"), test_origin, 0_degrees, 0, 0);
+    vehicle* veh_ptr =
+        get_map().get_mapbuffer().add_vehicle(vproto_id("bicycle"), test_origin, 0_degrees, 0, 0);
     const tripoint_mnt_veh pivot;
 
     for (int dir = 0; dir < 24; dir++) {
@@ -606,8 +609,8 @@ TEST_CASE("vehicle_rotation_reverse") {
 
 TEST_CASE("broken_door_and_lock_can_be_removed", "[vehicle]") {
     clear_all_state();
-    auto* veh_ptr =
-        get_map().get_mapbuffer().add_vehicle(vproto_id("cross_split_test"), test_origin, 0_degrees, 0, 0);
+    auto* veh_ptr = get_map().get_mapbuffer().add_vehicle(
+        vproto_id("cross_split_test"), test_origin, 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     const auto door_mount = tripoint_mnt_veh(1, 0, 0);

@@ -68,8 +68,8 @@ TEST_CASE("extended monster death drops append to inherited drops", "[monster][d
 
     here.clear_items(test_origin);
 
-    auto* const test_monster_ptr = here.place_critter_at(
-        mtype_id("mon_test_death_drops_append"), test_origin);
+    auto* const test_monster_ptr =
+        here.place_critter_at(mtype_id("mon_test_death_drops_append"), test_origin);
     REQUIRE(test_monster_ptr != nullptr);
     auto& test_monster = *test_monster_ptr;
     test_monster.drop_items_on_death();
@@ -81,14 +81,14 @@ TEST_CASE("extended monster death drops append to inherited drops", "[monster][d
 TEST_CASE("empty top-level monster death drops replace inherited drops", "[monster][death_drops]") {
     clear_all_state();
     move_player_out_of_the_way();
-    
+
     auto& here = get_map().get_mapbuffer();
     build_test_map(ter_id("t_floor"));
 
     here.clear_items(test_origin);
 
-    auto* const test_monster_ptr = here.place_critter_at(
-        mtype_id("mon_test_death_drops_clear"), test_origin);
+    auto* const test_monster_ptr =
+        here.place_critter_at(mtype_id("mon_test_death_drops_clear"), test_origin);
     REQUIRE(test_monster_ptr != nullptr);
     auto& test_monster = *test_monster_ptr;
     test_monster.drop_items_on_death();
@@ -105,7 +105,7 @@ TEST_CASE("hallucination_monsters_do_not_open_real_doors", "[monster][hallucinat
     build_test_map(ter_id("t_floor"));
 
     const auto monster_pos = test_origin;
-    const auto door_pos = test_origin + point_rel_ms( 1, 0 );
+    const auto door_pos = test_origin + point_rel_ms(1, 0);
     REQUIRE(here.set_ter(door_pos, ter_id("t_door_c")));
 
     auto& hallucination = spawn_test_monster("mon_zombie_scientist", abs_to_bub(monster_pos));
@@ -123,7 +123,7 @@ TEST_CASE("hallucination_electric_field_does_not_ignite_items", "[monster][hallu
     build_test_map(ter_id("t_pavement"));
 
     const auto monster_pos = test_origin;
-    const auto fuel_pos = test_origin + point_rel_ms( 1, 0 );
+    const auto fuel_pos = test_origin + point_rel_ms(1, 0);
     here.add_item_or_charges(fuel_pos, item::spawn("gasoline"));
 
     auto& hallucination = spawn_test_monster("mon_zombie_nullfield", abs_to_bub(monster_pos));

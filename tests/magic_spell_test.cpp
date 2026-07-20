@@ -609,7 +609,7 @@ TEST_CASE("spell effect - summon", "[magic][spell][effect][summon]") {
     clear_all_state();
     // Avatar/spellcaster and summoned mummy locations
     const auto dummy_loc = test_origin;
-    const auto mummy_loc = dummy_loc + point_rel_ms( 1, 0 );
+    const auto mummy_loc = dummy_loc + point_rel_ms(1, 0);
 
     avatar& dummy = g->u;
     clear_character(dummy);
