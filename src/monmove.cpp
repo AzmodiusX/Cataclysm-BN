@@ -2409,7 +2409,10 @@ bool monster::move_to( const tripoint_abs_ms &p, bool force, bool step_on_critte
 {
     mapbuffer &here = get_mapbuffer();
 
-    const auto &pos_handle = *abs_tile_handle::fetch( here, abs_pos() );
+    const auto pos_handle = abs_tile_handle::fetch( here, abs_pos() );
+    if( !pos_handle ) {
+        return false;
+    }
     const bool on_ground = !digging() && !flies();
 
     const bool z_move = p.z() != abs_pos().z();
@@ -2418,13 +2421,13 @@ bool monster::move_to( const tripoint_abs_ms &p, bool force, bool step_on_critte
     auto destination = p;
 
     // Stair teleportation
-    if( going_up && pos_handle.has_flag( TFLAG_GOES_UP ) ) {
+    if( going_up && pos_handle->has_flag( TFLAG_GOES_UP ) ) {
         auto stair_down = find_closest_stair( here, destination, TFLAG_GOES_DOWN );
         if( stair_down.has_value() ) {
             //return move_to( *stair_down, force, step_on_critter, stagger_adjustment );
             destination = *stair_down;
         }
-    } else if( z_move && pos_handle.has_flag( TFLAG_GOES_DOWN ) ) {
+    } else if( z_move && pos_handle->has_flag( TFLAG_GOES_DOWN ) ) {
         auto stair_up = find_closest_stair( here, destination, TFLAG_GOES_UP );
         if( stair_up.has_value() ) {
             destination = *stair_up;
@@ -2445,25 +2448,28 @@ bool monster::move_to( const tripoint_abs_ms &p, bool force, bool step_on_critte
         return false;
     }
 
-    const auto &dest_handle = *abs_tile_handle::fetch( here, destination );
+    const auto dest_handle = abs_tile_handle::fetch( here, destination );
+    if( !dest_handle ) {
+        return false;
+    }
 
     // Climbing
-    auto critter = here.creature_at( dest_handle.abs_pos(), is_hallucination() );
-    if( dest_handle.has_flag( TFLAG_CLIMBABLE ) ) {
-        auto above_dest = dest_handle.abs_pos() + tripoint_above;
-        if( dest_handle.impassable_ter_furn() && !critter &&
+    auto critter = here.creature_at( dest_handle->abs_pos(), is_hallucination() );
+    if( dest_handle->has_flag( TFLAG_CLIMBABLE ) ) {
+        auto above_dest = dest_handle->abs_pos() + tripoint_above;
+        if( dest_handle->impassable_ter_furn() && !critter &&
             !here.has_floor_or_support( above_dest ) ) {
             if( flies() ) {
                 moves -= 100;
                 force = true;
                 if( g->u.sees( *this ) ) {
-                    add_msg( _( "The %1$s flies over the %2$s." ), name(), dest_handle.furnname() );
+                    add_msg( _( "The %1$s flies over the %2$s." ), name(), dest_handle->furnname() );
                 }
             } else if( climbs() ) {
                 moves -= 150;
                 force = true;
                 if( g->u.sees( *this ) ) {
-                    add_msg( _( "The %1$s climbs over the %2$s." ), name(), dest_handle.furnname() );
+                    add_msg( _( "The %1$s climbs over the %2$s." ), name(), dest_handle->furnname() );
                 }
             }
         }
@@ -2473,40 +2479,40 @@ bool monster::move_to( const tripoint_abs_ms &p, bool force, bool step_on_critte
         return false;
     }
     if( critter && ( attitude_to( *critter ) == Attitude::A_HOSTILE || has_flag( MF_ATTACKMON ) ) ) {
-        return attack_at( dest_handle.abs_pos() );
+        return attack_at( dest_handle->abs_pos() );
     }
-    if( !can_squeeze_to( dest_handle.abs_pos() ) ) { return false; }
-    if( !force && !can_move_to( dest_handle.abs_pos() ) ) { return false; }
+    if( !can_squeeze_to( dest_handle->abs_pos() ) ) { return false; }
+    if( !force && !can_move_to( dest_handle->abs_pos() ) ) { return false; }
 
     // Move cost
     if( !force ) {
         const float cost = stagger_adjustment *
-                           static_cast<float>( climbs() && dest_handle.has_flag( TFLAG_NO_FLOOR )
-                                               ? calc_climb_cost( abs_pos(), dest_handle.abs_pos() )
-                                               : calc_movecost( abs_pos(), dest_handle.abs_pos() ) );
+                           static_cast<float>( climbs() && dest_handle->has_flag( TFLAG_NO_FLOOR )
+                                               ? calc_climb_cost( abs_pos(), dest_handle->abs_pos() )
+                                               : calc_movecost( abs_pos(), dest_handle->abs_pos() ) );
         if( cost > 0.0f ) { moves -= static_cast<int>( std::ceil( cost ) ); }
         else { return false; }
     }
 
     // Water transitions
-    bool was_water = pos_handle.is_divable();
-    bool will_be_water = on_ground && can_submerge() && pos_handle.is_divable();
+    bool was_water = pos_handle->is_divable();
+    bool will_be_water = on_ground && can_submerge() && pos_handle->is_divable();
     if( was_water != will_be_water && !flies() && g->u.sees( *this ) ) {
         if( was_water && !will_be_water ) {
             add_msg( m_warning, pgettext( "monster movement", "A %1$s %2$s from the %3$s!" ), name(),
                      swims() || has_flag( MF_AQUATIC ) ? _( "leaps" ) : _( "emerges" ),
-                     pos_handle.tername() );
+                     pos_handle->tername() );
         } else if( !was_water && will_be_water ) {
             add_msg( m_warning, pgettext( "monster movement", "A %1$s %2$s into the %3$s!" ), name(),
                      swims() || has_flag( MF_AQUATIC ) ? _( "dives" ) : _( "sinks" ),
-                     pos_handle.tername() );
+                     pos_handle->tername() );
         }
     }
 
-    setpos( dest_handle.abs_pos() );
-    footsteps( dest_handle.abs_pos() );
+    setpos( dest_handle->abs_pos() );
+    footsteps( dest_handle->abs_pos() );
     set_underwater( will_be_water );
-    if( dest_handle.is_divable() && !dest_handle.has_flag( TFLAG_WATER_CUBE ) &&
+    if( dest_handle->is_divable() && !dest_handle->has_flag( TFLAG_WATER_CUBE ) &&
         anger > 10 && has_flag( MF_AQUATIC ) ) {
         set_underwater( false );
     }
@@ -2515,23 +2521,23 @@ bool monster::move_to( const tripoint_abs_ms &p, bool force, bool step_on_critte
     if( type->size != creature_size::tiny && on_ground ) {
         const int sharp_damage = rng( 1, 10 );
         const int rough_damage = rng( 1, 2 );
-        if( pos_handle.has_flag( TFLAG_SHARP ) && !one_in( 4 ) &&
+        if( pos_handle->has_flag( TFLAG_SHARP ) && !one_in( 4 ) &&
             get_armor_cut( bodypart_id( "torso" ) ) < sharp_damage ) {
             apply_damage( nullptr, bodypart_id( "torso" ), sharp_damage );
         }
-        if( pos_handle.has_flag( TFLAG_ROUGH ) && one_in( 6 ) &&
+        if( pos_handle->has_flag( TFLAG_ROUGH ) && one_in( 6 ) &&
             get_armor_cut( bodypart_id( "torso" ) ) < rough_damage ) {
             apply_damage( nullptr, bodypart_id( "torso" ), rough_damage );
         }
     }
 
-    if( dest_handle.has_flag( TFLAG_UNSTABLE ) && on_ground ) {
+    if( dest_handle->has_flag( TFLAG_UNSTABLE ) && on_ground ) {
         add_effect( effect_bouldering, 1_turns );
     } else if( has_effect( effect_bouldering ) ) {
         remove_effect( effect_bouldering );
     }
 
-    if( dest_handle.has_flag_ter_or_furn( TFLAG_NO_SIGHT ) && on_ground ) {
+    if( dest_handle->has_flag_ter_or_furn( TFLAG_NO_SIGHT ) && on_ground ) {
         add_effect( effect_no_sight, 1_turns );
     } else if( has_effect( effect_no_sight ) ) {
         remove_effect( effect_no_sight );
@@ -2542,11 +2548,11 @@ bool monster::move_to( const tripoint_abs_ms &p, bool force, bool step_on_critte
         return true;
     }
     if( !will_be_water && ( digs() || can_dig() ) ) {
-        set_underwater( pos_handle.ter().obj().is_diggable() );
+        set_underwater( pos_handle->ter().obj().is_diggable() );
     }
     // Diggers turn the dirt into dirtmound
     {
-        if( digging() && pos_handle.ter().obj().is_diggable() ) {
+        if( digging() && pos_handle->ter().obj().is_diggable() ) {
             int factor = 0;
             switch( type->size ) {
                 case creature_size::tiny:
@@ -2570,27 +2576,27 @@ bool monster::move_to( const tripoint_abs_ms &p, bool force, bool step_on_critte
             }
             // TODO: make this take terrain type into account so diggers traveling under sand will create mounds of sand etc.
             if( one_in( factor ) ) {
-                here.set_ter( pos_handle.abs_pos(), t_dirtmound );
+                here.set_ter( pos_handle->abs_pos(), t_dirtmound );
             }
         }
     }
     // Acid trail monsters leave... a trail of acid
     if( has_flag( MF_ACIDTRAIL ) ) {
-        here.add_field( pos_handle.abs_pos(), mapbuffer_add_field_options{ fd_acid, 3 } );
+        here.add_field( pos_handle->abs_pos(), mapbuffer_add_field_options{ fd_acid, 3 } );
     }
 
     // Not all acid trail monsters leave as much acid. Every time this monster takes a step, there is a 1/5 chance it will drop a puddle.
     if( has_flag( MF_SHORTACIDTRAIL ) ) {
         if( one_in( 5 ) ) {
-            here.add_field( pos_handle.abs_pos(), mapbuffer_add_field_options{ fd_acid, 3 } );
+            here.add_field( pos_handle->abs_pos(), mapbuffer_add_field_options{ fd_acid, 3 } );
         }
     }
 
     if( has_flag( MF_SLUDGETRAIL ) ) {
-        for( const auto &sludge_tile : simulated_tiles_in_radius( here, pos_handle.abs_pos(), 1 ) ) {
+        for( const auto &sludge_tile : simulated_tiles_in_radius( here, pos_handle->abs_pos(), 1 ) ) {
             const tripoint_abs_ms sludge_p = sludge_tile.abs_pos();
-            const int fstr = 3 - ( std::abs( sludge_p.x() - pos_handle.abs_pos().x() ) + std::abs(
-                                       sludge_p.y() - pos_handle.abs_pos().y() ) );
+            const int fstr = 3 - ( std::abs( sludge_p.x() - pos_handle->abs_pos().x() ) + std::abs(
+                                       sludge_p.y() - pos_handle->abs_pos().y() ) );
             if( fstr >= 2 ) {
                 here.add_field( sludge_p, mapbuffer_add_field_options{ fd_sludge, fstr } );
             }
@@ -2601,7 +2607,7 @@ bool monster::move_to( const tripoint_abs_ms &p, bool force, bool step_on_critte
         if( one_in( 10 ) ) {
             // if it has more napalm, drop some and reduce ammo in tank
             if( ammo[itype_pressurized_tank] > 0 ) {
-                here.add_item_or_charges( pos_handle.abs_pos(), item::spawn( "napalm", calendar::turn, 50 ) );
+                here.add_item_or_charges( pos_handle->abs_pos(), item::spawn( "napalm", calendar::turn, 50 ) );
                 ammo[itype_pressurized_tank] -= 50;
             } else {
                 // TODO: remove MF_DRIPS_NAPALM flag since no more napalm in tank
@@ -2611,7 +2617,7 @@ bool monster::move_to( const tripoint_abs_ms &p, bool force, bool step_on_critte
     }
     if( has_flag( MF_DRIPS_GASOLINE ) ) {
         if( one_in( 5 ) ) {
-            here.add_item_or_charges( pos_handle.abs_pos(), item::spawn( "gasoline" ) );
+            here.add_item_or_charges( pos_handle->abs_pos(), item::spawn( "gasoline" ) );
         }
     }
     return true;
