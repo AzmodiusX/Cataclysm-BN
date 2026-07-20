@@ -3087,7 +3087,7 @@ auto mapbuffer::invalidate_vehicle_footprint( const vehicle &veh ) -> bool
 }
 
 auto mapbuffer::get_vehicle_submap_footprints( const vehicle &veh ) const
-- > vehicle_submap_footprints
+-> vehicle_submap_footprints // *NOPAD*
 {
     return calculate_vehicle_submap_footprints( veh );
 }
