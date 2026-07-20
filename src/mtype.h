@@ -22,6 +22,7 @@
 #include "units.h"
 #include "catalua_type_operators.h"
 
+class lua_monster_callback_actor;
 class Creature;
 class monster;
 struct dealt_projectile_attack;
@@ -468,6 +469,10 @@ struct mtype {
 
         /** Emission sources that cycle each turn the monster remains alive */
         std::map<emit_id, time_duration> emit_fields;
+
+        /** Lua callback actor (non-owning, owned by catalua.cpp static maps).
+        *  Mutable because it is wired post-construction through const factory references. */
+        mutable const lua_monster_callback_actor *lua_callbacks = nullptr;
 
         PathfindingSettings path_settings;
         RouteSettings route_settings;

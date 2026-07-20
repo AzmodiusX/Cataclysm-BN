@@ -100,6 +100,18 @@ static const itype_id itype_weapon_fire_suppressed( "weapon_fire_suppressed" );
 
 static const enchantment_value_id ench_val_SLEEP_DB_RESIST( "SLEEP_DB_RESIST" );
 
+static const std::unordered_set<sounds::sound_t> NO_STACK_SOUND_TYPES = {
+    sounds::sound_t::background,
+    sounds::sound_t::weather,
+    sounds::sound_t::music,
+    sounds::sound_t::movement,
+    sounds::sound_t::speech,
+    sounds::sound_t::electronic_speech,
+    sounds::sound_t::activity,
+    sounds::sound_t::destructive_activity,
+    sounds::sound_t::alarm,
+};
+
 // For use with the floodfill logic.
 static constexpr auto tile_structure_sound_absorption_tier = std::array<short, 4>
 {
@@ -2945,7 +2957,8 @@ void sounds::process_sound_markers( Character *who )
             if( !sfx_id.empty() ) {
                 sfx::play_variant_sound( sfx_id, sfx_variant,
                                          sfx::get_heard_volume( abs_to_bub( element.sound.origin ),
-                                                 element.sound.volume ) );
+                                                 element.sound.volume ),
+                                         !NO_STACK_SOUND_TYPES.contains( element.sound.category ) );
             }
 
             // Place footstep markers.
@@ -4065,7 +4078,7 @@ void sfx::load_sound_effect_preload( const JsonObject & ) { }
 void sfx::load_playlist( const JsonObject & ) { }
 void sfx::play_variant_sound( const std::string &, const std::string &, int, units::angle, double,
                               double ) { }
-void sfx::play_variant_sound( const std::string &, const std::string &, int ) { }
+void sfx::play_variant_sound( const std::string &, const std::string &, int, bool ) { }
 void sfx::play_ambient_variant_sound( const std::string &, const std::string &, int, channel, int,
                                       double, int ) { }
 void sfx::play_activity_sound( const std::string &, const std::string &, int ) { }

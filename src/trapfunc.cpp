@@ -1581,7 +1581,6 @@ static bool lua_trap_can_trigger_check( const Character &target, const trap &tra
 
 static void lua_trap_on_trigger( Character &target, trap &trap, const tripoint_abs_ms &loc )
 {
-    // Lua itrap can_trigger prevents triggering when returning false
     if( const auto *itrap_cb = trap.lua_callbacks ) {
         itrap_cb->call_on_trigger( target, trap, loc );
     }
@@ -1590,7 +1589,6 @@ static void lua_trap_on_trigger( Character &target, trap &trap, const tripoint_a
 static void lua_trap_on_trigger_aftermath( Character &target, trap &trap,
         const tripoint_abs_ms &loc )
 {
-    // Lua itrap can_trigger prevents triggering when returning false
     if( const auto *itrap_cb = trap.lua_callbacks ) {
         itrap_cb->call_on_trigger_aftermath( target, trap, loc );
     }

@@ -536,6 +536,9 @@ class monster : public Creature, public location_visitable<monster>
         void make_ally( const monster &z );
         // makes this monster a pet of the player
         void make_pet();
+
+        void make_pet( Character &actor );
+
         // check if this monster is a pet of the player
         bool is_pet() const;
 
@@ -557,6 +560,7 @@ class monster : public Creature, public location_visitable<monster>
                 detached_ptr<item> *result = nullptr );
         std::vector<detached_ptr<item>> clear_items();
         void drop_items();
+
         void drop_items( const tripoint_bub_ms &p );
 
         /**
@@ -720,6 +724,7 @@ class monster : public Creature, public location_visitable<monster>
         detached_ptr<item> remove_tack_item( );
 
         item *get_tied_item() const;
+
         detached_ptr<item> set_tied_item( detached_ptr<item> &&to );
         detached_ptr<item> remove_tied_item( );
 
@@ -728,6 +733,7 @@ class monster : public Creature, public location_visitable<monster>
         detached_ptr<item> remove_armor_item( );
 
         item *get_storage_item() const;
+
         detached_ptr<item> set_storage_item( detached_ptr<item> &&to );
         detached_ptr<item> remove_storage_item( );
 
@@ -743,7 +749,10 @@ class monster : public Creature, public location_visitable<monster>
         void add_faction_anger( mfaction_id target_faction, int amount );
         auto get_faction_anger( mfaction_id target_faction ) const -> int;
 
+        const lua_monster_callback_actor *get_lua_callbacks() const;
+
         std::set<m_flag> monster_flags;
+
 
     private:
         auto action_move_factor() const -> int override;

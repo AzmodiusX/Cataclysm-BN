@@ -1710,7 +1710,7 @@ void vehicle::alarm()
             sound_event se;
             se.origin = abs_ms_location();
             se.volume = rng( 80, 130 );
-            se.category = sounds::sound_t::combat;
+            se.category = sounds::sound_t::alarm;
             se.description = random_entry_ref( sound_msgs );
             se.id = "vehicle";
             se.variant = "car_alarm";
