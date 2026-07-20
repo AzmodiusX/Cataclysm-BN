@@ -33,7 +33,7 @@ auto for_location( const item &loc ) -> temperature_flag
     }
 
     if( const auto *vehicle_loc = dynamic_cast<const vehicle_item_location *>
-        ( loc.get_location() ) ) {
+                                  ( loc.get_location() ) ) {
         return vehicle_loc->storage_temperature();
     }
 
