@@ -87,7 +87,7 @@ void check_lethality(
         }
         if (!survivors.empty()) { survivor_stats << '\n'; }
         for (int i = survivors.size(); i < num_subjects_this_time; ++i) { victims.add(true); }
-    } while (victims.uncertain_about(target_lethality));
+    } while (victims.n() < 100 || victims.uncertain_about(target_lethality));
     CAPTURE(margin);
     INFO(explosive_id);
     INFO("range " << range);
