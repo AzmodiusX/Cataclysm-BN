@@ -861,7 +861,7 @@ void map::reset_vehicle_cache( )
         }
         const auto footprints = get_mapbuffer().get_vehicle_submap_footprints( *veh );
         const auto overlaps_bubble = std::ranges::any_of( footprints,
-        [&]( const auto &footprint ) {
+        [&]( const auto & footprint ) {
             return footprint && footprint->max.x() >= bubble_min.x() &&
                    footprint->min.x() <= bubble_max.x() &&
                    footprint->max.y() >= bubble_min.y() &&
@@ -1498,7 +1498,7 @@ VehicleList map::get_vehicles( const tripoint_bub_sm &start, const tripoint_bub_
             }
             const auto footprints = get_mapbuffer().get_vehicle_submap_footprints( *veh );
             const auto overlaps_window = std::ranges::any_of( footprints,
-            [&]( const auto &footprint ) {
+            [&]( const auto & footprint ) {
                 return footprint && footprint->max.x() >= abs_start.x() &&
                        footprint->min.x() <= abs_end.x() &&
                        footprint->max.y() >= abs_start.y() &&

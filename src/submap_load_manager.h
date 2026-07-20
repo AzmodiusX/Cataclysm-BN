@@ -309,7 +309,7 @@ class submap_load_manager
         load_request_handle next_handle_ = 1;
         std::map<load_request_handle, submap_load_request> requests_;
         std::unordered_map<vehicle *, vehicle_footprint_request>
-                vehicle_footprint_requests_;
+        vehicle_footprint_requests_;
 
         /** Previous all_desired set for departed-omt detection in update(). */
         key_set previous_all_desired_;

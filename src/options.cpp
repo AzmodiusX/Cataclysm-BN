@@ -2687,7 +2687,7 @@ void options_manager::add_options_performance()
              translate_marker( "Controls whether fire can keep areas loaded outside of render "
                                "distance. 'None': fire burns out in place. "
                                "'Adjacent': fire can spread into unloaded areas, and keeps "
-                               "close enough." ), {
+        "close enough." ), {
             { "none", translate_marker( "None (pause spread)" ) },
             { "adjacent", translate_marker( "Adjacent (one layer)" ) }
         },

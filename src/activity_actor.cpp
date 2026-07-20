@@ -4904,7 +4904,8 @@ std::unique_ptr<activity_actor> hotwire_car_actor::legacy_deserialize( const Jso
     }
     return actor;
 }
-void hotwire_car_actor::start( player_activity &, Character & ) {
+void hotwire_car_actor::start( player_activity &, Character & )
+{
     if( progress.empty() ) {
         progress.emplace( "hotwiring", moves_total );
     }
@@ -4973,7 +4974,8 @@ std::unique_ptr<activity_actor> start_engines_actor::legacy_deserialize( const J
     }
     return actor;
 }
-void start_engines_actor::start( player_activity &, Character & ) {
+void start_engines_actor::start( player_activity &, Character & )
+{
     if( progress.empty() ) {
         progress.emplace( "starting vehicle", moves_total );
     }

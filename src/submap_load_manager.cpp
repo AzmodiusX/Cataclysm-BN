@@ -1145,8 +1145,8 @@ auto submap_load_manager::update_vehicle_footprint_requests() -> void
 {
     auto active_vehicles = std::unordered_set<vehicle *> {};
 
-    MAPBUFFER_REGISTRY.for_each( [&]( const dimension_id &dim_id, mapbuffer &buffer ) {
-        buffer.for_each_vehicle( [&]( vehicle &veh ) {
+    MAPBUFFER_REGISTRY.for_each( [&]( const dimension_id & dim_id, mapbuffer & buffer ) {
+        buffer.for_each_vehicle( [&]( vehicle & veh ) {
             active_vehicles.insert( &veh );
 
             const auto footprints = buffer.get_vehicle_submap_footprints( veh );
@@ -1221,7 +1221,7 @@ auto submap_load_manager::update_vehicle_footprint_requests() -> void
         } );
     } );
 
-    std::erase_if( vehicle_footprint_requests_, [&]( const auto &entry ) {
+    std::erase_if( vehicle_footprint_requests_, [&]( const auto & entry ) {
         if( active_vehicles.contains( entry.first ) ) {
             return false;
         }

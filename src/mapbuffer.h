@@ -147,7 +147,7 @@ struct vehicle_submap_footprint {
 };
 
 using vehicle_submap_footprints = std::array<std::optional<vehicle_submap_footprint>,
-        OVERMAP_LAYERS>;
+      OVERMAP_LAYERS>;
 
 struct mapbuffer_add_item_or_charges_options {
     bool overflow = true;

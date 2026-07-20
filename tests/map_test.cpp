@@ -230,36 +230,32 @@ TEST_CASE("mapbuffer_vehicle_lookup_uses_absolute_coordinates") {
 TEST_CASE("vehicle_footprint_remains_visible_after_bubble_shift", "[vehicle][map][coordinates]") {
     clear_all_state();
 
-    auto &here = get_map();
+    auto& here = get_map();
     g->place_player(test_origin);
-    const auto vehicle_pos = tripoint_bub_ms{ SEEX - 2, SEEY / 2, 0 };
-    auto *const vehicle = here.add_vehicle( vproto_id( "car" ), vehicle_pos,
-                              0_degrees, 0, 0 );
-    REQUIRE( vehicle != nullptr );
+    const auto vehicle_pos = tripoint_bub_ms{SEEX - 2, SEEY / 2, 0};
+    auto* const vehicle = here.add_vehicle(vproto_id("car"), vehicle_pos, 0_degrees, 0, 0);
+    REQUIRE(vehicle != nullptr);
 
     const auto pivot_abs = vehicle->abs_ms_location();
-    g->u.setpos( g->u.abs_pos() + tripoint_rel_ms( SEEX, 0, 0 ) );
+    g->u.setpos(g->u.abs_pos() + tripoint_rel_ms(SEEX, 0, 0));
 
-    CHECK_FALSE( here.inbounds( abs_to_bub( pivot_abs ) ) );
+    CHECK_FALSE(here.inbounds(abs_to_bub(pivot_abs)));
 
-    auto visible_pos = std::optional<tripoint_abs_ms> {};
-    for( const auto &part : vehicle->get_all_parts() ) {
-        if( part.part().removed ) {
-            continue;
-        }
-        const auto part_pos = vehicle->abs_part_location( part.part() );
-        if( here.inbounds( abs_to_bub( part_pos ) ) &&
-            here.veh_at( abs_to_bub( part_pos ) ).has_value() ) {
+    auto visible_pos = std::optional<tripoint_abs_ms>{};
+    for (const auto& part : vehicle->get_all_parts()) {
+        if (part.part().removed) { continue; }
+        const auto part_pos = vehicle->abs_part_location(part.part());
+        if (here.inbounds(abs_to_bub(part_pos)) && here.veh_at(abs_to_bub(part_pos)).has_value()) {
             visible_pos = part_pos;
             break;
         }
     }
-    REQUIRE( visible_pos.has_value() );
-    CHECK( MAPBUFFER.veh_at( *visible_pos ).has_value() );
-    CHECK( here.veh_at( abs_to_bub( *visible_pos ) ).has_value() );
-    CHECK( std::ranges::any_of( here.get_vehicles(), [&]( const wrapped_vehicle &wrapped ) {
+    REQUIRE(visible_pos.has_value());
+    CHECK(MAPBUFFER.veh_at(*visible_pos).has_value());
+    CHECK(here.veh_at(abs_to_bub(*visible_pos)).has_value());
+    CHECK(std::ranges::any_of(here.get_vehicles(), [&](const wrapped_vehicle& wrapped) {
         return wrapped.v == vehicle;
-    } ) );
+    }));
 }
 
 TEST_CASE("place_player_can_safely_move_multiple_submaps") {
@@ -631,8 +627,8 @@ TEST_CASE("mapbuffer_simulated_lookup_uses_load_manager_membership") {
     CHECK(buffer.get_submap(sm_pos) == nullptr);
     submap_loader.release_load(lazy_handle);
 
-    full_handle =
-        submap_loader.request_load(load_request_source::reality_bubble, dim_id, request_begin, request_end);
+    full_handle = submap_loader.request_load(
+        load_request_source::reality_bubble, dim_id, request_begin, request_end);
     CHECK(buffer.get_submap(sm_pos) == sm);
 }
 

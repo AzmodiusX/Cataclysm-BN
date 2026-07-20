@@ -154,7 +154,7 @@ auto vehicle_submap_footprint_overlaps_active_bubble( const mapbuffer &buffer,
 
     const auto bubble_min = g->m.get_abs_sub();
     const auto bubble_max = bubble_min + point_rel_sm( g->m.getmapsize() - 1,
-                              g->m.getmapsize() - 1 );
+                            g->m.getmapsize() - 1 );
     return footprint.max.x() >= bubble_min.x() && footprint.min.x() <= bubble_max.x() &&
            footprint.max.y() >= bubble_min.y() && footprint.min.y() <= bubble_max.y();
 }
@@ -2047,7 +2047,7 @@ auto mapbuffer::register_submap_vehicles(
         index_vehicle_footprint_unlocked( *veh );
         const auto footprints = calculate_vehicle_submap_footprints( *veh );
         const auto overlaps_active_bubble = std::ranges::any_of( footprints,
-        [&]( const auto &footprint ) {
+        [&]( const auto & footprint ) {
             return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this,
                     *footprint );
         } );
@@ -2069,7 +2069,7 @@ auto mapbuffer::unregister_submap_vehicles( const tripoint_abs_sm &p ) -> void
             if( veh != nullptr ) {
                 const auto footprints = calculate_vehicle_submap_footprints( *veh );
                 const auto overlaps_active_bubble = std::ranges::any_of( footprints,
-                [&]( const auto &footprint ) {
+                [&]( const auto & footprint ) {
                     return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this,
                             *footprint );
                 } );
@@ -3063,7 +3063,7 @@ auto mapbuffer::refresh_vehicle_footprint( vehicle *veh ) -> void
     // queries see those parts as well.
     const auto footprints = calculate_vehicle_submap_footprints( *veh );
     const auto overlaps_active_bubble = std::ranges::any_of( footprints,
-    [&]( const auto &footprint ) {
+    [&]( const auto & footprint ) {
         return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this,
                 *footprint );
     } );
@@ -3087,7 +3087,7 @@ auto mapbuffer::invalidate_vehicle_footprint( const vehicle &veh ) -> bool
 }
 
 auto mapbuffer::get_vehicle_submap_footprints( const vehicle &veh ) const
--> vehicle_submap_footprints
+- > vehicle_submap_footprints
 {
     return calculate_vehicle_submap_footprints( veh );
 }
@@ -3635,7 +3635,7 @@ auto mapbuffer::shift_vehicle_z( vehicle &veh, int z_shift ) -> void
     auto dst = src + tripoint_rel_sm( 0, 0, z_shift );
 
     const auto old_footprints = calculate_vehicle_submap_footprints( veh );
-    const auto old_inbubble = std::ranges::any_of( old_footprints, [&]( const auto &footprint ) {
+    const auto old_inbubble = std::ranges::any_of( old_footprints, [&]( const auto & footprint ) {
         return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this, *footprint );
     } );
 
@@ -3676,7 +3676,7 @@ auto mapbuffer::shift_vehicle_z( vehicle &veh, int z_shift ) -> void
     veh.update_overmap( src );
 
     const auto new_footprints = calculate_vehicle_submap_footprints( veh );
-    const auto new_inbubble = std::ranges::any_of( new_footprints, [&]( const auto &footprint ) {
+    const auto new_inbubble = std::ranges::any_of( new_footprints, [&]( const auto & footprint ) {
         return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this, *footprint );
     } );
 
@@ -3735,7 +3735,7 @@ auto mapbuffer::move_vehicle( vehicle &veh, const tripoint_rel_ms &dp,
 
     const auto old_footprints = calculate_vehicle_submap_footprints( veh );
     const auto vehicle_overlaps_active_bubble = std::ranges::any_of( old_footprints,
-    [&]( const auto &footprint ) {
+    [&]( const auto & footprint ) {
         return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this, *footprint );
     } );
 
@@ -3750,7 +3750,7 @@ auto mapbuffer::move_vehicle( vehicle &veh, const tripoint_rel_ms &dp,
     const auto projected_footprints = calculate_vehicle_submap_footprints(
                                           veh, veh.abs_ms_location() + dp1, 1 );
     const auto projected_vehicle_overlaps_active_bubble = std::ranges::any_of(
-    projected_footprints, [&]( const auto &footprint ) {
+    projected_footprints, [&]( const auto & footprint ) {
         return footprint && vehicle_submap_footprint_overlaps_active_bubble( *this, *footprint );
     } );
 
