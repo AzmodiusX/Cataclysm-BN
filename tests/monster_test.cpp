@@ -63,41 +63,37 @@ TEST_CASE("extended monster death drops append to inherited drops", "[monster][d
     static_cast<void>(wood_spawn_rate);
     move_player_out_of_the_way();
 
-    auto& here = get_map();
+    auto& here = get_map().get_mapbuffer();
     build_test_map(ter_id("t_floor"));
 
-    const auto monster_pos = tripoint_bub_ms(60, 60, 0);
-    here.i_clear(monster_pos);
+    here.clear_items(test_origin);
 
-    auto* const test_monster_ptr = here.get_mapbuffer().place_critter_at(
-        mtype_id("mon_test_death_drops_append"), map_local_to_abs(here, monster_pos));
+    auto* const test_monster_ptr = here.place_critter_at(
+        mtype_id("mon_test_death_drops_append"), test_origin);
     REQUIRE(test_monster_ptr != nullptr);
     auto& test_monster = *test_monster_ptr;
     test_monster.drop_items_on_death();
 
-    const auto monster_abs = map_local_to_abs(here, monster_pos);
-    CHECK(count_items_at(monster_abs, itype_id("rock")) == 1);
-    CHECK(count_items_at(monster_abs, itype_id("stick")) == 1);
+    CHECK(count_items_at(test_origin, itype_id("rock")) == 1);
+    CHECK(count_items_at(test_origin, itype_id("stick")) == 1);
 }
 
 TEST_CASE("empty top-level monster death drops replace inherited drops", "[monster][death_drops]") {
     clear_all_state();
     move_player_out_of_the_way();
-
-    auto& here = get_map();
+    
+    auto& here = get_map().get_mapbuffer();
     build_test_map(ter_id("t_floor"));
 
-    const auto monster_pos = tripoint_bub_ms(60, 60, 0);
-    here.i_clear(monster_pos);
+    here.clear_items(test_origin);
 
-    auto* const test_monster_ptr = here.get_mapbuffer().place_critter_at(
-        mtype_id("mon_test_death_drops_clear"), map_local_to_abs(here, monster_pos));
+    auto* const test_monster_ptr = here.place_critter_at(
+        mtype_id("mon_test_death_drops_clear"), test_origin);
     REQUIRE(test_monster_ptr != nullptr);
     auto& test_monster = *test_monster_ptr;
     test_monster.drop_items_on_death();
 
-    const auto* const dropped_items = here.get_mapbuffer().get_items(
-        map_local_to_abs(here, monster_pos));
+    const auto* const dropped_items = here.get_items(test_origin);
     REQUIRE(dropped_items != nullptr);
     CHECK(dropped_items->empty());
 }
@@ -108,8 +104,8 @@ TEST_CASE("hallucination_monsters_do_not_open_real_doors", "[monster][hallucinat
     auto& here = get_map().get_mapbuffer();
     build_test_map(ter_id("t_floor"));
 
-    const auto monster_pos = tripoint_abs_ms(60, 60, 0);
-    const auto door_pos = tripoint_abs_ms(61, 60, 0);
+    const auto monster_pos = test_origin;
+    const auto door_pos = test_origin + point_rel_ms( 1, 0 );
     REQUIRE(here.set_ter(door_pos, ter_id("t_door_c")));
 
     auto& hallucination = spawn_test_monster("mon_zombie_scientist", abs_to_bub(monster_pos));
@@ -126,8 +122,8 @@ TEST_CASE("hallucination_electric_field_does_not_ignite_items", "[monster][hallu
     auto& here = get_map().get_mapbuffer();
     build_test_map(ter_id("t_pavement"));
 
-    const auto monster_pos = tripoint_abs_ms(60, 60, 0);
-    const auto fuel_pos = tripoint_abs_ms(61, 60, 0);
+    const auto monster_pos = test_origin;
+    const auto fuel_pos = test_origin + point_rel_ms( 1, 0 );
     here.add_item_or_charges(fuel_pos, item::spawn("gasoline"));
 
     auto& hallucination = spawn_test_monster("mon_zombie_nullfield", abs_to_bub(monster_pos));
@@ -171,13 +167,13 @@ TEST_CASE("MONSTER_SPEED scales monster move credit", "[monster][speed]") {
 }
 
 static int moves_to_destination(
-    const std::string& monster_type, const tripoint_bub_ms& start, const tripoint_bub_ms& end) {
+    const std::string& monster_type, const tripoint_abs_ms& start, const tripoint_abs_ms& end) {
     clear_creatures();
     REQUIRE(g->num_creatures() == 1); // the player
-    monster& test_monster = spawn_test_monster(monster_type, start);
+    monster& test_monster = spawn_test_monster(monster_type, abs_to_bub(start));
     // Get it riled up and give it a goal.
     test_monster.anger = 100;
-    test_monster.set_dest(bub_to_abs(end));
+    test_monster.set_dest(end);
     test_monster.set_moves(0);
     const int monster_speed = test_monster.get_speed();
     int moves_spent = 0;
@@ -291,7 +287,7 @@ static int can_catch_player(
 // Verify that the named monster has the expected effective speed, not reduced
 // due to wasted motion from shambling.
 static void check_shamble_speed(
-    const std::string& monster_type, const tripoint_bub_ms& destination) {
+    const std::string& monster_type, const tripoint_abs_ms& destination) {
     // Scale the scaling factor based on the ratio of diagonal to cardinal steps.
     const float slope = get_normalized_angle(point_zero, destination.raw().xy());
     const float diagonal_multiplier = 1.0 + (get_option<bool>("CIRCLEDIST") ? (slope * 0.41) : 0.0);
@@ -300,7 +296,7 @@ static void check_shamble_speed(
     // number.
     move_statistics move_stats;
     for (int i = 0; i < 10; ++i) {
-        move_stats.add(moves_to_destination(monster_type, tripoint_bub_ms::zero(), destination));
+        move_stats.add(moves_to_destination(monster_type, tripoint_abs_ms::zero(), destination));
         if ((move_stats.avg() / (10000.0 * diagonal_multiplier)) == Approx(1.0).epsilon(0.02)) {
             break;
         }
@@ -385,11 +381,11 @@ static void test_moves_to_squares(const std::string& monster_type, const bool wr
 static void monster_check() {
     const float diagonal_multiplier = (get_option<bool>("CIRCLEDIST") ? 1.41 : 1.0);
     // Have a monster walk some distance in a direction and measure how long it takes.
-    float vert_move = moves_to_destination("mon_pig", tripoint_bub_ms::zero(), {100, 0, 0});
+    float vert_move = moves_to_destination("mon_pig", tripoint_abs_ms::zero(), {100, 0, 0});
     CHECK((vert_move / 10000.0) == Approx(1.0));
-    int horiz_move = moves_to_destination("mon_pig", tripoint_bub_ms::zero(), {0, 100, 0});
+    int horiz_move = moves_to_destination("mon_pig", tripoint_abs_ms::zero(), {0, 100, 0});
     CHECK((horiz_move / 10000.0) == Approx(1.0));
-    int diag_move = moves_to_destination("mon_pig", tripoint_bub_ms::zero(), {100, 100, 0});
+    int diag_move = moves_to_destination("mon_pig", tripoint_abs_ms::zero(), {100, 100, 0});
     CHECK((diag_move / (10000.0 * diagonal_multiplier)) == Approx(1.0).epsilon(0.05));
 
     check_shamble_speed("mon_pig", {100, 0, 0});
