@@ -2825,7 +2825,7 @@ void sounds::process_sound_markers( Character *who )
         }
         loudest_vol = std::max( loudest_vol, tile_vol );
 
-        if( tile_vol >= MAXIMUM_VOLUME_ATMOSPHERE || tile_vol > dBspl_to_mdBspl( element.sound.volume ) ) {
+        if( tile_vol > MAXIMUM_VOLUME_ATMOSPHERE || tile_vol > dBspl_to_mdBspl( element.sound.volume ) ) {
             // Dont count impossibly loud sounds.
             debugmsg( "Player given impossibly loud sound! Sound with description [ %1s ] from %i:%i:%i with an origin volume of %i dB, tile volume of %i mdB, distance %i at %i:%i:%i is louder than possible.",
                       element.sound.description, element.sound.origin.x(), element.sound.origin.y(),

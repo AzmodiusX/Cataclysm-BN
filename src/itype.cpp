@@ -192,8 +192,9 @@ void itype::tick( Character &p, item &it ) const
     }
     // Legacy fallback: tick via use_methods (iuse tick_func)
     // Maybe should move charge decrementing here?
+    const tripoint_abs_ms use_pos = it.abs_pos();
     for( auto &method : use_methods ) {
-        method.second.call( p, it, true, it.abs_pos() );
+        method.second.call( p, it, true, use_pos );
     }
 }
 

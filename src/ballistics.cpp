@@ -45,6 +45,7 @@
 #include "units.h"
 #include "visitable.h"
 #include "vpart_position.h"
+#include "weather.h"
 
 static const ammo_effect_str_id ammo_effect_ACT_ON_RANGED_HIT( "ACT_ON_RANGED_HIT" );
 static const ammo_effect_str_id ammo_effect_BOUNCE( "BOUNCE" );
@@ -179,7 +180,7 @@ void drop_or_embed_projectile( dealt_projectile_attack &attack )
         }
         if( proj.has_effect( ammo_effect_ACT_ON_RANGED_HIT ) ) {
             // Don't drop if it exploded
-            drop = item::process( std::move( drop ), nullptr, true );
+            drop = get_map().get_mapbuffer().process_item_at( attack.end_point, std::move( drop ), true );
         }
 
         auto &here = get_map().get_mapbuffer();

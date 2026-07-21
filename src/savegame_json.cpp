@@ -221,7 +221,10 @@ void player_activity::serialize( JsonOut &json ) const
             json.member( "moves_total", moves_total );
             json.member( "moves_left", moves_left );
             json.member( "assistants_ids", assistants_ids_ );
-        } else {
+        } else if( actor->progress.invalid() ) {
+            // Transitional actors that still use the legacy countdown need
+            // these values for compatibility.  Actors with a valid progress
+            // counter serialize their timing in actor_data instead.
             json.member( "moves_total", moves_total );
             json.member( "moves_left", moves_left );
         }

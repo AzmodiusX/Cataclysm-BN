@@ -5416,11 +5416,10 @@ void map::update_lum( item &loc, bool add )
     } );
 }
 
-static bool process_map_items( item *item_ref, const tripoint_bub_ms &location,
-                               const temperature_flag flag )
+static bool process_map_items( item *item_ref, const temperature_flag flag )
 {
     ZoneScopedN( "process_map_items" );
-    return item_ref->game_object<item>::attempt_detach( [&location, &flag]( detached_ptr<item> &&it ) {
+    return item_ref->game_object<item>::attempt_detach( [&flag]( detached_ptr<item> &&it ) {
         return item::process( std::move( it ), nullptr, false, flag );
     } );
 }
@@ -5582,9 +5581,8 @@ auto map::process_items_in_submap( submap &current_submap, const tripoint_bub_sm
                 continue;
             }
 
-            const auto map_location = active_item_ref->bub_pos();
             const auto flag = rot::temp::for_location( *active_item_ref );
-            process_map_items( active_item_ref, map_location, flag );
+            process_map_items( active_item_ref, flag );
         }
     }
 }
@@ -5615,7 +5613,7 @@ void map::process_items_in_vehicle( vehicle &cur_veh, submap &current_submap )
 {
     const bool engine_heater_is_on = cur_veh.has_part( "E_HEATER", true ) && cur_veh.engine_on;
     for( const vpart_reference &vp : cur_veh.get_any_parts( VPFLAG_FLUIDTANK ) ) {
-        vp.part().process_contents( vp.bub_pos(), engine_heater_is_on );
+        vp.part().process_contents( engine_heater_is_on );
     }
 
     // If there is nothing to process, skip the expensive cargo-part collection.
@@ -5645,13 +5643,11 @@ void map::process_items_in_vehicle( vehicle &cur_veh, submap &current_submap )
             continue; // Can't find a cargo part matching the active item.
         }
         const item &target = *active_item_ref;
-        // Find the cargo part and coordinates corresponding to the current active item.
-        const auto item_loc = it->bub_pos();
         auto flag = temperature_flag::TEMP_NORMAL;
         if( target.is_food() || target.is_food_container() || target.is_corpse() ) {
             flag = rot::temp::for_part( cur_veh, it->part_index(), engine_heater_is_on );
         }
-        if( !process_map_items( active_item_ref, item_loc, flag ) ) {
+        if( !process_map_items( active_item_ref, flag ) ) {
             // If the item was NOT destroyed, we can skip the remainder,
             // which handles fallout from the vehicle being damaged.
             continue;

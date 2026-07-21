@@ -846,6 +846,7 @@ void monexamine::shear_animal( monster &z )
     safe_reference<item> best_shears( you.best_quality_item( qual_shear ) );
     you.assign_activity( std::make_unique<player_activity>(
                              std::make_unique<shear_actor>( z.abs_pos(), tied, best_shears ) ) );
+    you.activity->get_actor()->progress.emplace( "shearing", moves );
     add_msg( _( "You start shearing the %s." ), z.get_name() );
 }
 
@@ -1322,6 +1323,8 @@ void monexamine::play_with( monster &z )
     const int turns = rng( 50, 125 ) * 100;
     you.assign_activity( std::make_unique<player_activity>(
                              std::make_unique<play_with_pet_actor>( g->shared_from( z ), pet_name ) ) );
+    you.activity->get_actor()->progress.emplace( "playing with pet",
+                                                 to_moves<int>( time_duration::from_turns( turns ) ) );
     z.add_effect( effect_ai_waiting, time_duration::from_turns( turns ) );
     z.on_pet_bonding( you.as_character() );
 }
@@ -1332,6 +1335,7 @@ void monexamine::train_pet( monster &z )
     std::string pet_name = z.get_name();
     you.assign_activity( std::make_unique<player_activity>(
                              std::make_unique<train_pet_actor>( g->shared_from( z ), pet_name ) ) );
+    you.activity->get_actor()->progress.emplace( "training pet", to_moves<int>( 60_minutes ) );
     z.add_effect( effect_ai_waiting, 60_minutes );
 }
 
@@ -1507,6 +1511,7 @@ void monexamine::milk_source( monster &source_mon )
         }
         you.assign_activity( std::make_unique<player_activity>(
                                  std::make_unique<milk_actor>( source_mon.abs_pos(), tied ) ) );
+        you.activity->get_actor()->progress.emplace( "milking", moves );
         add_msg( _( "You milk the %s." ), source_mon.get_name() );
     } else {
         add_msg( _( "The %s has no more milk." ), source_mon.get_name() );

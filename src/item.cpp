@@ -916,13 +916,14 @@ bool item::attempt_split( int qty,
     if( det && split_needs_rot_actualization ) {
         // The split item is freshly spawned and has no location,
         // but actualize_rot needs abs_pos() for temperature lookup.
-        // Inherit the original item's location temporarily.
+        // Inherit the original item's location temporarily without leaving a
+        // live owner pointer on the detached split item.
         if( loc ) {
-            det->set_location( loc );
+            det->saved_loc = loc;
         }
         det = actualize_rot( std::move( det ), split_temperature, get_weather() );
-        if( det ) {
-            det->remove_location();
+        if( det && det->saved_loc == loc ) {
+            det->saved_loc = nullptr;
         }
     }
     if( !det ) {
@@ -10968,6 +10969,7 @@ detached_ptr<item> item::process_tool( detached_ptr<item> &&self, Character *car
     }
     auto &it = *self.get();
     avatar &you = get_avatar();
+    const tripoint_abs_ms process_pos = it.abs_pos();
     // items with iuse set_transformed which are restricted turn off if not attached to their dependency.
     if( it.type->can_use( "set_transformed" ) ) {
         const set_transformed_iuse *actor = dynamic_cast<const set_transformed_iuse *>
@@ -10978,7 +10980,7 @@ detached_ptr<item> item::process_tool( detached_ptr<item> &&self, Character *car
         }
         if( actor->restricted ) {
             if( !carrier ) {
-                actor->bypass( carrier ? *carrier : you, it, false, it.abs_pos() );
+                actor->bypass( carrier ? *carrier : you, it, false, process_pos );
                 return std::move( self );
             } else {
                 bool active = false;
@@ -10990,7 +10992,7 @@ detached_ptr<item> item::process_tool( detached_ptr<item> &&self, Character *car
                     }
                 }
                 if( !active ) {
-                    actor->bypass( carrier != nullptr ? *carrier : you, it, false, it.abs_pos() );
+                    actor->bypass( carrier != nullptr ? *carrier : you, it, false, process_pos );
                     return std::move( self );
                 }
             }
@@ -11071,7 +11073,7 @@ detached_ptr<item> item::process_tool( detached_ptr<item> &&self, Character *car
                             debugmsg( "iuse_actor type descriptor and actual type mismatch" );
                             return std::move( self );
                         }
-                        actor->bypass( *carrier, *elem, false, it.abs_pos() );
+                        actor->bypass( *carrier, *elem, false, process_pos );
                     }
                 }
             }
@@ -11089,7 +11091,7 @@ detached_ptr<item> item::process_tool( detached_ptr<item> &&self, Character *car
             method = &it.type->use_methods.find( "RADIOCONTROL" )->second;
         }
         if( method != nullptr ) {
-            method->call( carrier != nullptr ? *carrier : you, *self, true, it.abs_pos() );
+            method->call( carrier != nullptr ? *carrier : you, *self, true, process_pos );
         } else {
             it.type->tick( carrier != nullptr ? *carrier : you, *self );
         }
@@ -11217,6 +11219,10 @@ detached_ptr<item> item::process_internal( detached_ptr<item> &&self, Character 
         return std::move( self );
     }
     auto &it = *self.get();
+    if( !it.has_position() ) {
+        debugmsg( "Attempted to process [%s] without a location", it.debug_name() );
+        return std::move( self );
+    }
     if( it.has_flag( flag_ETHEREAL_ITEM ) ) {
         ZoneScopedN( "item_process_ethereal" );
         if( !it.has_var( "ethereal" ) ) {
@@ -11248,9 +11254,11 @@ detached_ptr<item> item::process_internal( detached_ptr<item> &&self, Character 
     }
 
     avatar &you = get_avatar();
+    const tripoint_abs_ms abs_pos = it.abs_pos();
+    auto &here = it.get_mapbuffer();
     if( activate ) {
         ZoneScopedN( "item_process_activate" );
-        if( it.type->invoke( carrier != nullptr ? *carrier : you, *self, it.abs_pos() ) > 0 ) {
+        if( it.type->invoke( carrier != nullptr ? *carrier : you, *self, abs_pos ) > 0 ) {
             return detached_ptr<item>();
         }
         return std::move( self );
@@ -11276,14 +11284,12 @@ detached_ptr<item> item::process_internal( detached_ptr<item> &&self, Character 
 
     if( it.item_counter == 0 && it.type->countdown_action ) {
         ZoneScopedN( "item_process_countdown" );
-        it.type->countdown_action.call( carrier ? *carrier : you, *self, false, it.abs_pos() );
+        it.type->countdown_action.call( carrier ? *carrier : you, *self, false, abs_pos );
         if( it.type->countdown_destroy ) {
             return detached_ptr<item>();
         }
     }
 
-    auto &here = it.get_mapbuffer();
-    const auto abs_pos = it.abs_pos();
     if( !it.type->emits.empty() ) {
         ZoneScopedN( "item_process_emits" );
         for( const emit_id &e : it.type->emits ) {

@@ -119,13 +119,8 @@ struct vehicle_part {
         /* @retun true if part in current state be reloaded optionally with specific itype_id */
         bool can_reload( const item *obj = nullptr ) const;
 
-        /**
-         * If this part is capable of wholly containing something, process the
-         * items in there.
-         * @param pos Position of this part for item::process
-         * @param e_heater Engine has a heater and is on
-         */
-        void process_contents( const tripoint_bub_ms &pos, bool e_heater );
+        /** If this part is capable of wholly containing something, process it. */
+        void process_contents( bool e_heater );
 
         /**
          *  Try adding @param liquid to tank optionally limited by @param qty

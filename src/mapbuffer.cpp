@@ -5333,6 +5333,7 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
                 // not destroyed with a dangling loc pointer, which would
                 // trigger the "Attempted to destroy an item with a location"
                 // warning in game_object::destroy().
+                new_item->saved_loc = nullptr;
                 new_item->remove_location();
                 if( existing->merge_charges( std::move( new_item ) ) ) {
                     return;
@@ -5356,12 +5357,13 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
             return false;
         }
 
-        // Set the item's location before calling any hooks that may access it
-        // (e.g. on_drop calls get_mapbuffer and abs_pos).
+        // Associate the detached item with the destination while calling hooks
+        // that may access its mapbuffer and absolute position.
         auto &items = tile->sm->get_items( tile->local );
-        new_item->set_location( items.get_location() );
+        new_item->saved_loc = items.get_location();
 
         if( call_drop_hook_first && call_active_drop_hook( target ) ) {
+            new_item->saved_loc = nullptr;
             new_item->remove_location();
             return true;
         }
@@ -5369,6 +5371,7 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
               tile_allows_item_despite_noitem_flag( *new_item, *tile ) ) &&
             valid_limits( *tile ) ) {
             if( !call_drop_hook_first && call_active_drop_hook( target ) ) {
+                new_item->saved_loc = nullptr;
                 new_item->remove_location();
                 return true;
             }
@@ -5376,6 +5379,7 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
             return true;
         }
 
+        new_item->saved_loc = nullptr;
         new_item->remove_location();
         return false;
     };
@@ -5417,14 +5421,16 @@ auto mapbuffer::add_item( const tripoint_abs_ms &p, detached_ptr<item> &&new_ite
         return std::move( new_item );
     }
 
-    // Set the item's location once; it stays set through all processing
-    // and push_back skips the redundant set. Removed only on failure paths.
+    // Keep the detached item associated with the destination while hooks and
+    // processing run, but do not leave a live location pointer on an object
+    // that a callback may destroy.
     auto &items = tile->sm->get_items( tile->local );
-    new_item->set_location( items.get_location() );
+    new_item->saved_loc = items.get_location();
 
     // --- inlined from prepare_item_for_placement ---
 
     auto reject = [&]() {
+        new_item->saved_loc = nullptr;
         new_item->remove_location();
         return std::move( new_item );
     };
@@ -5474,8 +5480,30 @@ auto mapbuffer::add_item( const tripoint_abs_ms &p, detached_ptr<item> &&new_ite
         sync_active_item_submap_index( p, *tile->sm );
     }
 
+    new_item->saved_loc = nullptr;
     tile->sm->get_items( tile->local ).push_back( std::move( new_item ) );
     return detached_ptr<item>();
+}
+
+auto mapbuffer::process_item_at( const tripoint_abs_ms &p, detached_ptr<item> &&new_item,
+                                 const bool activate ) -> detached_ptr<item>
+{
+    if( !new_item ) {
+        return std::move( new_item );
+    }
+
+    auto *items = get_items( p );
+    if( items == nullptr ) {
+        return std::move( new_item );
+    }
+
+    auto *const item_location = items->get_location();
+    new_item->saved_loc = item_location;
+    new_item = item::process( std::move( new_item ), nullptr, activate );
+    if( new_item && new_item->saved_loc == item_location ) {
+        new_item->saved_loc = nullptr;
+    }
+    return std::move( new_item );
 }
 
 auto mapbuffer::erase_item( const tripoint_abs_ms &p,

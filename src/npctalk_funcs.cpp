@@ -519,6 +519,7 @@ void talk_function::give_aid( npc &p )
     const int moves = to_moves<int>( 30_minutes );
     u.assign_activity( std::make_unique<player_activity>(
                            std::make_unique<wait_npc_actor>( p.name ) ) );
+    u.activity->get_actor()->progress.emplace( "waiting for aid", moves );
 }
 
 void talk_function::give_all_aid( npc &p )
@@ -536,6 +537,7 @@ void talk_function::give_all_aid( npc &p )
     const int moves = to_moves<int>( 60_minutes );
     u.assign_activity( std::make_unique<player_activity>(
                            std::make_unique<wait_npc_actor>( p.name ) ) );
+    u.activity->get_actor()->progress.emplace( "waiting for aid", moves );
 }
 
 static void generic_barber( const std::string &mut_type )
@@ -586,6 +588,7 @@ void talk_function::buy_haircut( npc &p )
     const int moves = to_moves<int>( 20_minutes );
     g->u.assign_activity( std::make_unique<player_activity>(
                               std::make_unique<wait_npc_actor>( p.name ) ) );
+    g->u.activity->get_actor()->progress.emplace( "haircut", moves );
     add_msg( m_good, _( "%s gives you a decent haircut…" ), p.name );
 }
 
@@ -595,6 +598,7 @@ void talk_function::buy_shave( npc &p )
     const int moves = to_moves<int>( 5_minutes );
     g->u.assign_activity( std::make_unique<player_activity>(
                               std::make_unique<wait_npc_actor>( p.name ) ) );
+    g->u.activity->get_actor()->progress.emplace( "shave", moves );
     add_msg( m_good, _( "%s gives you a decent shave…" ), p.name );
 }
 
@@ -607,8 +611,9 @@ void talk_function::morale_chat( npc &p )
 void talk_function::morale_chat_activity( npc &p )
 {
     const int moves = to_moves<int>( 10_minutes );
-    g->u.assign_activity( ACT_SOCIALIZE, moves );
-    g->u.activity->str_values.push_back( p.name );
+    g->u.assign_activity( std::make_unique<player_activity>(
+                              std::make_unique<socialize_actor>( p.name ) ) );
+    g->u.activity->get_actor()->progress.emplace( "socializing", moves );
     add_msg( m_good, _( "That was a pleasant conversation with %s." ), p.disp_name() );
     g->u.add_morale( MORALE_CHAT, rng( 3, 10 ), 10, 200_minutes, 5_minutes / 2 );
 }
@@ -912,6 +917,7 @@ void talk_function::start_training( npc &p )
     }
     g->u.assign_activity( std::make_unique<player_activity>(
                               std::make_unique<train_actor>( name, expert_multiplier, p.getID().get_value() ) ) );
+    g->u.activity->get_actor()->progress.emplace( "training", to_moves<int>( time ) );
 
     p.add_effect( effect_asked_to_train, 6_hours );
 }

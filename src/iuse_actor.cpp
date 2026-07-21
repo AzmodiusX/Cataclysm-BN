@@ -1935,6 +1935,7 @@ int firestarter_actor::use( Character &p, item &it, bool t, const tripoint_abs_m
     auto fire_actor = std::make_unique<start_fire_actor>(
                           g->natural_light_level( pos.z() ), pos );
     p.assign_activity( std::make_unique<player_activity>( std::move( fire_actor ) ) );
+    p.activity->get_actor()->progress.emplace( "starting fire", moves );
     p.activity->add_tool( &it );
     // charges to use are handled by the activity
     return 0;
@@ -2225,10 +2226,14 @@ int enzlave_actor::use( Character &p, item &it, bool t, const tripoint_abs_ms & 
         p.add_msg_if_player( m_info, _( "You cannot do that while mounted." ) );
         return 0;
     }
-    map_stack items = get_map().i_at( p.bub_pos() );
-    std::vector<const item *> corpses;
+    const auto *items = p.get_mapbuffer().get_items( p.abs_pos() );
+    std::vector<item *> corpses;
 
-    for( item * const &corpse_candidate : items ) {
+    if( items == nullptr ) {
+        p.add_msg_if_player( _( "No suitable corpses" ) );
+        return 0;
+    }
+    for( item * const &corpse_candidate : *items ) {
         const mtype *mt = corpse_candidate->get_mtype();
         if( corpse_candidate->is_corpse() && mt->in_species( ZOMBIE ) &&
             mt->made_of( material_id( "flesh" ) ) &&
@@ -2303,7 +2308,7 @@ int enzlave_actor::use( Character &p, item &it, bool t, const tripoint_abs_ms & 
 
     const int selected_corpse = amenu.ret;
 
-    const item *body = corpses[selected_corpse];
+    item *body = corpses[selected_corpse];
     const mtype *mt = body->get_mtype();
 
     // HP range for zombies is roughly 36 to 120, with the really big ones having 180 and 480 hp.
@@ -2327,7 +2332,9 @@ int enzlave_actor::use( Character &p, item &it, bool t, const tripoint_abs_ms & 
     const int moves = difficulty * to_moves<int>( 12_seconds ) / p.get_skill_level( skill_firstaid );
 
     p.assign_activity( std::make_unique<player_activity>(
-                           std::make_unique<make_zlave_actor>( success, corpses[selected_corpse]->display_name() ) ) );
+                           std::make_unique<make_zlave_actor>( success, body->display_name(),
+                                   safe_reference<item>( body ) ) ) );
+    p.activity->get_actor()->progress.emplace( "enslaving corpse", moves );
 
     return cost >= 0 ? cost : it.ammo_required();
 }
@@ -2797,8 +2804,7 @@ int learn_spell_actor::use( Character &p, item &, bool, const tripoint_abs_ms &p
     }
     auto actor = std::make_unique<study_spell_actor>( spells[action], mode, gain );
     p.assign_activity( std::make_unique<player_activity>( std::move( actor ) ), false );
-    p.activity->moves_total = study_time;
-    p.activity->moves_left = study_time;
+    p.activity->get_actor()->progress.emplace( "studying spell", study_time );
     return 0;
 }
 
@@ -3935,8 +3941,10 @@ int heal_actor::use( Character &p, item &it, bool, const tripoint_abs_ms &pos ) 
     if( long_action && &patient == &p && !p.is_npc() ) {
         // Assign first aid long action.
         /** @EFFECT_FIRSTAID speeds up firstaid activity */
-        p.assign_activity( std::make_unique<player_activity>(
-                               std::make_unique<firstaid_actor>( hpp.str(), safe_reference<item>( &it ) ) ) );
+        auto activity = std::make_unique<player_activity>(
+                            std::make_unique<firstaid_actor>( hpp.str(), safe_reference<item>( &it ) ) );
+        activity->get_actor()->progress.emplace( "first aid", cost );
+        p.assign_activity( std::move( activity ) );
         p.moves = 0;
         return 0;
     }
@@ -6231,6 +6239,7 @@ auto hand_crank_actor::use( Character &p, item &it, bool, const tripoint_abs_ms 
                                    interval_turns, safe_charge_amount, fatigue_per_interval, ammo_type
                                )
                            ) );
+        p.activity->get_actor()->progress.emplace( "charging battery", moves );
         p.activity->add_tool( &it );
     } else {
         p.add_msg_if_player( _( already_charged_message ), it.tname(), magazine->tname() );

@@ -461,6 +461,7 @@ void gunmod_add( avatar &you, item &gun, item &mod )
                                  safe_reference<item>( &gun ), safe_reference<item>( &mod )
                              )
                          ) );
+    you.activity->get_actor()->progress.emplace( "installing gunmod", moves );
 }
 
 bool gunmod_remove( avatar &you, item &gun, item &mod )

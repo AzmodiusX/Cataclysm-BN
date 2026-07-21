@@ -2359,13 +2359,15 @@ bool Character::uninstall_bionic( const bionic_id &b_id, Character &installer, b
         perform_uninstall( b_id, difficulty, success, b_id->capacity, pl_skill );
         return true;
     }
-    assign_activity( std::make_unique<player_activity>(
-                         std::make_unique<operation_actor>(
-                             "uninstall", b_id.str(), "", autodoc,
-                             difficulty, success, units::to_kilojoule( b_id->capacity ), pl_skill
-                         )
-                     ) );
     const auto operation_duration = scaled_operation_duration( difficulty );
+    auto activity = std::make_unique<player_activity>(
+                        std::make_unique<operation_actor>(
+                            "uninstall", b_id.str(), "", autodoc,
+                            difficulty, success, units::to_kilojoule( b_id->capacity ), pl_skill
+                        )
+                    );
+    activity->get_actor()->progress.emplace( "bionic operation", to_moves<int>( operation_duration ) );
+    assign_activity( std::move( activity ) );
     for( const std::pair<const bodypart_str_id, int> &elem : b_id->occupied_bodyparts ) {
         add_effect( effect_under_op, operation_duration, elem.first, difficulty );
     }
@@ -2643,16 +2645,18 @@ bool Character::install_bionics( const itype &type, Character &installer, bool a
     std::string installer_n = installer.has_trait( trait_PROF_MED )
                               || installer.has_trait( trait_PROF_AUTODOC )
                               ? installer.disp_name( true ) : "NOT_MED";
-    assign_activity( std::make_unique<player_activity>(
-                         std::make_unique<operation_actor>(
-                             "install", bioid.str(), installer_n, autodoc,
-                             difficulty, success, units::to_joule( bioid->capacity ), pl_skill
-                         )
-                     ) );
+    const auto operation_duration = scaled_operation_duration( difficulty );
+    auto activity = std::make_unique<player_activity>(
+                        std::make_unique<operation_actor>(
+                            "install", bioid.str(), installer_n, autodoc,
+                            difficulty, success, units::to_joule( bioid->capacity ), pl_skill
+                        )
+                    );
+    activity->get_actor()->progress.emplace( "bionic operation", to_moves<int>( operation_duration ) );
     if( !autodoc ) {
         activity->str_values.emplace_back( "false" );
     }
-    const auto operation_duration = scaled_operation_duration( difficulty );
+    assign_activity( std::move( activity ) );
     for( const std::pair<const bodypart_str_id, int> &elem : bioid->occupied_bodyparts ) {
         add_effect( effect_under_op, operation_duration, elem.first, difficulty );
     }

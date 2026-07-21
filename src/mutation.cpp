@@ -646,8 +646,6 @@ void Character::activate_mutation( const trait_id &mut )
                 _( "You lay next to the trees letting your hair roots tangle with the trees." ) );
         }
 
-        assign_activity( ACT_TREE_COMMUNION );
-
         if( has_trait( trait_ROOTS2 ) || has_trait( trait_ROOTS3 ) ) {
             const time_duration startup_time = has_trait( trait_ROOTS3 ) ? rng( 15_minutes,
                                                30_minutes ) : rng( 60_minutes, 90_minutes );

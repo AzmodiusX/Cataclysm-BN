@@ -990,6 +990,9 @@ class mapbuffer
         const mapbuffer_add_item_or_charges_options &options = {} ) -> detached_ptr<item>;
         auto add_item( const tripoint_abs_ms &p, detached_ptr<item> &&new_item,
         mapbuffer_lookup_options options = {} ) -> detached_ptr<item>;
+        /** Process a detached item while it is associated with the map tile at @p p. */
+        auto process_item_at( const tripoint_abs_ms &p, detached_ptr<item> &&new_item,
+                              bool activate ) -> detached_ptr<item>;
         auto erase_item( const tripoint_abs_ms &p,
                          const mapbuffer_erase_item_options &options ) -> location_vector<item>::iterator;
         auto remove_item( const tripoint_abs_ms &p, item *to_remove,

@@ -1314,9 +1314,11 @@ class make_zlave_actor : public activity_actor
     private:
         int success_chance = 0;
         std::string corpse_name;
+        safe_reference<item> corpse;
     public:
         make_zlave_actor() = default;
-        explicit make_zlave_actor( int success, const std::string &name );
+        explicit make_zlave_actor( int success, const std::string &name,
+                                   safe_reference<item> corpse_ref = safe_reference<item>() );
         activity_id get_type() const override { return activity_id( "ACT_MAKE_ZLAVE" ); }
         void start( player_activity &act, Character &who ) override;
         void do_turn( player_activity &act, Character &who ) override;

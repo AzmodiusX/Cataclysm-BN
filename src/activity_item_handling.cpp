@@ -1413,7 +1413,8 @@ static void set_activity_failure_message( Character &p, const std::string &msg,
 }
 
 static activity_reason_info can_do_activity_there( const activity_id &act, player &p,
-        const tripoint_bub_ms &src_loc, const int distance = ACTIVITY_SEARCH_DISTANCE,
+        const tripoint_abs_ms &src, const tripoint_bub_ms &src_loc,
+        const int distance = ACTIVITY_SEARCH_DISTANCE,
         bool *failure_notice_sent = nullptr )
 {
     // see activity_handlers.h cant_do_activity_reason enums
@@ -1652,16 +1653,18 @@ static activity_reason_info can_do_activity_there( const activity_id &act, playe
         std::vector<item *> corpses;
         int big_count = 0;
         int small_count = 0;
-        for( const auto &i : here.i_at( src_loc ) ) {
-            // make sure nobody else is working on that corpse right now
-            if( i->is_corpse() && !i->has_var( "activity_var" ) ) {
-                const mtype corpse = *i->get_mtype();
-                if( corpse.size >= creature_size::medium ) {
-                    big_count += 1;
-                } else {
-                    small_count += 1;
+        if( const auto items = get_map().get_mapbuffer().get_items( src ) ) {
+            for( item *i : *items ) {
+                // make sure nobody else is working on that corpse right now
+                if( i->is_corpse() && !i->has_var( "activity_var" ) ) {
+                    const mtype corpse = *i->get_mtype();
+                    if( corpse.size >= creature_size::medium ) {
+                        big_count += 1;
+                    } else {
+                        small_count += 1;
+                    }
+                    corpses.push_back( i );
                 }
-                corpses.push_back( i );
             }
         }
         bool b_rack_present = false;
@@ -2255,12 +2258,14 @@ static bool fetch_activity( player &p, const tripoint_bub_ms &src_loc,
     return false;
 }
 
-static bool butcher_corpse_activity( player &p, const tripoint_bub_ms &src_loc,
+static bool butcher_corpse_activity( player &p, const tripoint_abs_ms &src,
                                      const do_activity_reason &reason )
 {
-    map &here = get_map();
-    map_stack items = here.i_at( src_loc );
-    for( auto &elem : items ) {
+    const auto items = get_map().get_mapbuffer().get_items( src );
+    if( !items ) {
+        return false;
+    }
+    for( item *elem : *items ) {
         if( elem->is_corpse() && !elem->has_var( "activity_var" ) ) {
             const mtype corpse = *elem->get_mtype();
             if( corpse.size >= creature_size::medium && reason != do_activity_reason::NEEDS_BIG_BUTCHERING ) {
@@ -2270,7 +2275,7 @@ static bool butcher_corpse_activity( player &p, const tripoint_bub_ms &src_loc,
             p.assign_activity( std::make_unique<player_activity>(
                                    std::make_unique<butcher_actor>(
                                        activity_id( "ACT_BUTCHER_FULL" ), safe_reference<item>( elem ) ) ) );
-            p.activity->placement = bub_to_abs( src_loc );
+            p.activity->placement = src;
             return true;
         }
     }
@@ -2883,7 +2888,8 @@ static requirement_check_result generic_multi_activity_check_requirement( player
         } else {
             if( !check_only ) {
                 p.backlog.emplace_front( std::make_unique<player_activity>( act_id ) );
-                p.assign_activity( ACT_FETCH_REQUIRED );
+                p.assign_activity( std::make_unique<player_activity>(
+                                       std::make_unique<fetch_required_actor>() ) );
                 player_activity &act_prev = *p.backlog.front();
                 act_prev.str_values.push_back( what_we_need.str() );
                 act_prev.values.push_back( static_cast<int>( reason ) );
@@ -2972,7 +2978,7 @@ static bool generic_multi_activity_do( player &p, const activity_id &act_id,
         }
     } else if( reason == do_activity_reason::NEEDS_BUTCHERING ||
                reason == do_activity_reason::NEEDS_BIG_BUTCHERING ) {
-        if( butcher_corpse_activity( p, src_loc, reason ) ) {
+        if( butcher_corpse_activity( p, src, reason ) ) {
             p.backlog.emplace_front( std::make_unique<player_activity>( act_id ) );
             return false;
         }
@@ -3098,7 +3104,7 @@ bool generic_multi_activity_handler( player_activity &act, Character &who, bool 
             p.set_destination( route, std::make_unique<player_activity>( activity_to_restore ) );
             return false;
         }
-        activity_reason_info act_info = can_do_activity_there( activity_to_restore, p,
+        activity_reason_info act_info = can_do_activity_there( activity_to_restore, p, src,
                                         src_loc, ACTIVITY_SEARCH_DISTANCE, &failure_notice_sent );
         // see activity_handlers.h enum for requirement_check_result
         const requirement_check_result req_res = generic_multi_activity_check_requirement( p,

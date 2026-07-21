@@ -2353,8 +2353,10 @@ int iuse::hammer( Character *p, item *it, bool, const tripoint_abs_ms *pt )
         return ( ter->nail_pull_result != ter_str_id::NULL_ID() );
     };
 
-    const std::optional<tripoint_bub_ms> pnt_ = choose_adjacent_highlight(
-                _( "Pry where?" ), _( "There is nothing to pry nearby." ), f, false );
+    const std::optional<tripoint_bub_ms> pnt_ = pt != nullptr
+        ? std::optional<tripoint_bub_ms>( abs_to_bub( *pt ) )
+        : choose_adjacent_highlight( _( "Pry where?" ), _( "There is nothing to pry nearby." ), f,
+                                      false );
     if( !pnt_ ) {
         return 0;
     }
@@ -2398,8 +2400,10 @@ int iuse::crowbar( Character *p, item *it, bool, const tripoint_abs_ms *pt )
         return is_allowed;
     };
 
-    const std::optional<tripoint_bub_ms> pnt_ = choose_adjacent_highlight(
-                _( "Pry where?" ), _( "There is nothing to pry nearby." ), can_pry, false );
+    const std::optional<tripoint_bub_ms> pnt_ = pt != nullptr
+        ? std::optional<tripoint_bub_ms>( abs_to_bub( *pt ) )
+        : choose_adjacent_highlight( _( "Pry where?" ), _( "There is nothing to pry nearby." ), can_pry,
+                                      false );
     if( !pnt_ ) {
         return 0;
     }
@@ -3650,7 +3654,7 @@ int iuse::arrow_flammable( Character *p, item *it, bool, const tripoint_abs_ms *
     return 1;
 }
 
-int iuse::molotov_lit( Character *p, item *it, bool t, const tripoint_abs_ms *pt )
+int iuse::molotov_lit( Character *p, item *it, bool t, const tripoint_abs_ms * )
 {
     if( !t ) {
         if( p->has_item( *it ) ) {
@@ -3659,8 +3663,9 @@ int iuse::molotov_lit( Character *p, item *it, bool t, const tripoint_abs_ms *pt
                 return 0;
             }
         }
+        const tripoint_abs_ms origin = it->abs_pos();
         auto &here = it->get_mapbuffer();
-        for( const auto &dest : simulated_tiles_in_radius( here, it->abs_pos(), 1 ) ) {
+        for( const auto &dest : simulated_tiles_in_radius( here, origin, 1 ) ) {
             const int intensity = 1 + one_in( 3 ) + one_in( 5 );
             here.add_field( dest.abs_pos(), {fd_fire, intensity} );
         }

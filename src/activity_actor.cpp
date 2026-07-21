@@ -5,6 +5,7 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "action_time_scale.h"
@@ -118,6 +119,20 @@ static const trait_id trait_DEBUG_HS( "DEBUG_HS" );
 static const trait_id trait_SPIRITUAL( "SPIRITUAL" );
 
 static const efftype_id effect_ai_waiting( "ai_waiting" );
+
+namespace {
+
+auto restore_legacy_progress( activity_actor &actor, const JsonObject &data,
+                              std::string_view task_name ) -> void
+{
+    const int moves_total = data.get_int( "moves_total", 0 );
+    if( moves_total > 0 && actor.progress.empty() ) {
+        actor.progress.emplace( std::string( task_name ), moves_total,
+                                std::max( 0, data.get_int( "moves_left", moves_total ) ) );
+    }
+}
+
+} // namespace
 static const efftype_id effect_well_fed( "well_fed" );
 
 static const itype_id itype_animal( "animal" );
@@ -1140,6 +1155,11 @@ std::unique_ptr<activity_actor> hacking_activity_actor::legacy_deserialize( cons
 
 void move_items_activity_actor::do_turn( player_activity &act, Character &who )
 {
+    if( target_items.empty() || target_items.size() != quantities.size() ) {
+        act.set_to_null();
+        return;
+    }
+
     const auto dest = relative_destination + who.abs_pos();
 
     while( who.moves > 0 && !target_items.empty() ) {
@@ -2928,6 +2948,7 @@ std::unique_ptr<activity_actor> liquid_transfer_actor::legacy_deserialize( const
         actor->target_container = std::move( targets[0] );
     }
 
+    restore_legacy_progress( *actor, data, "transferring liquid" );
     return actor;
 }
 
@@ -2953,7 +2974,10 @@ void liquid_transfer_actor::do_turn( player_activity &act, Character &who )
                 case LST_VEHICLE:
                     auto vp = here.veh_at( source_pos );
                     if( !vp ) {
-                        debugmsg( "Lost track of vehicle source for fill_liquid activity" );
+                        throw std::runtime_error( "could not find vehicle source for liquid transfer" );
+                    }
+                    if( source_part_index < 0 || source_part_index >= vp->vehicle().part_count() ) {
+                        throw std::runtime_error( "invalid vehicle source part for liquid transfer" );
                     }
                     item &base = vp->vehicle().part( source_part_index ).get_base();
                     if( base.contents.empty() ) {
@@ -2985,9 +3009,9 @@ void liquid_transfer_actor::do_turn( player_activity &act, Character &who )
                         return iexamine::pour_into_keg( bub_loc, std::move( it ) );
                     } );
                 } else {
-                    finished = transfer( [&who, &bub_loc, &here]( detached_ptr<item> &&it ) {
+                    finished = transfer( [&who, this]( detached_ptr<item> &&it ) {
                         who.add_msg_if_player( _( "You pour %1$s onto the ground." ), it->tname() );
-                        here.add_item_or_charges( bub_loc, std::move( it ) );
+                        who.get_mapbuffer().add_item_or_charges( target_pos, std::move( it ) );
                         return detached_ptr<item>();
                     } );
                 }
@@ -3149,7 +3173,6 @@ void vehicle_work_actor::finish( player_activity &act, Character &who )
     act.index = static_cast<int>( command );
     act.coord_set = vehicle_points;
 
-    const optional_vpart_position vp = here.veh_at( part_pos );
     veh_interact::complete_vehicle( who );
     // complete_vehicle set activity type to NULL if the vehicle
     // was completely dismantled, otherwise the vehicle still exists and
@@ -3163,10 +3186,21 @@ void vehicle_work_actor::finish( player_activity &act, Character &who )
     }
     act.set_to_null();
     if( !p.is_npc() ) {
-        if( vp ) {
+        const auto find_vehicle = [&]() -> vehicle * {
+            if( const optional_vpart_position current = here.veh_at( part_pos ) ) {
+                return &current->vehicle();
+            }
+            for( const tripoint_abs_ms &point : vehicle_points ) {
+                if( const optional_vpart_position current = here.veh_at( point ) ) {
+                    return &current->vehicle();
+                }
+            }
+            return nullptr;
+        };
+        if( vehicle *const current_vehicle = find_vehicle() ) {
             here.invalidate_map_cache( g->get_levz() );
             if( !activity_handlers::resume_for_multi_activities( who ) ) {
-                g->exam_vehicle( vp->vehicle(), cursor_mount );
+                g->exam_vehicle( *current_vehicle, cursor_mount );
             }
         } else {
             debugmsg( "process_activity ACT_VEHICLE: vehicle not found" );
@@ -3258,6 +3292,11 @@ std::unique_ptr<activity_actor> repair_actor::legacy_deserialize( const JsonObje
         auto coords = std::vector<tripoint_abs_ms>();
         data.read( "coords", coords );
         if( !coords.empty() ) { actor->target_pos = coords[0]; }
+        const int moves_total = data.get_int( "moves_total", 0 );
+        if( moves_total > 0 ) {
+            actor->progress.emplace( "repairing", moves_total,
+                                     std::max( 0, data.get_int( "moves_left", moves_total ) ) );
+        }
         return actor;
     }
 
@@ -3270,6 +3309,11 @@ std::unique_ptr<activity_actor> repair_actor::legacy_deserialize( const JsonObje
     data.read( "targets", targets );
     if( !targets.empty() ) { actor->tool = std::move( targets[0] ); }
     actor->item_pos = data.get_int( "index", -1 );
+    const int moves_total = data.get_int( "moves_total", 0 );
+    if( moves_total > 0 ) {
+        actor->progress.emplace( "repairing", moves_total,
+                                 std::max( 0, data.get_int( "moves_left", moves_total ) ) );
+    }
     return actor;
 }
 
@@ -3381,20 +3425,24 @@ static void discharge_real_power_for_repair( hack_type_t hack_type,
 
 // ─── repair_actor method implementations ────────────────────────────────────
 
-void repair_actor::start( player_activity &act, Character &who ) {}
+void repair_actor::start( player_activity &, Character & ) {}
 void repair_actor::do_turn( player_activity &act, Character &who )
 {
+    if( activity_actor::progress.invalid() ) {
+        finish( act, who );
+        return;
+    }
     auto &p = static_cast<player &>( who );
     const float vision_mod = character_funcs::fine_detail_vision_mod( who );
     const auto effective_moves = static_cast<int>(
                                      action_time_scale::activity_progress_from_actor_moves( who ) / vision_mod );
-    if( effective_moves <= act.moves_left ) {
-        act.moves_left -= effective_moves;
+    if( effective_moves <= activity_actor::progress.get_moves_left() ) {
+        activity_actor::progress.mod_moves_left( -effective_moves );
         who.moves = 0;
     } else {
         who.moves -= action_time_scale::actor_moves_for_activity_progress( who,
-                     act.moves_left * vision_mod );
-        act.moves_left = 0;
+                     activity_actor::progress.get_moves_left() * vision_mod );
+        activity_actor::progress.mod_moves_left( -activity_actor::progress.get_moves_left() );
     }
 }
 void repair_actor::finish( player_activity &act, Character &who )
@@ -3444,6 +3492,11 @@ void repair_actor::finish( player_activity &act, Character &who )
     }
 
     const use_function *use_fun = used_tool->get_use( iuse_name_string );
+    if( use_fun == nullptr ) {
+        debugmsg( "Lost repair use function" );
+        act.set_to_null();
+        return;
+    }
     const repair_item_actor *repair_iuse = dynamic_cast<const repair_item_actor *>
                                            ( use_fun->get_actor_ptr() );
     if( repair_iuse == nullptr ) {
@@ -3611,8 +3664,12 @@ void repair_actor::finish( player_activity &act, Character &who )
         } while( repeat == REPEAT_INIT );
     }
 
-    // Otherwise keep retrying
-    act.moves_left = repair_iuse->move_cost;
+    // Otherwise keep retrying.  The next repair is an actor-owned task; the
+    // legacy activity countdown is intentionally not used here.
+    if( !activity_actor::progress.invalid() && activity_actor::progress.complete() ) {
+        activity_actor::progress.pop();
+    }
+    activity_actor::progress.emplace( "repairing", repair_iuse->move_cost );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3673,6 +3730,7 @@ std::unique_ptr<activity_actor> wear_actor::legacy_deserialize( const JsonObject
         } );
     }
 
+    restore_legacy_progress( *actor, data, "wearing" );
     return actor;
 }
 
@@ -3745,7 +3803,12 @@ std::unique_ptr<activity_actor> wait_stamina_actor::legacy_deserialize( const Js
     return actor;
 }
 
-void wait_stamina_actor::start( player_activity &act, Character &who ) {}
+void wait_stamina_actor::start( player_activity &, Character & )
+{
+    if( progress.invalid() ) {
+        progress.dummy();
+    }
+}
 
 void wait_stamina_actor::do_turn( player_activity &act, Character &who )
 {
@@ -3845,6 +3908,11 @@ void hand_crank_charge_actor::do_turn( player_activity &act, Character &who )
 {
 
     // Hand-crank chargers: time-based, not speed-based
+    if( act.get_tools().empty() || !act.get_tools().front() ) {
+        debugmsg( "Hand-crank activity lost its tool" );
+        act.set_to_null();
+        return;
+    }
     auto &hand_crank_item = *act.get_tools().front();
 
     auto charge_interval = charge_interval_turns > 0
@@ -3859,21 +3927,24 @@ void hand_crank_charge_actor::do_turn( player_activity &act, Character &who )
             const auto next_charges = std::min( capacity, current + charge_amount );
             hand_crank_item.ammo_set( ammo_type, next_charges );
             if( next_charges >= capacity ) {
-                act.moves_left = 0;
+                activity_actor::progress.mod_moves_left( -activity_actor::progress.get_moves_left() );
                 add_msg( m_info, _( "You've charged the battery completely." ) );
             }
         } else {
-            act.moves_left = 0;
+            activity_actor::progress.mod_moves_left( -activity_actor::progress.get_moves_left() );
             add_msg( m_info, _( "You've charged the battery completely." ) );
         }
     }
     if( who.get_fatigue() >= fatigue_levels::dead_tired ) {
-        act.moves_left = 0;
+        activity_actor::progress.mod_moves_left( -activity_actor::progress.get_moves_left() );
         add_msg( m_info, _( "You're too exhausted to keep cranking." ) );
     }
 }
 
-void hand_crank_charge_actor::finish( player_activity &act, Character &who ) {}
+void hand_crank_charge_actor::finish( player_activity &act, Character & )
+{
+    act.set_to_null();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // wait_npc_actor (ACT_WAIT_NPC)
@@ -3906,7 +3977,9 @@ std::unique_ptr<activity_actor> wait_npc_actor::legacy_deserialize( const JsonOb
     if( str_values.empty() ) {
         return nullptr;
     }
-    return std::make_unique<wait_npc_actor>( str_values[0] );
+    auto actor = std::make_unique<wait_npc_actor>( str_values[0] );
+    restore_legacy_progress( *actor, data, "waiting for NPC" );
+    return actor;
 }
 
 void wait_npc_actor::start( player_activity &act, Character &who ) {}
@@ -3950,7 +4023,13 @@ std::unique_ptr<activity_actor> clear_rubble_actor::legacy_deserialize( const Js
     if( coords.empty() ) {
         return nullptr;
     }
-    return std::make_unique<clear_rubble_actor>( coords[0] );
+    auto actor = std::make_unique<clear_rubble_actor>( coords[0] );
+    const int moves_total = data.get_int( "moves_total", 0 );
+    if( moves_total > 0 ) {
+        actor->progress.emplace( "clearing rubble", moves_total,
+                                 std::max( 0, data.get_int( "moves_left", moves_total ) ) );
+    }
+    return actor;
 }
 
 void clear_rubble_actor::start( player_activity &act, Character &who ) {}
@@ -3958,13 +4037,17 @@ void clear_rubble_actor::do_turn( player_activity &act, Character &who ) {}
 void clear_rubble_actor::finish( player_activity &act, Character &who )
 {
 
-    map &here = get_map();
-    const auto bub_pos = abs_to_bub( rubble_pos );
-    const map_bash_info &bash = here.furn( bub_pos ).obj().bash;
+    mapbuffer &here = who.get_mapbuffer();
+    const auto furniture = here.furn( rubble_pos );
+    if( !furniture ) {
+        act.set_to_null();
+        return;
+    }
+    const map_bash_info &bash = furniture->obj().bash;
     who.add_msg_if_player( m_info, _( "You clear up the %s." ),
-                           here.furnname( bub_pos ) );
-    here.spawn_items( bub_pos, item_group::items_from( bash.drop_group, calendar::turn ) );
-    here.furn_set( bub_pos, f_null );
+                           here.furnname( rubble_pos ) );
+    here.spawn_items( rubble_pos, item_group::items_from( bash.drop_group, calendar::turn ) );
+    here.set_furn( rubble_pos, f_null );
     act.set_to_null();
 }
 
@@ -4219,7 +4302,8 @@ void move_loot_activity_actor::do_turn( player_activity &act, Character &who )
                     // who is implicitly an NPC that has been moved off the map, so reset the activity
                     // and unload them
                     who.cancel_activity();
-                    who.assign_activity( ACT_MOVE_LOOT );
+                    who.assign_activity( std::make_unique<player_activity>(
+                                               std::make_unique<move_loot_activity_actor>() ) );
                     who.set_moves( 0 );
                     g->reload_npcs();
                     return;
@@ -4529,7 +4613,12 @@ std::unique_ptr<activity_actor> tree_communion_actor::legacy_deserialize( const 
     if( !values.empty() ) { actor->startup_turns = values[0]; }
     return actor;
 }
-void tree_communion_actor::start( player_activity &, Character & ) {}
+void tree_communion_actor::start( player_activity &, Character & )
+{
+    if( activity_actor::progress.invalid() ) {
+        activity_actor::progress.dummy();
+    }
+}
 void tree_communion_actor::do_turn( player_activity &act, Character &who )
 {
 
@@ -4625,7 +4714,9 @@ std::unique_ptr<activity_actor> shear_actor::legacy_deserialize( const JsonObjec
     if( !str_values.empty() && str_values[0] == "temp_tie" ) {
         tied = "temp_tie";
     }
-    return std::make_unique<shear_actor>( coords[0], tied, safe_reference<item>() );
+    auto actor = std::make_unique<shear_actor>( coords[0], tied, safe_reference<item>() );
+    restore_legacy_progress( *actor, data, "shearing" );
+    return actor;
 }
 void shear_actor::start( player_activity &, Character & ) {}
 void shear_actor::do_turn( player_activity &, Character & )
@@ -4641,7 +4732,6 @@ void shear_actor::finish( player_activity &act, Character &who )
         return;
     }
     item *shears_item = &*shears;
-    map &here = get_map();
     auto *source_mon = g->critter_at<monster>( target_pos );
     if( source_mon == nullptr ) {
         debugmsg( "could not find source creature for shearing" );
@@ -4651,7 +4741,7 @@ void shear_actor::finish( player_activity &act, Character &who )
     // 22 wool staples corresponds to an average wool-producing sheep yield of 10 lbs or so
     for( int i = 0; i != 22; ++i ) {
         detached_ptr<item> wool_staple = item::spawn( itype_wool_staple, calendar::turn );
-        here.add_item_or_charges( who.bub_pos(), std::move( wool_staple ) );
+        who.get_mapbuffer().add_item_or_charges( who.abs_pos(), std::move( wool_staple ) );
     }
     source_mon->add_effect( effect_sheared, calendar::season_length() );
     if( tied_state == "temp_tie" ) {
@@ -4696,7 +4786,9 @@ std::unique_ptr<activity_actor> milk_actor::legacy_deserialize( const JsonObject
     if( !str_values.empty() && str_values[0] == "temp_tie" ) {
         tied = "temp_tie";
     }
-    return std::make_unique<milk_actor>( coords[0], tied );
+    auto actor = std::make_unique<milk_actor>( coords[0], tied );
+    restore_legacy_progress( *actor, data, "milking" );
+    return actor;
 }
 void milk_actor::start( player_activity &, Character & ) {}
 void milk_actor::do_turn( player_activity &, Character & )
@@ -4773,13 +4865,18 @@ std::unique_ptr<activity_actor> pulp_actor::legacy_deserialize( const JsonObject
     }
     return actor;
 }
-void pulp_actor::start( player_activity &, Character & ) {}
+void pulp_actor::start( player_activity &, Character & )
+{
+    if( activity_actor::progress.invalid() ) {
+        activity_actor::progress.dummy();
+    }
+}
 
 void pulp_actor::do_turn( player_activity &act, Character &who )
 {
 
-    map &here = get_map();
-    const tripoint_bub_ms pos = abs_to_bub( target_pos );
+    mapbuffer &here = who.get_mapbuffer();
+    const tripoint_abs_ms pos = target_pos;
 
     // Stabbing weapons are a lot less effective at pulping
     const auto cut_power = std::max( who.primary_weapon().damage_melee( DT_CUT ),
@@ -4794,15 +4891,19 @@ void pulp_actor::do_turn( player_activity &act, Character &who )
     if( pulp_power <= 0.0f || !std::isfinite( pulp_power ) ) {
         who.add_msg_player_or_npc( m_bad, _( "You are unable to pulp the corpse." ),
                                    _( "<npcname> is unable to pulp the corpse." ) );
-        act.moves_left = 0;
+        activity_actor::progress.mod_moves_left( -activity_actor::progress.get_moves_left() );
         return;
     }
 
     const auto mess_radius = who.primary_weapon().has_flag( flag_MESSY ) ? 2 : 1;
 
     int moves = 0;
-    map_stack corpse_pile = here.i_at( pos );
-    for( item *&corpse : corpse_pile ) {
+    const auto *corpse_pile = here.get_items( pos );
+    if( corpse_pile == nullptr ) {
+        activity_actor::progress.mod_moves_left( -activity_actor::progress.get_moves_left() );
+        return;
+    }
+    for( item *corpse : *corpse_pile ) {
         const mtype *corpse_mtype = corpse->get_mtype();
         if( !corpse->is_corpse() || ( !corpse_mtype->has_flag( MF_REVIVES ) &&
                                       !corpse_mtype->zombify_into ) ||
@@ -4820,7 +4921,8 @@ void pulp_actor::do_turn( player_activity &act, Character &who )
 
             if( x_in_y( pulp_power, corpse->volume() / units::legacy_volume_factor ) ) {
                 const int radius = mess_radius + x_in_y( pulp_power, 500 ) + x_in_y( pulp_power, 1000 );
-                const tripoint_bub_ms dest( pos + point( rng( -radius, radius ), rng( -radius, radius ) ) );
+                const tripoint_abs_ms dest( pos + tripoint( rng( -radius, radius ),
+                                                    rng( -radius, radius ), 0 ) );
                 const field_type_id type_blood = ( mess_radius > 1 && x_in_y( pulp_power, 10000 ) ) ?
                                                  corpse->get_mtype()->gibType() :
                                                  corpse->get_mtype()->bloodType();
@@ -4847,7 +4949,7 @@ void pulp_actor::do_turn( player_activity &act, Character &who )
         corpse->set_flag( flag_PULPED );
     }
     // If we reach this, all corpses have been pulped, finish the activity
-    act.moves_left = 0;
+    activity_actor::progress.mod_moves_left( -activity_actor::progress.get_moves_left() );
     if( num_corpses == 0 ) {
         who.add_msg_if_player( m_bad, _( "The corpse moved before you could finish smashing it!" ) );
         return;
@@ -4914,9 +5016,7 @@ void hotwire_car_actor::do_turn( player_activity &act, Character &who ) {}
 void hotwire_car_actor::finish( player_activity &act, Character &who )
 {
 
-    if( const optional_vpart_position vp = g->m.veh_at( tripoint_abs_ms( veh_pos.x(),
-                                           veh_pos.y(),
-                                           who.bub_pos().z() ) ) ) {
+    if( const optional_vpart_position vp = g->m.veh_at( veh_pos ) ) {
         vehicle *const veh = &vp->vehicle();
         if( mechanics_skill > rng( 1, 6 ) ) {
             veh->is_locked = false;
@@ -5073,12 +5173,27 @@ std::unique_ptr<activity_actor> start_fire_actor::legacy_deserialize( const Json
     auto values = data.get_int_array( "values" );
     if( !values.empty() ) { actor->light_level = values[0]; }
     data.read( "placement", actor->placement );
+    const int moves_total = data.get_int( "moves_total", 0 );
+    if( moves_total > 0 ) {
+        actor->progress.emplace( "starting fire", moves_total,
+                                 std::max( 0, data.get_int( "moves_left", moves_total ) ) );
+    }
     return actor;
 }
 void start_fire_actor::start( player_activity &, Character & ) {}
 
 void start_fire_actor::do_turn( player_activity &act, Character &who )
 {
+    if( activity_actor::progress.invalid() ) {
+        debugmsg( "Starting fire without an initialized progress counter" );
+        act.set_to_null();
+        return;
+    }
+    if( act.get_tools().empty() || !act.get_tools().front() ) {
+        debugmsg( "Starting fire activity lost its tool" );
+        act.set_to_null();
+        return;
+    }
     auto &here = who.get_mapbuffer();
     item &firestarter = *act.get_tools().front();
     if( !here.is_flammable( placement ) || ( firestarter.has_flag( flag_REQUIRES_TINDER ) &&
@@ -5108,8 +5223,16 @@ void start_fire_actor::do_turn( player_activity &act, Character &who )
 
     who.mod_moves( -who.moves );
     const firestarter_actor *actor = dynamic_cast<const firestarter_actor *>( usef->get_actor_ptr() );
+    if( actor == nullptr ) {
+        debugmsg( "iuse_actor type descriptor and actual type mismatch" );
+        act.set_to_null();
+        return;
+    }
     const float light = actor->light_mod( who, placement );
-    act.moves_left -= light * action_time_scale::activity_progress_per_tick();
+    const int progress = static_cast<int>( light *
+                                           action_time_scale::activity_progress_per_tick() );
+    activity_actor::progress.mod_moves_left( -std::min( progress,
+                                                         activity_actor::progress.get_moves_left() ) );
     if( light < 0.1 ) {
         add_msg( m_bad, _( "There is not enough sunlight to start a fire now.  You stop trying." ) );
         who.cancel_activity();
@@ -5121,6 +5244,11 @@ void start_fire_actor::finish( player_activity &act, Character &who )
 
     static const std::string iuse_name_string( "firestarter" );
 
+    if( act.get_tools().empty() || !act.get_tools().front() ) {
+        debugmsg( "Starting fire activity lost its tool" );
+        act.set_to_null();
+        return;
+    }
     item &it = *act.get_tools().front();
     item *used_tool = it.get_usable_item( iuse_name_string );
     if( used_tool == nullptr ) {
@@ -5130,6 +5258,11 @@ void start_fire_actor::finish( player_activity &act, Character &who )
     }
 
     const use_function *use_fun = used_tool->get_use( iuse_name_string );
+    if( use_fun == nullptr ) {
+        debugmsg( "Lost firestarter use function" );
+        act.set_to_null();
+        return;
+    }
     const firestarter_actor *actor = dynamic_cast<const firestarter_actor *>
                                      ( use_fun->get_actor_ptr() );
     if( actor == nullptr ) {
@@ -5153,14 +5286,16 @@ void start_fire_actor::finish( player_activity &act, Character &who )
 
 // ─── make_zlave_actor ────────────────────────────────────────────────────────
 
-make_zlave_actor::make_zlave_actor( int success, const std::string &name )
-    : success_chance( success ), corpse_name( name ) {}
+make_zlave_actor::make_zlave_actor( int success, const std::string &name,
+                                    safe_reference<item> corpse_ref )
+    : success_chance( success ), corpse_name( name ), corpse( std::move( corpse_ref ) ) {}
 void make_zlave_actor::serialize( JsonOut &jsout ) const
 {
     jsout.start_object();
     jsout.member( "progress", activity_actor::progress );
     jsout.member( "success_chance", success_chance );
     jsout.member( "corpse_name", corpse_name );
+    jsout.member( "corpse", corpse );
     jsout.end_object();
 }
 std::unique_ptr<activity_actor> make_zlave_actor::deserialize( JsonIn &jsin )
@@ -5170,6 +5305,7 @@ std::unique_ptr<activity_actor> make_zlave_actor::deserialize( JsonIn &jsin )
     data.read( "progress", actor->activity_actor::progress );
     data.read( "success_chance", actor->success_chance );
     data.read( "corpse_name", actor->corpse_name );
+    data.read( "corpse", actor->corpse );
     return actor;
 }
 std::unique_ptr<activity_actor> make_zlave_actor::legacy_deserialize( const JsonObject &data )
@@ -5179,6 +5315,10 @@ std::unique_ptr<activity_actor> make_zlave_actor::legacy_deserialize( const Json
     if( !values.empty() ) { actor->success_chance = values[0]; }
     auto str_values = data.get_string_array( "str_values" );
     if( !str_values.empty() ) { actor->corpse_name = str_values[0]; }
+    auto targets = std::vector<safe_reference<item>>();
+    data.read( "targets", targets );
+    if( !targets.empty() ) { actor->corpse = std::move( targets.front() ); }
+    restore_legacy_progress( *actor, data, "enslaving corpse" );
     return actor;
 }
 void make_zlave_actor::start( player_activity &, Character & ) {}
@@ -5187,14 +5327,7 @@ void make_zlave_actor::finish( player_activity &act, Character &who )
 {
 
     act.set_to_null();
-    map_stack items = g->m.i_at( who.bub_pos() );
-    item *body = nullptr;
-
-    for( item *&it : items ) {
-        if( it->display_name() == corpse_name ) {
-            body = it;
-        }
-    }
+    item *body = corpse.get();
 
     if( body == nullptr ) {
         add_msg( m_info, _( "There's no corpse to make into a zombie slave!" ) );
@@ -5284,6 +5417,11 @@ std::unique_ptr<activity_actor> study_spell_actor::legacy_deserialize( const Jso
     if( values.size() >= 3 ) { actor->dark = values[2]; }
     if( values.size() >= 4 ) { actor->tick_counter = values[3]; }
     if( values.size() >= 5 ) { actor->xp_snapshot = values[4]; }
+    const int moves_total = data.get_int( "moves_total", 0 );
+    if( moves_total > 0 ) {
+        actor->progress.emplace( "studying spell", moves_total,
+                                 std::max( 0, data.get_int( "moves_left", moves_total ) ) );
+    }
     return actor;
 }
 void study_spell_actor::start( player_activity &, Character & ) {}
@@ -5293,7 +5431,7 @@ void study_spell_actor::do_turn( player_activity &act, Character &who )
 
     if( !character_funcs::can_see_fine_details( who ) ) {
         dark = -1;
-        act.moves_left = 0;
+        activity_actor::progress.mod_moves_left( -activity_actor::progress.get_moves_left() );
         return;
     }
     if( study_mode == "study" ) {
@@ -5316,10 +5454,13 @@ void study_spell_actor::do_turn( player_activity &act, Character &who )
             total_levels += new_level - old_level;
             g->events().send<event_type::player_levels_spell>( studying.id(), new_level );
             if( gain_level_flag == "gain_level" ) {
-                act.moves_left = 0;
+                activity_actor::progress.mod_moves_left( -activity_actor::progress.get_moves_left() );
             }
         } else if( gain_level_flag == "gain_level" ) {
-            act.moves_left = 1000000;
+            if( activity_actor::progress.complete() ) {
+                activity_actor::progress.pop();
+                activity_actor::progress.emplace( "studying spell", 1000000 );
+            }
         }
     }
     tick_counter += 1;
@@ -5379,7 +5520,13 @@ std::unique_ptr<activity_actor> firstaid_actor::legacy_deserialize( const JsonOb
     if( targets.size() >= 1 ) {
         target = std::move( targets[0] );
     }
-    return std::make_unique<firstaid_actor>( str_values[0], std::move( target ) );
+    auto actor = std::make_unique<firstaid_actor>( str_values[0], std::move( target ) );
+    const int moves_total = data.get_int( "moves_total", 0 );
+    if( moves_total > 0 ) {
+        actor->progress.emplace( "first aid", moves_total,
+                                 std::max( 0, data.get_int( "moves_left", moves_total ) ) );
+    }
+    return actor;
 }
 void firstaid_actor::start( player_activity &, Character & ) {}
 void firstaid_actor::do_turn( player_activity &, Character & ) {}
@@ -5387,6 +5534,12 @@ void firstaid_actor::do_turn( player_activity &, Character & ) {}
 void firstaid_actor::finish( player_activity &act, Character &who )
 {
     static const std::string iuse_name_string( "heal" );
+
+    if( !target_item ) {
+        debugmsg( "Lost target of ACT_FIRSTAID" );
+        act.set_to_null();
+        return;
+    }
 
     item &it = *target_item;
     item *used_tool = it.get_usable_item( iuse_name_string );
@@ -5397,6 +5550,11 @@ void firstaid_actor::finish( player_activity &act, Character &who )
     }
 
     const use_function *use_fun = used_tool->get_use( iuse_name_string );
+    if( use_fun == nullptr ) {
+        debugmsg( "Lost first aid use function" );
+        act.set_to_null();
+        return;
+    }
     const heal_actor *heal = dynamic_cast<const heal_actor *>( use_fun->get_actor_ptr() );
     if( heal == nullptr ) {
         debugmsg( "iuse_actor type descriptor and actual type mismatch" );
@@ -5435,6 +5593,7 @@ std::unique_ptr<activity_actor> play_with_pet_actor::legacy_deserialize( const J
     auto str_values = data.get_string_array( "str_values" );
     if( !str_values.empty() ) { actor->pet_name = str_values[0]; }
     // monster weak_ptr is runtime-only; re-acquired at activity start
+    restore_legacy_progress( *actor, data, "playing with pet" );
     return actor;
 }
 void play_with_pet_actor::start( player_activity &, Character & ) {}
@@ -5443,9 +5602,12 @@ void play_with_pet_actor::finish( player_activity &act, Character &who )
 {
 
     auto mon = pet.lock();
-    if( mon ) {
-        mon->remove_effect( effect_ai_waiting );
+    if( !mon ) {
+        debugmsg( "Lost pet target during ACT_PLAY_WITH_PET" );
+        act.set_to_null();
+        return;
     }
+    mon->remove_effect( effect_ai_waiting );
     who.add_morale( MORALE_PLAY_WITH_PET, rng( 3, 10 ), 10, 5_hours, 25_minutes );
     who.add_msg_if_player( m_good, _( "Playing with your %s has lifted your spirits a bit." ),
                            pet_name );
@@ -5477,6 +5639,7 @@ std::unique_ptr<activity_actor> train_pet_actor::legacy_deserialize( const JsonO
     auto str_values = data.get_string_array( "str_values" );
     if( !str_values.empty() ) { actor->pet_name = str_values[0]; }
     // monster weak_ptr is runtime-only; re-acquired at activity start
+    restore_legacy_progress( *actor, data, "training pet" );
     return actor;
 }
 void train_pet_actor::start( player_activity &, Character & ) {}
@@ -5548,7 +5711,9 @@ std::unique_ptr<activity_actor> socialize_actor::legacy_deserialize( const JsonO
 {
     auto str_values = data.get_string_array( "str_values" );
     if( str_values.empty() ) { return nullptr; }
-    return std::make_unique<socialize_actor>( str_values[0] );
+    auto actor = std::make_unique<socialize_actor>( str_values[0] );
+    restore_legacy_progress( *actor, data, "socializing" );
+    return actor;
 }
 void socialize_actor::start( player_activity &, Character & ) {}
 void socialize_actor::do_turn( player_activity &act, Character &who ) {}
@@ -5585,7 +5750,9 @@ std::unique_ptr<activity_actor> train_actor::deserialize( JsonIn &jsin )
 std::unique_ptr<activity_actor> train_actor::legacy_deserialize( const JsonObject &data )
 {
     int trainer = data.get_int( "index", -1 );
-    return std::make_unique<train_actor>( data.get_string( "name" ), 0, trainer );
+    auto actor = std::make_unique<train_actor>( data.get_string( "name" ), 0, trainer );
+    restore_legacy_progress( *actor, data, "training" );
+    return actor;
 }
 void train_actor::start( player_activity &, Character & ) {}
 void train_actor::do_turn( player_activity &, Character & ) {}
@@ -5683,12 +5850,25 @@ std::unique_ptr<activity_actor> butcher_actor::legacy_deserialize( const JsonObj
     for( size_t i = 1; i < targets.size(); ++i ) {
         actor->extra_corpses.push_back( std::move( targets[i] ) );
     }
+    const int moves_total = data.get_int( "moves_total", 0 );
+    if( moves_total > 0 ) {
+        actor->progress.emplace( "butchering", moves_total,
+                                 std::max( 0, data.get_int( "moves_left", moves_total ) ) );
+        actor->ready_for_next = false;
+    }
     return actor;
 }
 void butcher_actor::start( player_activity &, Character & ) {}
 
 void butcher_actor::do_turn( player_activity &act, Character &who )
 {
+    if( !corpse && !act.targets.empty() ) {
+        corpse = std::move( act.targets.front() );
+        for( auto target = act.targets.begin() + 1; target != act.targets.end(); ++target ) {
+            extra_corpses.push_back( std::move( *target ) );
+        }
+        act.targets.clear();
+    }
     // Check if the current corpse has rotted away
 
     bool corpse_destroyed = corpse.is_destroyed();
@@ -5818,8 +5998,10 @@ void butcher_actor::finish( player_activity &act, Character &who )
         print_reasons();
         act.get_tools_mut().clear();
         act.speed.calc_all_moves( who );
-        act.moves_left = setup.move_cost;
-        act.moves_total = setup.move_cost;
+        if( !activity_actor::progress.invalid() && activity_actor::progress.complete() ) {
+            activity_actor::progress.pop();
+        }
+        activity_actor::progress.emplace( corpse->tname(), setup.move_cost );
         ready_for_next = false;
         return;
     }
@@ -6110,6 +6292,11 @@ std::unique_ptr<activity_actor> operation_actor::legacy_deserialize( const JsonO
     if( str_values.size() >= 2 ) { actor->bionic_id = str_values[1]; }
     if( str_values.size() >= 3 ) { actor->installer_name = str_values[2]; }
     if( str_values.size() >= 4 ) { actor->autodoc = ( str_values[3] == "true" ); }
+    const int moves_total = data.get_int( "moves_total", 0 );
+    const int moves_left = data.get_int( "moves_left", moves_total );
+    if( moves_total > 0 ) {
+        actor->progress.emplace( "bionic operation", moves_total, std::max( 0, moves_left ) );
+    }
     // operation_attempted defaults to 0 for legacy saves (old code would re-attempt)
     return actor;
 }
@@ -6129,12 +6316,19 @@ void operation_actor::do_turn( player_activity &act, Character &who )
 
     const auto half_op_moves = to_moves<int>( difficulty * 10_minutes );
     const time_duration message_freq = difficulty * 2_minutes;
+    const efftype_id effect_under_op( "under_operation" );
+    if( progress.invalid() ) {
+        debugmsg( "Bionic operation started without an actor progress counter" );
+        act.set_to_null();
+        who.remove_effect( effect_under_op );
+        return;
+    }
+    const int current_moves_left = progress.get_moves_left();
     const auto time_left = time_duration::from_turns(
-                               action_time_scale::activity_turns_for_progress( act.moves_left ) );
+                               action_time_scale::activity_turns_for_progress( current_moves_left ) );
 
     map &here = get_map();
 
-    const efftype_id effect_under_op( "under_operation" );
     const efftype_id effect_bleed( "bleed" );
     const efftype_id effect_blind( "blind" );
     const efftype_id effect_sleep( "sleep" );
@@ -6173,7 +6367,7 @@ void operation_actor::do_turn( player_activity &act, Character &who )
         }
     }
 
-    if( act.moves_left > half_op_moves ) {
+    if( current_moves_left > half_op_moves ) {
         if( !bps.empty() ) {
             for( const bodypart_id &bp : bps ) {
                 if( action_time_scale::once_every_this_tick( message_freq ) && u_see && autodoc ) {
@@ -6264,6 +6458,12 @@ void operation_actor::finish( player_activity &act, Character &who )
         const std::string flag_AUTODOC( "AUTODOC" );
         const std::list<tripoint_bub_ms> autodocs = here.find_furnitures_or_vparts_with_flag_in_radius(
                     who.bub_pos(), 1, flag_AUTODOC );
+        if( autodocs.empty() ) {
+            debugmsg( "Bionic operation lost its autodoc" );
+            who.remove_effect( efftype_id( "under_operation" ) );
+            act.set_to_null();
+            return;
+        }
         se.origin = bub_to_abs( autodocs.front() );
         se.volume = 60;
         se.category = sounds::sound_t::music;
@@ -6350,6 +6550,7 @@ std::unique_ptr<activity_actor> gunmod_add_actor::legacy_deserialize( const Json
     data.read( "targets", targets );
     if( targets.size() >= 1 ) { actor->gun = std::move( targets[0] ); }
     if( targets.size() >= 2 ) { actor->mod = std::move( targets[1] ); }
+    restore_legacy_progress( *actor, data, "installing gunmod" );
     return actor;
 }
 void gunmod_add_actor::start( player_activity &, Character & ) {}
@@ -6358,6 +6559,11 @@ void gunmod_add_actor::do_turn( player_activity &, Character & ) {}
 void gunmod_add_actor::finish( player_activity &act, Character &who )
 {
 
+    if( !gun || !mod ) {
+        debugmsg( "Lost gun or gunmod during ACT_GUNMOD_ADD" );
+        act.set_to_null();
+        return;
+    }
     act.set_to_null();
 
     item &gun = *this->gun;

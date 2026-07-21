@@ -8180,7 +8180,7 @@ void Character::mod_stamina( int mod )
     return mod_stamina( mod, true );
 }
 
-void Character::burn_move_stamina( int moves )
+void Character::burn_move_stamina( int moves, bool train_skill )
 {
     int overburden_percentage = 0;
     units::mass current_weight = weight_carried();
@@ -8200,7 +8200,7 @@ void Character::burn_move_stamina( int moves )
     if( move_mode == CMM_RUN ) {
         burn_ratio = burn_ratio * 7;
     }
-    mod_stamina( -( ( moves * burn_ratio ) / 100.0 ) * stamina_burn_cost_modifier() );
+    mod_stamina( -( ( moves * burn_ratio ) / 100.0 ) * stamina_burn_cost_modifier(), train_skill );
     // Chance to suffer pain if overburden and stamina runs out or has trait BADBACK
     // Starts at 1 in 25, goes down by 5 for every 50% more carried
     if( ( current_weight > max_weight ) && ( has_trait( trait_BADBACK ) || get_stamina() == 0 ) &&

@@ -1332,8 +1332,10 @@ void iexamine::rubble( player &p, const tripoint_bub_ms &examp )
         !query_yn( _( "Clear up that %s?" ), here.furnname( examp ) ) ) {
         return;
     }
-    p.assign_activity( ACT_CLEAR_RUBBLE, moves, -1, 0 );
-    p.activity->placement = bub_to_abs( examp );
+    const tripoint_abs_ms rubble_pos = bub_to_abs( examp );
+    p.assign_activity( std::make_unique<player_activity>(
+                           std::make_unique<clear_rubble_actor>( rubble_pos ) ) );
+    p.activity->get_actor()->progress.emplace( "clearing rubble", moves );
     return;
 }
 

@@ -376,7 +376,8 @@ std::optional<std::string> player_activity::get_progress_message( const avatar &
         // Actor's get_progress_message handles this — keep return nullopt here since no actor fallback
         return std::nullopt;
     } else if( type == ACT_READ ) {
-        if( const item *book = &*targets.front() ) {
+        const item *book = targets.empty() ? nullptr : targets.front().get_const();
+        if( book != nullptr ) {
             if( const auto &reading = book->type->book ) {
                 const skill_id &skill = reading->skill;
                 if( skill && u.get_skill_level( skill ) < reading->level &&
@@ -488,7 +489,10 @@ void player_activity::do_turn( player &p )
     if( !type->special() ) {
         const auto consume_activity_progress = [&]( const int moves_total,
         const bool complex_partial_cost ) {
-            if( actor ) {
+            // A few migrated actors still perform their own work from the
+            // legacy duration fields.  Keep that bridge until those actors
+            // move their timing into progress_counter as well.
+            if( actor && !actor->progress.invalid() ) {
                 if( actor->progress.get_moves_left() >= moves_total ) {
                     actor->progress.mod_moves_left( -moves_total );
                     p.moves = 0;
@@ -638,8 +642,12 @@ bool player_activity::can_resume_with( const player_activity &other, const Chara
         return false;
     }
 
-    // if actor XOR other.actor then id() != other.id() so
-    // we will correctly return false based on final return statement
+    // Actor-backed and legacy activities with the same ID are not safely
+    // resumable against one another.
+    if( static_cast<bool>( actor ) != static_cast<bool>( other.actor ) ) {
+        return false;
+    }
+
     if( actor && other.actor ) {
         return actor->can_resume_with( *other.actor, who );
     }

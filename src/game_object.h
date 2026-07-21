@@ -16,6 +16,7 @@ class location_visitable;
 
 class item;
 class mapbuffer;
+struct vehicle_part;
 
 template<typename T>
 class game_object
@@ -27,6 +28,7 @@ class game_object
         friend location_inventory;
         friend location_vector<T>;
         friend class mapbuffer;
+        friend struct vehicle_part;
         friend location_visitable<location_inventory>;
         template<typename U>
         friend void ::std::swap( location_vector<U> &, location_vector<U> & ) noexcept ;
@@ -67,4 +69,3 @@ class game_object
         /** Returns the name that will be used when referring to the object in error messages */
         virtual std::string debug_name() const = 0;
 };
-
