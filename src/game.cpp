@@ -1023,22 +1023,19 @@ bool game::start_game()
     m.resize( g_mapsize );
     reality_bubble_radius_ = g_half_mapsize;
 
-    auto lev = project_to<coords::sm>( omtstart );
-    // The player is centered in the map, but lev[xyz] refers to the top left point of the map
-    lev.x() -= g_half_mapsize;
-    lev.y() -= g_half_mapsize;
-    const auto starting_player_pos = project_to<coords::ms>(
-                                         lev + tripoint_rel_sm( g_half_mapsize, g_half_mapsize, 0 ) );
-    load_map( lev.xy(), /*pump_events=*/true );
+    const auto map_origin = project_to<coords::sm>( omtstart ) -
+                            tripoint_rel_sm( g_half_mapsize, g_half_mapsize, 0 );
+    const auto starting_player_pos = project_to<coords::ms>( omtstart );
+    load_map( map_origin.xy(), /*pump_events=*/true );
     u.setpos( starting_player_pos );
 
-    m.invalidate_map_cache( lev.z() );
-    m.build_map_cache( lev.z() );
+    m.invalidate_map_cache( map_origin.z() );
+    m.build_map_cache( map_origin.z() );
     // Do this after the map cache has been built!
-    start_loc.place_player( u, lev.z() );
+    start_loc.place_player( u, omtstart );
     // ...but then rebuild it, because we want visibility cache to avoid spawning monsters in sight
-    m.invalidate_map_cache( lev.z() );
-    m.build_map_cache( lev.z() );
+    m.invalidate_map_cache( map_origin.z() );
+    m.build_map_cache( map_origin.z() );
     // Start the overmap with out immediate neighborhood visible, this needs to be after place_player
     get_overmapbuffer( current_dimension_id_ ).reveal( u.abs_omt_pos().xy(),
             get_option<int>( "DISTANCE_INITIAL_VISIBILITY" ), 0 );
