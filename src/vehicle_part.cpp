@@ -118,7 +118,9 @@ vehicle_part::vehicle_part( vehicle_part &&source ) : vehicle_part()
 {
     copy_static_from( source );
     base = source.base.release();
-    items = std::move( source.items );
+    for( detached_ptr<item> &it : source.items.clear() ) {
+        items.push_back( std::move( it ) );
+    }
 }
 
 vehicle_part &vehicle_part::operator=( vehicle_part &&source )

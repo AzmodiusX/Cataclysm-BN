@@ -3090,7 +3090,6 @@ void vehicle_part::deserialize( JsonIn &jsin )
         // handle legacy format which didn't include the base item
         set_base( item::spawn( id.obj().item ) );
     }
-
     data.read( "mount_dx", mount.x() );
     data.read( "mount_dy", mount.y() );
     data.read( "open", open );

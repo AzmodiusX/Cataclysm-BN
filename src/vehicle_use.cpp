@@ -1803,11 +1803,13 @@ void vehicle::open_or_close( const int part_index, const bool opening )
     //find_lines_of_parts() doesn't return the part_index we passed, so we set it on it's own
     parts[part_index].open = opening;
     insides_dirty = true;
-    map &here = get_map();
-    here.set_transparency_cache_dirty( abs_sm_pos.z() );
-    const auto part_location = mount_to_bubble( parts[part_index].mount );
-    here.set_seen_cache_dirty( part_location );
-    const int dist = rl_dist( get_player_character().bub_pos(), part_location );
+    map &map = get_map();
+    if( map.inbounds( abs_sm_pos ) ) {
+        map.set_transparency_cache_dirty( abs_sm_pos.z() );
+        map.set_seen_cache_dirty( bub_part_location( part_index ) );
+    }
+    const auto part_location = abs_part_location( part_index );
+    const int dist = rl_dist( get_player_character().abs_pos(), part_location );
     if( dist < 20 ) {
         sfx::play_variant_sound( opening ? "vehicle_open" : "vehicle_close",
                                  parts[ part_index ].info().get_id().str(), 100 - dist * 3 );
@@ -2166,7 +2168,7 @@ void vehicle::interact_with( const tripoint_bub_ms &pos, int interact_part )
         }
         case PEEK_CURTAIN: {
             add_msg( _( "You carefully peek through the curtains." ) );
-            g->peek( you.bub_pos() - pos );
+            g->peek( pos - you.bub_pos() );
             return;
         }
         case USE_HOTPLATE: {

@@ -7498,7 +7498,19 @@ auto mapbuffer::open_door( const tripoint_abs_ms &p, bool inside,
         if( has_flag( str_OPENCLOSE_INSIDE, p, options ) && !inside ) {
             return false;
         }
-        return set_ter( p, ter.open, options );
+        if( !set_ter( p, ter.open, options ) ) {
+            return false;
+        }
+        sound_event se;
+        se.origin = p;
+        se.volume = 50;
+        se.category = sounds::sound_t::movement;
+        se.movement_noise = true;
+        se.description = _( "swish" );
+        se.id = "open_door";
+        se.variant = ter.id.str();
+        sounds::sound( se );
+        return true;
     }
 
     // Try furniture door
@@ -7507,11 +7519,38 @@ auto mapbuffer::open_door( const tripoint_abs_ms &p, bool inside,
         if( has_flag( str_OPENCLOSE_INSIDE, p, options ) && !inside ) {
             return false;
         }
-        return set_furn( p, furn.open, options );
+        if( !set_furn( p, furn.open, options ) ) {
+            return false;
+        }
+        sound_event se;
+        se.origin = p;
+        se.volume = 50;
+        se.category = sounds::sound_t::movement;
+        se.movement_noise = true;
+        se.description = _( "swish" );
+        se.id = "open_door";
+        se.variant = furn.id.str();
+        sounds::sound( se );
+        return true;
     }
 
     // Try vehicle door
-    return false;
+    const auto vp = veh_at( p, options );
+    if( !vp ) {
+        return false;
+    }
+
+    const int openable = vp->vehicle().next_part_to_open( vp->part_index(), !inside );
+    if( openable < 0 ) {
+        return false;
+    }
+
+    if( vp->vehicle().is_locked ) {
+        return false;
+    }
+
+    vp->vehicle().open_all_at( openable );
+    return true;
 }
 
 auto mapbuffer::close_door( const tripoint_abs_ms &p, bool inside, bool check_only,
@@ -7536,6 +7575,7 @@ auto mapbuffer::close_door( const tripoint_abs_ms &p, bool inside, bool check_on
             se.volume = 60;
             se.category = sounds::sound_t::movement;
             se.movement_noise = true;
+            se.description = _( "swish" );
             se.id = "close_door";
             se.variant = ter.id.str();
             sounds::sound( se );
@@ -7549,8 +7589,9 @@ auto mapbuffer::close_door( const tripoint_abs_ms &p, bool inside, bool check_on
             se.volume = 60;
             se.category = sounds::sound_t::movement;
             se.movement_noise = true;
+            se.description = _( "swish" );
             se.id = "close_door";
-            se.variant = ter.id.str();
+            se.variant = furn.id.str();
             sounds::sound( se );
             return set_furn( p, furn.close, options );
         }

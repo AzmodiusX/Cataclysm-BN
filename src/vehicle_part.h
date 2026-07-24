@@ -288,6 +288,7 @@ struct vehicle_part {
         /** Copies static (i.e. non-item) properties from another part */
         void copy_static_from( const vehicle_part &source );
 
+        /** Restore the base item for a part that was loaded or moved without one. */
         /** What type of part is this? */
         vpart_id id;
 
