@@ -8699,6 +8699,71 @@ auto mapbuffer::cheap_light_at( const tripoint_abs_ms &p,
     return ambient;
 }
 
+auto mapbuffer::get_heat_radiation( const tripoint_abs_ms &location, const bool direct,
+                                    const mapbuffer_lookup_options options ) -> int
+{
+    int temp_mod = 0;
+    int best_fire = 0;
+
+    const auto visit_tile = [&]( const abs_tile_handle &tile ) {
+        const auto dest = tile.abs_pos();
+        int heat_intensity = 0;
+        if( const auto *fire = tile.get_field_entry( fd_fire ) ) {
+            heat_intensity = fire->get_field_intensity();
+        } else {
+            heat_intensity = tile.ter_obj().heat_radiation;
+        }
+        if( heat_intensity == 0 || !sees( location, dest, -1, options ) ) {
+            return;
+        }
+
+        const int fire_dist = std::max( 1, square_dist( dest, location ) );
+        temp_mod += 6 * heat_intensity * heat_intensity / fire_dist;
+        best_fire = std::max( best_fire, heat_intensity );
+    };
+
+    if( options.mode == mapbuffer_lookup_mode::simulated_only ) {
+        for( const auto &tile : simulated_tiles_in_radius( *this, location, 6 ) ) {
+            visit_tile( tile );
+        }
+    } else {
+        for( const tripoint_abs_ms &dest : points_in_radius( location, 6 ) ) {
+            const auto tile = abs_tile_handle::fetch_terrain_only( *this, dest, options );
+            if( tile ) {
+                visit_tile( *tile );
+            }
+        }
+    }
+
+    return direct ? best_fire : temp_mod;
+}
+
+auto mapbuffer::get_convection_temperature( const tripoint_abs_ms &location,
+        const mapbuffer_lookup_options options ) -> int
+{
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, location, options );
+    if( !tile ) {
+        return 0;
+    }
+
+    int lava_mod = 0;
+    if( const auto trap = get_trap( location, options ); trap && *trap == tr_lava ) {
+        lava_mod = fd_fire.obj().get_convection_temperature_mod();
+    }
+
+    int temp_mod = 0;
+    if( const auto *fields = get_field( location, options ) ) {
+        for( const auto &entry : *fields ) {
+            if( entry.first.obj().has_fire ) {
+                lava_mod = 0;
+            }
+            temp_mod += entry.second.convection_temperature_mod();
+        }
+    }
+
+    return temp_mod + lava_mod;
+}
+
 // ----- Field operations -----
 
 auto mapbuffer::add_splatter( const field_type_id &type, const tripoint_abs_ms &where,

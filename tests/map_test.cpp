@@ -26,6 +26,7 @@
 #include "vehicle.h"
 #include "vehicle_part.h"
 #include "vpart_range.h"
+#include "weather.h"
 
 #include <memory>
 #include <optional>
@@ -206,6 +207,29 @@ TEST_CASE("lateral movement rejects impassable absolute tiles", "[movement][mapb
     CHECK( g->u.abs_pos() == test_origin );
     CHECK_FALSE( g->walk_move( furniture ) );
     CHECK( g->u.abs_pos() == test_origin );
+}
+
+TEST_CASE("absolute temperature includes fire across a submap boundary",
+          "[temperature][mapbuffer][coordinates]") {
+    clear_all_state();
+
+    const auto player_pos = tripoint_abs_ms{ SEEX - 1, SEEY / 2, 0 };
+    g->place_player( player_pos );
+    g->new_game = false;
+    auto &buffer = g->u.get_mapbuffer();
+    const auto fire_pos = player_pos + tripoint_rel_ms::east();
+
+    REQUIRE( buffer.set_ter( player_pos, ter_id( "t_floor" ) ) );
+    REQUIRE( buffer.set_ter( fire_pos, ter_id( "t_floor" ) ) );
+    REQUIRE( buffer.add_field( fire_pos, {
+        .type = fd_fire,
+        .intensity = 1,
+    } ) );
+
+    get_weather().clear_temp_cache();
+    CHECK( buffer.get_heat_radiation( player_pos, false ) > 0 );
+    CHECK( buffer.get_convection_temperature( fire_pos ) > 0 );
+    CHECK( get_weather().get_temperature( player_pos ) > get_weather().temperature );
 }
 
 TEST_CASE("destroy_grabbed_furniture") {

@@ -1411,6 +1411,16 @@ class mapbuffer
         auto cheap_light_at( const tripoint_abs_ms &p,
         mapbuffer_lookup_options options = {} ) -> float;
 
+        /// Return heat radiation from nearby fire and heat-emitting terrain.
+        /// With @p direct, return the intensity of the strongest source instead
+        /// of the accumulated temperature modifier.
+        auto get_heat_radiation( const tripoint_abs_ms &p, bool direct,
+        mapbuffer_lookup_options options = {} ) -> int;
+
+        /// Return convection heat from lava and fields at @p p.
+        auto get_convection_temperature( const tripoint_abs_ms &p,
+        mapbuffer_lookup_options options = {} ) -> int;
+
         // ----- Field operations -----
 
         /// Add a field splatter at position.

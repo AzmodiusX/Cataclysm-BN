@@ -1220,15 +1220,14 @@ auto weather_manager::get_temperature( const tripoint_abs_ms &location ) const -
     // local modifier
     int temp_mod = 0;
 
-    const auto local_pos = abs_to_bub( location );
-
     if( !g->new_game && !g->swapping_dimensions ) {
-        temp_mod += get_heat_radiation( local_pos, false );
-        temp_mod += get_convection_temperature( local_pos );
+        auto &buffer = g->m.get_mapbuffer();
+        temp_mod += buffer.get_heat_radiation( location, false );
+        temp_mod += buffer.get_convection_temperature( location );
     }
 
     const int added_f = ( g->new_game || g->swapping_dimensions ) ? 0 :
-                        g->m.get_temperature( local_pos ) + temp_mod;
+                        g->m.get_mapbuffer().get_temperature( location ).value_or( 0 ) + temp_mod;
 
     // Calculate base temperature with underground influence
     units::temperature base_temp;

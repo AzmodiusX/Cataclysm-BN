@@ -6127,7 +6127,7 @@ void Character::update_bodytemp( const map &m, const weather_manager &weather )
     const int sunlight_warmth = weather::is_in_sunlight( m, bub_pos(), weather.weather_id )
                                 ? ( weather.weather_id->sun_intensity == sun_intensity_type::high ? 1000 : 500 )
                                 : 0;
-    const int best_fire = get_heat_radiation( bub_pos(), true );
+    const int best_fire = get_mapbuffer().get_heat_radiation( abs_pos(), true );
     const bool pyromania = has_trait( trait_PYROMANIA );
 
     const int lying_warmth = use_floor_warmth ? floor_warmth( bub_pos() ) : 0;
@@ -6144,7 +6144,7 @@ void Character::update_bodytemp( const map &m, const weather_manager &weather )
     const int mutation_heat_bonus = mutation_heat_high - mutation_heat_low;
 
     // Note: this is included in @ref weather::get_temperature(), so don't add to bodytemp!
-    const int h_radiation = get_heat_radiation( bub_pos(), false );
+    const int h_radiation = get_mapbuffer().get_heat_radiation( abs_pos(), false );
 
     // If you're standing in water, air temperature is replaced by water temperature. No wind.
     const ter_id ter_at_pos = m.ter( bub_pos() );
