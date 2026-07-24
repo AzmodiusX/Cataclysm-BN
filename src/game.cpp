@@ -12909,6 +12909,77 @@ void game::apply_movement_effects()
         }
     }
 
+    if( !here.has_flag( "SEALED", dest ) ) {
+        ZoneScopedN( "apply_movement_effects_list_items" );
+        const auto items = here.get_items( dest );
+        const bool list_items = get_option<bool>( "NO_AUTO_PICKUP_ZONES_LIST_ITEMS" ) ||
+                                !check_zone( zone_type_id( "NO_AUTO_PICKUP" ), dest );
+        if( list_items && items != nullptr && !items->empty() ) {
+            if( u.is_blind() && u.clairvoyance() < 1 ) {
+                add_msg( _( "There's something here, but you can't see what it is." ) );
+            } else {
+                struct item_summary {
+                    const item *example;
+                    int count;
+                };
+                std::vector<item_summary> summaries;
+                for( item *const current : *items ) {
+                    const bool by_charges = current->count_by_charges();
+                    const auto existing = std::ranges::find_if( summaries,
+                    [&]( const item_summary &summary ) {
+                        if( summary.example->count_by_charges() != by_charges ) {
+                            return false;
+                        }
+                        return by_charges ? current->tname() == summary.example->tname() :
+                               current->display_name() == summary.example->display_name();
+                    } );
+                    if( existing != summaries.end() ) {
+                        existing->count += by_charges ? current->charges : 1;
+                    } else {
+                        summaries.push_back( {
+                            .example = current,
+                            .count = by_charges ? current->charges : 1,
+                        } );
+                    }
+                    if( summaries.size() > 10 ) {
+                        break;
+                    }
+                }
+
+                std::vector<std::string> names;
+                names.reserve( summaries.size() );
+                for( const auto &summary : summaries ) {
+                    const auto name = summary.example->count_by_charges() ?
+                                      summary.example->tname( summary.count ) :
+                                      summary.example->display_name( summary.count );
+                    names.push_back( string_format( vgettext( "%1$d %2$s", "%1$d %2$s",
+                                               summary.count ), summary.count, name ) );
+                }
+
+                int and_the_rest = 0;
+                auto index = size_t{ 0 };
+                for( const auto &summary : summaries ) {
+                    if( index++ > 1 ) {
+                        and_the_rest += summary.count;
+                    }
+                }
+                if( names.size() == 1 ) {
+                    add_msg( _( "You see here %s." ), names.front() );
+                } else if( names.size() == 2 ) {
+                    add_msg( _( "You see here %s and %s." ), names[0], names[1] );
+                } else if( names.size() == 3 ) {
+                    add_msg( _( "You see here %s, %s, and %s." ), names[0], names[1], names[2] );
+                } else if( and_the_rest < 7 ) {
+                    add_msg( vgettext( "You see here %s, %s and %d more item.",
+                                       "You see here %s, %s and %d more items.",
+                                       and_the_rest ), names[0], names[1], and_the_rest );
+                } else {
+                    add_msg( _( "You see here %s and many more items." ), names.front() );
+                }
+            }
+        }
+    }
+
     if( here.has_flag( "ROUGH", dest ) && ( !u.in_vehicle ) && ( !u.is_mounted() ) ) {
         if( one_in( 5 ) && u.get_armor_bash( bodypart_id( "foot_l" ) ) < rng( 2, 5 ) ) {
             add_msg( m_bad, _( "You hurt your left foot on the %s!" ),
