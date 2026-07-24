@@ -65,6 +65,32 @@ TEST_CASE("vehicle_collision_with_wall_terminates", "[vehicle]") {
     CHECK(std::abs(veh_ptr->velocity) < 222);
 }
 
+TEST_CASE("map_vehicle_placement_uses_resident_tiles", "[vehicle][mapbuffer]") {
+    clear_all_state();
+    auto& here = get_map();
+    build_test_map(ter_id("t_pavement"));
+    clear_vehicles();
+
+    // A map facade can operate on resident submaps that are not currently
+    // receiving simulation ticks.  Placement still needs to validate their
+    // terrain and vehicle footprint.
+    MAPBUFFER.set_simulated_submaps({});
+
+    const auto vehicle_pos = bub_test_origin();
+    auto* const vehicle = here.add_vehicle(
+        vproto_id("bicycle_test"), vehicle_pos, 0_degrees, 0, 0, false );
+    REQUIRE(vehicle != nullptr);
+    CHECK(here.veh_at(vehicle_pos).has_value());
+
+    const auto wall_pos = vehicle_pos + point_rel_ms( 10, 0 );
+    REQUIRE(here.ter_set(wall_pos, ter_id("t_concrete_wall")));
+
+    const auto blocked_vehicle = here.add_vehicle(
+        vproto_id("bicycle_test"), wall_pos, 0_degrees, 0, 0, false );
+    CHECK(blocked_vehicle == nullptr);
+    CHECK_FALSE(MAPBUFFER.veh_at(map_local_to_abs(here, wall_pos)).has_value());
+}
+
 TEST_CASE("vehicle_cache_matches_defensive_rebuild", "[vehicle][cache]") {
     clear_all_state();
     auto& here = get_map();

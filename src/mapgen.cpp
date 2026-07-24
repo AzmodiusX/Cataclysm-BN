@@ -6032,7 +6032,9 @@ vehicle *map::add_vehicle( const std::variant<vgroup_id, vproto_id> &type_,
     veh->set_facing_and_pivot( dir, tripoint_mnt_veh::zero(), false );
     //debugmsg("adding veh: %d, sm: %d,%d,%d, pos: %d, %d", veh, veh->smx, veh->smy, veh->smz, veh->posx, veh->posy);
     std::unique_ptr<vehicle> placed_vehicle_up =
-        get_mapbuffer().add_vehicle_to_mapbuffer( std::move( veh ), merge_wrecks );
+        get_mapbuffer().add_vehicle_to_mapbuffer(
+            std::move( veh ), merge_wrecks,
+            mapbuffer_lookup_options{ .mode = mapbuffer_lookup_mode::resident_only } );
     vehicle *placed_vehicle = placed_vehicle_up.get();
 
     if( placed_vehicle != nullptr ) {
