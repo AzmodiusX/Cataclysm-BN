@@ -12923,7 +12923,7 @@ void game::apply_movement_effects()
                 for( item *const current : *items ) {
                     const bool by_charges = current->count_by_charges();
                     const auto existing = std::ranges::find_if( summaries,
-                    [&]( const item_summary &summary ) {
+                    [&]( const item_summary & summary ) {
                         if( summary.example->count_by_charges() != by_charges ) {
                             return false;
                         }
@@ -12950,7 +12950,7 @@ void game::apply_movement_effects()
                                       summary.example->tname( summary.count ) :
                                       summary.example->display_name( summary.count );
                     names.push_back( string_format( vgettext( "%1$d %2$s", "%1$d %2$s",
-                                               summary.count ), summary.count, name ) );
+                                                    summary.count ), summary.count, name ) );
                 }
 
                 int and_the_rest = 0;

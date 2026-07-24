@@ -1,13 +1,13 @@
-#include "cached_item_options.h"
 #include "avatar.h"
+#include "cached_item_options.h"
 #include "calendar.h"
 #include "catch/catch.hpp"
 #include "enums.h"
 #include "flag.h"
 #include "item.h"
 #include "itype.h"
-#include "math_defines.h"
 #include "map_helpers.h"
+#include "math_defines.h"
 #include "player_helpers.h"
 #include "ret_val.h"
 #include "type_id.h"
@@ -83,13 +83,14 @@ TEST_CASE("gun_layer", "[item]") {
 TEST_CASE("ethereal_item_with_malformed_counter_expires_without_throwing", "[item]") {
     clear_map();
     clear_avatar();
-    avatar &dummy = get_avatar();
+    avatar& dummy = get_avatar();
     auto ethereal = item::spawn("rock");
     ethereal->set_flag(flag_ETHEREAL_ITEM);
     ethereal->set_var("ethereal", "not-a-number");
 
-    CHECK_NOTHROW(ethereal = dummy.get_mapbuffer().process_item_at( dummy.abs_pos(),
-                                  std::move(ethereal), false ));
+    CHECK_NOTHROW(
+        ethereal =
+            dummy.get_mapbuffer().process_item_at(dummy.abs_pos(), std::move(ethereal), false));
     CHECK_FALSE(ethereal);
 }
 

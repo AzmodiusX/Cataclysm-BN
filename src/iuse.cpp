@@ -2354,9 +2354,9 @@ int iuse::hammer( Character *p, item *it, bool, const tripoint_abs_ms *pt )
     };
 
     const std::optional<tripoint_bub_ms> pnt_ = pt != nullptr
-        ? std::optional<tripoint_bub_ms>( abs_to_bub( *pt ) )
-        : choose_adjacent_highlight( _( "Pry where?" ), _( "There is nothing to pry nearby." ), f,
-                                      false );
+            ? std::optional<tripoint_bub_ms>( abs_to_bub( *pt ) )
+            : choose_adjacent_highlight( _( "Pry where?" ), _( "There is nothing to pry nearby." ), f,
+                                         false );
     if( !pnt_ ) {
         return 0;
     }
@@ -2401,9 +2401,9 @@ int iuse::crowbar( Character *p, item *it, bool, const tripoint_abs_ms *pt )
     };
 
     const std::optional<tripoint_bub_ms> pnt_ = pt != nullptr
-        ? std::optional<tripoint_bub_ms>( abs_to_bub( *pt ) )
-        : choose_adjacent_highlight( _( "Pry where?" ), _( "There is nothing to pry nearby." ), can_pry,
-                                      false );
+            ? std::optional<tripoint_bub_ms>( abs_to_bub( *pt ) )
+            : choose_adjacent_highlight( _( "Pry where?" ), _( "There is nothing to pry nearby." ), can_pry,
+                                         false );
     if( !pnt_ ) {
         return 0;
     }

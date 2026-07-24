@@ -104,24 +104,24 @@ class player_activity
             return type.is_null();
         }
 
-    int get_moves_left() const {
-        if( actor ) {
-            if( actor->progress.invalid() ) {
-                return moves_left;
+        int get_moves_left() const {
+            if( actor ) {
+                if( actor->progress.invalid() ) {
+                    return moves_left;
+                }
+                return actor->progress.get_moves_left();
             }
-            return actor->progress.get_moves_left();
-        }
-        return moves_left;
+            return moves_left;
         }
 
-    bool complete() const {
-        if( actor ) {
-            if( actor->progress.invalid() ) {
-                return moves_left <= 0;
+        bool complete() const {
+            if( actor ) {
+                if( actor->progress.invalid() ) {
+                    return moves_left <= 0;
+                }
+                return actor->progress.complete();
             }
-            return actor->progress.complete();
-        }
-        return moves_left <= 0;
+            return moves_left <= 0;
         }
         //Wrapper func to return assistants array properly
         std::vector<weak_ptr_fast<npc>> &assistants();

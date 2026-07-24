@@ -4665,7 +4665,7 @@ void npc::go_to_omt_destination()
     if( !mb.passable( centre_sub ) ) {
         for( const auto &tile : simulated_tiles_in_radius( mb, centre_sub, 2 ) ) {
             const auto pt = tile.abs_pos();
-        if( mb.passable( pt ) ) {
+            if( mb.passable( pt ) ) {
                 centre_sub = pt;
                 break;
             }

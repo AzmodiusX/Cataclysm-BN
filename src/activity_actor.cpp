@@ -120,7 +120,8 @@ static const trait_id trait_SPIRITUAL( "SPIRITUAL" );
 
 static const efftype_id effect_ai_waiting( "ai_waiting" );
 
-namespace {
+namespace
+{
 
 auto restore_legacy_progress( activity_actor &actor, const JsonObject &data,
                               std::string_view task_name ) -> void
@@ -3187,10 +3188,12 @@ void vehicle_work_actor::finish( player_activity &act, Character &who )
     act.set_to_null();
     if( !p.is_npc() ) {
         const auto find_vehicle = [&]() -> vehicle * {
-            if( const optional_vpart_position current = here.veh_at( part_pos ) ) {
+            if( const optional_vpart_position current = here.veh_at( part_pos ) )
+            {
                 return &current->vehicle();
             }
-            for( const tripoint_abs_ms &point : vehicle_points ) {
+            for( const tripoint_abs_ms &point : vehicle_points )
+            {
                 if( const optional_vpart_position current = here.veh_at( point ) ) {
                     return &current->vehicle();
                 }
@@ -4303,7 +4306,7 @@ void move_loot_activity_actor::do_turn( player_activity &act, Character &who )
                     // and unload them
                     who.cancel_activity();
                     who.assign_activity( std::make_unique<player_activity>(
-                                               std::make_unique<move_loot_activity_actor>() ) );
+                                             std::make_unique<move_loot_activity_actor>() ) );
                     who.set_moves( 0 );
                     g->reload_npcs();
                     return;
@@ -4922,7 +4925,7 @@ void pulp_actor::do_turn( player_activity &act, Character &who )
             if( x_in_y( pulp_power, corpse->volume() / units::legacy_volume_factor ) ) {
                 const int radius = mess_radius + x_in_y( pulp_power, 500 ) + x_in_y( pulp_power, 1000 );
                 const tripoint_abs_ms dest( pos + tripoint( rng( -radius, radius ),
-                                                    rng( -radius, radius ), 0 ) );
+                                            rng( -radius, radius ), 0 ) );
                 const field_type_id type_blood = ( mess_radius > 1 && x_in_y( pulp_power, 10000 ) ) ?
                                                  corpse->get_mtype()->gibType() :
                                                  corpse->get_mtype()->bloodType();
@@ -5232,7 +5235,7 @@ void start_fire_actor::do_turn( player_activity &act, Character &who )
     const int progress = static_cast<int>( light *
                                            action_time_scale::activity_progress_per_tick() );
     activity_actor::progress.mod_moves_left( -std::min( progress,
-                                                         activity_actor::progress.get_moves_left() ) );
+            activity_actor::progress.get_moves_left() ) );
     if( light < 0.1 ) {
         add_msg( m_bad, _( "There is not enough sunlight to start a fire now.  You stop trying." ) );
         who.cancel_activity();

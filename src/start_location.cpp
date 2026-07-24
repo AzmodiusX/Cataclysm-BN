@@ -284,12 +284,12 @@ struct rate_location_options {
 static auto rate_location( const rate_location_options &options,
                            const tripoint_abs_ms &p ) -> int
 {
-    const auto in_bounds = [&]( const tripoint_abs_ms &pt ) {
+    const auto in_bounds = [&]( const tripoint_abs_ms & pt ) {
         return pt.x() >= options.map_min.x() && pt.x() <= options.map_max.x() &&
                pt.y() >= options.map_min.y() && pt.y() <= options.map_max.y() &&
                pt.z() == options.map_min.z();
     };
-    const auto checked_index = [&]( const tripoint_abs_ms &pt ) {
+    const auto checked_index = [&]( const tripoint_abs_ms & pt ) {
         return ( pt.x() - options.map_min.x() ) * options.checked_sy +
                ( pt.y() - options.map_min.y() );
     };
@@ -306,7 +306,7 @@ static auto rate_location( const rate_location_options &options,
 
     // If not checked yet and either can be moved into, can be bashed down or opened,
     // add it on the top of the stack.
-    const auto maybe_add = [&]( const tripoint_abs_ms &pt, const tripoint_abs_ms &from ) {
+    const auto maybe_add = [&]( const tripoint_abs_ms & pt, const tripoint_abs_ms & from ) {
         if( !in_bounds( pt ) || options.checked[checked_index( pt )] >= options.attempt ) {
             return;
         }
@@ -373,7 +373,7 @@ void start_location::place_player( player &u, const tripoint_abs_omt &omtstart )
     // Try some random points at start
 
     int tries = 0;
-    const auto check_spot = [&]( const tripoint_abs_ms &pt ) {
+    const auto check_spot = [&]( const tripoint_abs_ms & pt ) {
         tries++;
         const int rate = rate_location( {
             .buffer = buffer,
@@ -396,7 +396,7 @@ void start_location::place_player( player &u, const tripoint_abs_omt &omtstart )
 
     while( !found_good_spot && tries < 100 ) {
         const auto rand_point = anchor + tripoint_rel_ms( rng( 0, SEEX * 2 - 1 ),
-                              rng( 0, SEEY * 2 - 1 ), 0 );
+                                rng( 0, SEEY * 2 - 1 ), 0 );
         check_spot( rand_point );
     }
     // If we haven't got a good location by now, screw it and brute force it

@@ -8705,7 +8705,7 @@ auto mapbuffer::get_heat_radiation( const tripoint_abs_ms &location, const bool 
     int temp_mod = 0;
     int best_fire = 0;
 
-    const auto visit_tile = [&]( const abs_tile_handle &tile ) {
+    const auto visit_tile = [&]( const abs_tile_handle & tile ) {
         const auto dest = tile.abs_pos();
         int heat_intensity = 0;
         if( const auto *fire = tile.get_field_entry( fd_fire ) ) {

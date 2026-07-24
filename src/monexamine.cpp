@@ -1324,7 +1324,7 @@ void monexamine::play_with( monster &z )
     you.assign_activity( std::make_unique<player_activity>(
                              std::make_unique<play_with_pet_actor>( g->shared_from( z ), pet_name ) ) );
     you.activity->get_actor()->progress.emplace( "playing with pet",
-                                                 to_moves<int>( time_duration::from_turns( turns ) ) );
+            to_moves<int>( time_duration::from_turns( turns ) ) );
     z.add_effect( effect_ai_waiting, time_duration::from_turns( turns ) );
     z.on_pet_bonding( you.as_character() );
 }

@@ -111,13 +111,13 @@ TEST_CASE("modify character stamina", "[stamina][modify]") {
         }
 
         WHEN("they lose all of their remaining stamina") {
-            dummy.mod_stamina( -( dummy.get_stamina() ), false );
+            dummy.mod_stamina(-(dummy.get_stamina()), false);
 
             THEN("stamina is at zero") { CHECK(dummy.get_stamina() == 0); }
         }
 
         WHEN("they lose more stamina than they have remaining") {
-            dummy.mod_stamina( -( dummy.get_stamina() + 1 ), false );
+            dummy.mod_stamina(-(dummy.get_stamina() + 1), false);
 
             THEN("stamina is at zero") { CHECK(dummy.get_stamina() == 0); }
         }
