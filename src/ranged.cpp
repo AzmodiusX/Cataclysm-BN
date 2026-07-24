@@ -255,8 +255,7 @@ auto get_shot_target( const shot_target_options &options ) -> tripoint_abs_ms
 
     const auto no_overshoot = options.proj.has_effect( ammo_effect_NO_OVERSHOOT ) ||
                               ( g->critter_at( options.target ) == nullptr &&
-                                MAPBUFFER_REGISTRY.get( g->get_current_dimension_id() ).passable( options.target ).value_or(
-                                    false ) );
+                                MAPBUFFER_REGISTRY.get( g->get_current_dimension_id() ).passable( options.target ) );
     const auto offset = std::min<int>( range, std::sqrt( aim.missed_by_tiles ) );
     auto new_range = no_overshoot ? range + rng( -offset, offset ) : rng( range - offset,
                      options.proj.range );

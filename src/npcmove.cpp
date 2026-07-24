@@ -328,7 +328,7 @@ static bool clear_shot_reach( mapbuffer &mb, const tripoint_abs_ms &from,
         Creature *inter = g->critter_at( p );
         if( check_ally && inter != nullptr ) {
             return false;
-        } else if( !mb.passable( p ).value_or( false ) ) {
+        } else if( !mb.passable( p ) ) {
             return false;
         } else if( mb.obstructed_by_vehicle_rotation( last_point, p ) ) {
             return false;
@@ -2805,7 +2805,7 @@ void npc::move_to( const tripoint_abs_ms &pt, bool no_bashing, std::set<tripoint
         if( is_mounted() ) { move_pause(); return; }
         moves -= 100;
         moved = true;
-    } else if( buf.passable( p ).value_or( false ) && !buf.has_flag( "DOOR", p ) ) {
+    } else if( buf.passable( p ) && !buf.has_flag( "DOOR", p ) ) {
         bool diag = trigdist && abs_pos().x() != p.x() && abs_pos().y() != p.y();
         if( is_mounted() ) {
             double base_moves = run_cost( buf.combined_movecost( abs_here, p ),
@@ -3041,7 +3041,7 @@ static std::optional<tripoint_abs_ms> nearest_passable( mapbuffer &mb,
         const tripoint_abs_ms &p,
         const tripoint_abs_ms &closest_to )
 {
-    if( mb.passable( p ).value_or( false ) ) {
+    if( mb.passable( p ) ) {
         return p;
     }
 
@@ -3054,7 +3054,7 @@ static std::optional<tripoint_abs_ms> nearest_passable( mapbuffer &mb,
     } );
     auto iter = std::find_if( candidates.begin(), candidates.end(), [&mb,
     &p]( const tripoint_abs_ms & pt ) {
-        return mb.passable( pt ).value_or( false ) && !mb.obstructed_by_vehicle_rotation( p, pt );
+        return mb.passable( pt ) && !mb.obstructed_by_vehicle_rotation( p, pt );
     } );
     if( iter != candidates.end() ) {
         return *iter;
@@ -3083,7 +3083,7 @@ void npc::move_away_from( const std::vector<sphere> &spheres, bool no_bashing )
 
     std::vector<tripoint_abs_ms> escape_points;
     for( const auto &tile : simulated_tiles_in_rectangle( mb, minp, maxp ) ) {
-        if( mb.passable( tile.abs_pos() ).value_or( false ) ) {
+        if( mb.passable( tile.abs_pos() ) ) {
             escape_points.push_back( tile.abs_pos() );
         }
     }
@@ -4662,10 +4662,10 @@ void npc::go_to_omt_destination()
     // TODO: fix point types
     auto centre_sub = project_to<coords::ms>( omt_path.back() );
     centre_sub += tripoint_rel_ms( SEEX, SEEY, 0 );
-    if( !mb.passable( centre_sub ).value_or( false ) ) {
+    if( !mb.passable( centre_sub ) ) {
         for( const auto &tile : simulated_tiles_in_radius( mb, centre_sub, 2 ) ) {
             const auto pt = tile.abs_pos();
-            if( mb.passable( pt ).value_or( false ) ) {
+        if( mb.passable( pt ) ) {
                 centre_sub = pt;
                 break;
             }

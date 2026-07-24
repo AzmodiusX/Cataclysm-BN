@@ -63,6 +63,7 @@ TEST_CASE("projectiles_through_obstacles", "[projectile]") {
 
     map& map = get_map();
     auto& here = map.get_mapbuffer();
+    build_test_map(ter_id("t_dirt"));
     // Ensure that a projectile fired from a gun can pass through a wall
     // First, set up a test area - three tiles in a row
     // One on either side clear, with a wooden wall in the middle

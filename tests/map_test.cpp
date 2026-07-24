@@ -188,6 +188,26 @@ TEST_CASE("moving_between_adjacent_pit_traps") {
     }
 }
 
+TEST_CASE("lateral movement rejects impassable absolute tiles", "[movement][mapbuffer][coordinates]") {
+    clear_all_state();
+    g->place_player( test_origin );
+    auto &here = g->u.get_mapbuffer();
+    const auto wall = test_origin + tripoint_rel_ms::east();
+    const auto furniture = test_origin + tripoint_rel_ms::south();
+
+    REQUIRE( here.set_ter( test_origin, ter_id( "t_floor" ) ) );
+    REQUIRE( here.set_ter( wall, ter_id( "t_brick_wall" ) ) );
+    REQUIRE( here.set_ter( furniture, ter_id( "t_floor" ) ) );
+    REQUIRE( here.set_furn( furniture, furn_id( "f_safe_c" ) ) );
+    CHECK_FALSE( here.passable( wall ) );
+    CHECK_FALSE( here.passable( furniture ) );
+
+    CHECK_FALSE( g->walk_move( wall ) );
+    CHECK( g->u.abs_pos() == test_origin );
+    CHECK_FALSE( g->walk_move( furniture ) );
+    CHECK( g->u.abs_pos() == test_origin );
+}
+
 TEST_CASE("destroy_grabbed_furniture") {
     clear_all_state();
     GIVEN("Furniture grabbed by the player") {

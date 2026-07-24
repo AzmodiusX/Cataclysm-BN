@@ -928,8 +928,9 @@ class mapbuffer
         auto find_clear_path( const tripoint_abs_ms &source,
                               const tripoint_abs_ms &destination ) -> std::vector<tripoint_abs_ms>;
 
+        /// Returns false when the tile cannot be resolved under the lookup policy.
         auto passable( const tripoint_abs_ms &p,
-        mapbuffer_lookup_options options = {} ) -> std::optional<bool>;
+        mapbuffer_lookup_options options = {} ) -> bool;
         auto ter_vars( const tripoint_abs_ms &p,
         mapbuffer_lookup_options options = {} ) -> data_vars::data_set *;
         auto furn_vars( const tripoint_abs_ms &p,

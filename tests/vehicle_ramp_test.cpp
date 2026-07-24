@@ -52,6 +52,7 @@ static void set_ramp(const int transit_x, bool use_ramp, bool up) {
     Character& player_character = get_player_character();
     // Move player somewhere safe
     REQUIRE_FALSE(player_character.in_vehicle);
+    player_character.setpos(test_origin);
 
     auto& map = get_map();
     auto& here = map.get_mapbuffer();
@@ -69,6 +70,8 @@ static void set_ramp(const int transit_x, bool use_ramp, bool up) {
         //      z-1   ......  rdl  rUh
         //                    60   61
         for (int y = 0; y < T_MAPSIZE_Y; y++) {
+            here.set_ter( ramp_test_abs( tripoint_abs_ms( bubx - 1, y, lower_zlevel ) ),
+                          ter_id( "t_pavement" ) );
             for (int x = 0; x < bubx; x++) {
                 const int mid = up ? upper_zlevel : lower_zlevel;
                 here.set_ter(ramp_test_abs(tripoint_abs_ms(x, y, mid - 2)), ter_id("t_rock"));

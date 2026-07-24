@@ -386,7 +386,7 @@ auto projectile_attack( const projectile &proj_arg, const tripoint_abs_ms &sourc
     // If we were targetting a tile rather than a monster, don't overshoot
     // Unless the target was a wall, then we are aiming high enough to overshoot
     const bool no_overshoot = proj.has_effect( ammo_effect_NO_OVERSHOOT ) ||
-                              ( g->critter_at( target_arg ) == nullptr && mb.passable( target_arg ).value_or( false ) );
+                              ( g->critter_at( target_arg ) == nullptr && mb.passable( target_arg ) );
 
     double extend_to_range = no_overshoot ? range : proj_arg.range;
 
@@ -699,10 +699,6 @@ auto projectile_attack( const projectile &proj_arg, const tripoint_abs_ms &sourc
             .sprite = custom_bullet_sprite,
             .rotate = should_rotate,
         } );
-    }
-
-    if( !mb.passable( tp ) ) {
-        tp = prev_point;
     }
 
     drop_or_embed_projectile( attack );

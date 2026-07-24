@@ -199,7 +199,7 @@ bool monster::is_immune_field( const field_type_id &fid ) const
 bool monster::will_move_to( const tripoint_abs_ms &p ) const
 {
     mapbuffer &buf = get_mapbuffer();
-    if( !buf.passable( p ).value_or( false ) ) {
+    if( !buf.passable( p ) ) {
         auto above_p = p + tripoint_above;
         if( digging() ) {
             if( !buf.has_flag( "BURROWABLE", p ) ) {
@@ -2948,7 +2948,7 @@ int monster::turns_to_reach( const point_bub_ms &p )
     double turns = 0.;
     for( size_t i = 0; i < path.size(); i++ ) {
         const tripoint_abs_ms &next = path[i];
-        if( !mb.passable( next ).value_or( false ) ) {
+        if( !mb.passable( next ) ) {
             // No bashing through, it looks stupid when you go back and find
             // the doors intact.
             return 999;

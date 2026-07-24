@@ -1273,11 +1273,10 @@ vehicle *game::place_vehicle_nearby(
 
 static auto npc_can_place_at_abs( mapbuffer &buffer, const tripoint_abs_ms &pos ) -> bool
 {
-    const auto passable = buffer.passable( pos );
     const auto player_blocks = buffer.get_dimension_id() ==
                                g->get_current_dimension_id() &&
                                g->u.abs_pos() == pos;
-    return passable && *passable && !player_blocks &&
+    return buffer.passable( pos ) && !player_blocks &&
            buffer.creature_tracker().find( pos ) == nullptr &&
            buffer.find_active_npc( pos ) == nullptr;
 }
@@ -13363,7 +13362,7 @@ auto game::grabbed_furn_move( const tripoint_rel_ms &dp ) -> bool
     const auto fdest = ramp_adjusted_furniture_destination( here, gp, furniture_dp );
     const auto ramp_drag = fdest.z() != gp.z() || dp.z() != 0 ||
                            is_ramp_tile_or_mate( here, fdest );
-    const auto destination_passable = here.passable( fdest ).value_or( false );
+    const auto destination_passable = here.passable( fdest );
     const auto destination_furniture = here.furn( fdest ).value_or( f_null );
     // Check floor: floorless tiles don't need to be flat and have no traps
     const auto has_floor = here.has_floor( fdest );
@@ -13489,7 +13488,7 @@ auto game::grabbed_furn_move( const tripoint_rel_ms &dp ) -> bool
     }
     u.grab_point = fdest - player_next_pos;
 
-    if( pushing_furniture && !here.passable( gp ).value_or( false ) ) {
+    if( pushing_furniture && !here.passable( gp ) ) {
         // Not sure how that chair got into a wall, but don't let player follow.
         add_msg( _( "You let go of the %1$s as it slides past %2$s." ),
                  furntype.name(), here.tername( fdest ) );

@@ -4433,8 +4433,8 @@ auto mapbuffer::is_cornerfloor( const tripoint_abs_ms &p,
                                 const mapbuffer_lookup_options options ) -> bool
 {
     // Check if the tile itself is passable
-    const auto passable_opt = passable( p, options );
-    if( !passable_opt.value_or( false ) ) {
+    const auto tile_passable = passable( p, options );
+    if( !tile_passable ) {
         return false;
     }
 
@@ -4442,7 +4442,7 @@ auto mapbuffer::is_cornerfloor( const tripoint_abs_ms &p,
     std::set<tripoint_abs_ms> impassable_adjacent;
     for( const auto &pt : simulated_tiles_in_radius( *this, p, 1 ) ) {
         const auto pt_passable = passable( pt.abs_pos(), options );
-        if( !pt_passable.value_or( false ) ) {
+        if( !pt_passable ) {
             impassable_adjacent.insert( pt.abs_pos() );
         }
     }
@@ -4949,11 +4949,11 @@ auto mapbuffer::get_field_intensity( const tripoint_abs_ms &p, const field_type_
 }
 
 auto mapbuffer::passable( const tripoint_abs_ms &p,
-                          const mapbuffer_lookup_options options ) -> std::optional<bool>
+                          const mapbuffer_lookup_options options ) -> bool
 {
     const auto tile = abs_tile_handle::fetch( *this, p, options );
     if( !tile ) {
-        return std::nullopt;
+        return false;
     }
 
     return tile->passable();
@@ -6065,7 +6065,7 @@ std::unique_ptr<vehicle> mapbuffer::add_vehicle_to_mapbuffer(
 
         // Don't spawn shopping carts on top of another vehicle or other obstacle.
         if( veh->type == vproto_id( "shopping_cart" ) ) {
-            if( veh_at( abs_pos, options ) || !passable( abs_pos, options ).value_or( false ) ) {
+            if( veh_at( abs_pos, options ) || !passable( abs_pos, options ) ) {
                 return nullptr;
             }
         }
@@ -6112,7 +6112,7 @@ std::unique_ptr<vehicle> mapbuffer::add_vehicle_to_mapbuffer(
             return nullptr;
 
         } else if( !( veh->has_lift() && has_flag( TFLAG_NO_FLOOR, abs_pos, options ) ) &&
-                   !passable( abs_pos, options ).value_or( false ) ) {
+                   !passable( abs_pos, options ) ) {
             if( !merge_wrecks ) {
                 return nullptr;
             }
@@ -6121,7 +6121,7 @@ std::unique_ptr<vehicle> mapbuffer::add_vehicle_to_mapbuffer(
             destroy( abs_pos, true, options );
 
             // Some weird terrain, don't place the vehicle
-            if( !passable( abs_pos, options ).value_or( false ) ) {
+            if( !passable( abs_pos, options ) ) {
                 return nullptr;
             }
 
@@ -7564,7 +7564,7 @@ auto mapbuffer::forced_door_closing( const tripoint_abs_ms &p, const ter_id &doo
                                      const mapbuffer_lookup_options options ) -> bool
 {
     const auto valid_location = [&]( const tripoint_abs_ms & p ) {
-        return ( passable( p, options ).value_or( false ) ||
+        return ( passable( p, options ) ||
                  has_flag( "LIQUID", p, options ) ) &&
                g->critter_at( p ) == nullptr;
     };
@@ -8269,7 +8269,7 @@ bash_results mapbuffer::bash_ter_furn( const tripoint_abs_ms &p, const bash_para
 
     if( bash == nullptr || ( bash->destroy_only && !params.destroy ) ) {
         // Nothing bashable here
-        if( !passable( p, options ).value_or( false ) ) {
+        if( !passable( p, options ) ) {
             if( !params.silent ) {
                 sound_event se;
                 se.origin = p;
@@ -8541,11 +8541,11 @@ auto mapbuffer::destroy( const tripoint_abs_ms &p, bool silent,
 
     // If we were destroying a floor, allow destroying floors
     // If we were destroying something unpassable, destroy only that
-    bool was_impassable = !passable( p, options ).value_or( false );
+    bool was_impassable = !passable( p, options );
     int count = 0;
     while( count <= 25
            && bash( p, 999, silent, true, false, nullptr, options ).success
-           && ( !was_impassable || !passable( p, options ).value_or( false ) ) ) {
+           && ( !was_impassable || !passable( p, options ) ) ) {
         count++;
     }
 }
