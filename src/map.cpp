@@ -5485,6 +5485,12 @@ std::vector<tripoint_abs_sm> map::check_submap_active_item_consistency()
     // Direction 2: every entry in the set should point to a loaded submap with active items.
     mapbuffer &buf = get_mapbuffer();
     for( const tripoint_abs_sm &p : active_item_submaps ) {
+        // Lazy-border submaps are resident for loading performance, but are not
+        // part of the simulated area and therefore are intentionally absent from
+        // the active map view above.
+        if( !submap_loader.is_simulated( bound_dimension_, p ) ) {
+            continue;
+        }
         submap *s = buf.lookup_submap_in_memory( p );
         if( s == nullptr || s->active_items.empty() ) {
             result.push_back( p );
