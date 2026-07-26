@@ -1090,9 +1090,12 @@ bool Character::can_mount( const monster &critter ) const
 
 mountable_status Character::get_mountable_status( const monster &critter ) const
 {
-    auto &pf_buffer = MAPBUFFER_REGISTRY.get( get_dimension() );
+    if( get_dimension() != critter.get_dimension() ) {
+        return {};
+    }
+    auto &here = get_mapbuffer();
     const auto pair = get_pathfinding_pair();
-    auto abs_route = Pathfinding::route( pf_buffer, abs_pos(), critter.abs_pos(),
+    auto abs_route = Pathfinding::route( here, abs_pos(), critter.abs_pos(),
                                          pair.first, pair.second );
     if( abs_route.empty() ) {
         return {};

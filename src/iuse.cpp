@@ -8295,9 +8295,9 @@ int iuse::remoteveh( Character *p, item *it, bool t, const tripoint_abs_ms *pt )
         const auto rctrl_parts = veh->get_avail_parts( "REMOTE_CONTROLS" );
         // Revert to original behavior if we can't find remote controls.
         if( rctrl_parts.empty() ) {
-            veh->use_controls( abs_to_bub( pos ) );
+            veh->use_controls( pos );
         } else {
-            veh->use_controls( rctrl_parts.begin()->bub_pos() );
+            veh->use_controls( rctrl_parts.begin()->abs_pos() );
         }
     }
 

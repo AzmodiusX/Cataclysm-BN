@@ -691,6 +691,12 @@ auto tile_allows_item_despite_noitem_flag( const item &target,
     return target.made_of( LIQUID ) && tile_has_flag( tile, "LIQUIDCONT" );
 }
 
+auto tile_allows_item_despite_noitem_flag( const item &target,
+        const abs_tile_handle &tile ) -> bool
+{
+    return target.made_of( LIQUID ) && tile.has_flag( TFLAG_LIQUIDCONT );
+}
+
 auto move_cost_from_tile_parts( const ter_id &terrain_id, const furn_id &furniture_id,
                                 const optional_vpart_position &vp ) -> int
 {
@@ -4874,12 +4880,12 @@ auto mapbuffer::find_clear_path( const tripoint_abs_ms &source,
 auto mapbuffer::get_lum( const tripoint_abs_ms &p,
                          const mapbuffer_lookup_options options ) -> std::optional<std::uint8_t>
 {
-    const auto tile = lookup_tile( *this, p, options );
+    const auto tile = abs_tile_handle::fetch( *this, p, options );
     if( !tile ) {
         return std::nullopt;
     }
 
-    return tile->sm->get_lum( tile->local );
+    return tile->lum();
 }
 
 auto mapbuffer::get_temperature( const tripoint_abs_ms &p,
@@ -5278,33 +5284,34 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
         return std::move( new_item );
     }
 
-    auto valid_tile = [&]( const tripoint_abs_ms & target ) -> std::optional<mapbuffer_tile_lookup> {
-        auto tile = lookup_tile( *this, target, options.lookup );
+    auto valid_tile = [&]( const tripoint_abs_ms & target ) -> std::optional<abs_tile_handle> {
+        auto tile = abs_tile_handle::fetch( *this, target, options.lookup );
         if( !tile )
         {
             return std::nullopt;
         }
-        if( tile_has_flag( *tile, "DESTROY_ITEM" ) )
+        if( tile->has_flag( TFLAG_DESTROY_ITEM ) )
         {
             return std::nullopt;
         }
-        if( new_item->made_of( LIQUID ) && tile_has_flag( *tile, "SWIMMABLE" ) )
+        if( new_item->made_of( LIQUID ) && tile->has_flag( TFLAG_SWIMMABLE ) )
         {
             return std::nullopt;
         }
         return tile;
     };
 
-    auto valid_limits = [&]( const mapbuffer_tile_lookup & tile ) {
-        const auto max_volume = tile.sm->get_furn( tile.local ) != f_null ?
-                                tile.sm->get_furn( tile.local ).obj().max_volume :
-                                tile.sm->get_ter( tile.local ).obj().max_volume;
+    auto valid_limits = [&]( const abs_tile_handle & tile ) {
+        const auto max_volume = tile.furn() != f_null ?
+                                tile.furn().obj().max_volume :
+                                tile.ter().obj().max_volume;
         auto stored_volume = 0_ml;
-        for( const auto *const existing : tile.sm->get_items( tile.local ) ) {
+        const auto &items = tile.items();
+        for( const auto *const existing : items ) {
             stored_volume += existing->volume();
         }
         return new_item->volume() <= max_volume - stored_volume &&
-               tile.sm->get_items( tile.local ).size() < MAX_ITEM_IN_SQUARE;
+               items.size() < MAX_ITEM_IN_SQUARE;
     };
 
     auto call_active_drop_hook = [&]( const tripoint_abs_ms & target ) {
@@ -5325,8 +5332,8 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
         return !abs_route.empty();
     };
 
-    auto place_item = [&]( const tripoint_abs_ms & target, mapbuffer_tile_lookup & tile ) {
-        auto &items = tile.sm->get_items( tile.local );
+    auto place_item = [&]( const abs_tile_handle & tile ) {
+        auto &items = *get_items( tile.abs_pos(), options.lookup );
         if( new_item->count_by_charges() ) {
             for( auto &existing : items ) {
                 // Remove the location before merge so the merged-away item is
@@ -5341,10 +5348,10 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
             }
         }
 
-        if( const auto local = active_reality_bubble_local( target ) ) {
+        if( const auto local = active_reality_bubble_local( tile.abs_pos() ) ) {
             g->m.support_dirty( *local );
         }
-        new_item = add_item( target, std::move( new_item ), options.lookup );
+        new_item = add_item( tile.abs_pos(), std::move( new_item ), options.lookup );
     };
 
     auto try_place = [&]( const tripoint_abs_ms & target, const bool reject_noitem,
@@ -5353,21 +5360,21 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
         if( !tile ) {
             return false;
         }
-        if( reject_noitem && ( tile_has_flag( *tile, "NOITEM" ) || tile_has_flag( *tile, "SEALED" ) ) ) {
+        if( reject_noitem && ( tile->has_flag( TFLAG_NOITEM ) || tile->has_flag( TFLAG_SEALED ) ) ) {
             return false;
         }
 
         // Associate the detached item with the destination while calling hooks
         // that may access its mapbuffer and absolute position.
-        auto &items = tile->sm->get_items( tile->local );
-        new_item->saved_loc = items.get_location();
+        new_item->saved_loc = tile->items().get_location();
 
         if( call_drop_hook_first && call_active_drop_hook( target ) ) {
             new_item->saved_loc = nullptr;
             new_item->remove_location();
             return true;
         }
-        if( ( !tile_has_flag( *tile, "NOITEM" ) ||
+        if( !tile->has_flag( TFLAG_SEALED ) &&
+            ( !tile->has_flag( TFLAG_NOITEM ) ||
               tile_allows_item_despite_noitem_flag( *new_item, *tile ) ) &&
             valid_limits( *tile ) ) {
             if( !call_drop_hook_first && call_active_drop_hook( target ) ) {
@@ -5375,7 +5382,7 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
                 new_item->remove_location();
                 return true;
             }
-            place_item( target, *tile );
+            place_item( *tile );
             return true;
         }
 
@@ -8952,7 +8959,9 @@ auto mapbuffer::spawn_items( const tripoint_abs_ms &p,
 {
     std::vector<detached_ptr<item>> remaining;
     for( auto &it : new_items ) {
-        detached_ptr<item> leftover = add_item( p, std::move( it ), options );
+        detached_ptr<item> leftover = add_item_or_charges( p, std::move( it ), {
+            .lookup = options,
+        } );
         if( !!leftover ) {
             remaining.emplace_back( std::move( leftover ) );
         }

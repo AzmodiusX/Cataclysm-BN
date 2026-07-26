@@ -169,7 +169,7 @@ void handbrake()
 {
     const map &here = get_map();
     Character &pl = get_player_character();
-    const optional_vpart_position vp = here.veh_at( pl.bub_pos() );
+    const optional_vpart_position vp = pl.get_mapbuffer().veh_at( pl.abs_pos() );
     if( !vp ) {
         return;
     }
@@ -703,7 +703,7 @@ void vehicle::toggle_brake_hold()
     add_msg( brake_hold ? _( "Brake hold turned on." ) : _( "Brake hold turned off." ) );
 }
 
-void vehicle::use_controls( const tripoint_bub_ms &pos )
+void vehicle::use_controls( const tripoint_abs_ms &pos )
 {
     std::vector<uilist_entry> options;
     std::vector<std::function<void()>> actions;
@@ -730,7 +730,7 @@ void vehicle::use_controls( const tripoint_bub_ms &pos )
 
         has_electronic_controls = has_part( "CTRL_ELECTRONIC" ) || has_part( "REMOTE_CONTROLS" );
 
-    } else if( veh_pointer_or_null( g->m.veh_at( pos ) ) == this ) {
+    } else if( veh_pointer_or_null( get_mapbuffer().veh_at( pos ) ) == this ) {
         if( you.controlling_vehicle ) {
             options.emplace_back( _( "Let go of controls" ), keybind( "RELEASE_CONTROLS" ) );
             actions.emplace_back( [&] {
@@ -768,7 +768,7 @@ void vehicle::use_controls( const tripoint_bub_ms &pos )
                 {
                     add_msg( _( "You turn the engine off and let go of the controls." ) );
                     sound_event se;
-                    se.origin = bub_to_abs( pos );
+                    se.origin = pos;
                     se.volume = 40;
                     se.category = sounds::sound_t::movement;
                     se.movement_noise = true;
@@ -815,7 +815,7 @@ void vehicle::use_controls( const tripoint_bub_ms &pos )
                 {
                     engine_on = false;
                     sound_event se;
-                    se.origin = bub_to_abs( pos );
+                    se.origin = pos;
                     se.volume = 40;
                     se.category = sounds::sound_t::movement;
                     se.movement_noise = true;
@@ -2274,7 +2274,7 @@ void vehicle::interact_with( const tripoint_bub_ms &pos, int interact_part )
             return;
         }
         case CONTROL: {
-            use_controls( pos );
+            use_controls( bub_to_abs( pos ) );
             return;
         }
         case CONTROL_ELECTRONICS: {

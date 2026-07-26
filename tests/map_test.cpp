@@ -3,6 +3,7 @@
 #include "cata_utility.h"
 #include "catch/catch.hpp"
 #include "computer.h"
+#include "construction.h"
 #include "construction_partial.h"
 #include "coordinates.h"
 #include "data_vars.h"
@@ -16,6 +17,7 @@
 #include "mapbuffer.h"
 #include "mapbuffer_registry.h"
 #include "mapgen_constructor.h"
+#include "map/utils/map_functions.h"
 #include "monster.h"
 #include "npc.h"
 #include "options_helpers.h"
@@ -126,6 +128,31 @@ TEST_CASE("mapgen_items_stay_on_sealed_container_tiles", "[mapgen][item][regress
         CHECK(stacked_item.charges == 25);
         CHECK(mapgen_item_count_in_radius(tm, target, 2) == 1);
     }
+}
+
+TEST_CASE("mapbuffer_item_placement_rejects_sealed_tiles", "[mapbuffer][item][regression]") {
+    clear_all_state();
+    g->place_player( test_origin );
+    auto &here = g->u.get_mapbuffer();
+    const auto sealed_pos = test_origin + tripoint_rel_ms::east();
+    const auto window_pos = test_origin + tripoint_rel_ms::south();
+
+    REQUIRE( here.set_ter( sealed_pos, ter_id( "t_floor" ) ) );
+    REQUIRE( here.set_furn( sealed_pos, furn_id( "f_vending_c" ) ) );
+    REQUIRE( here.has_flag( "SEALED", sealed_pos ) );
+
+    auto blocked_item = item::spawn( "rock" );
+    auto returned_item = here.add_item_or_charges( sealed_pos, std::move( blocked_item ) );
+    CHECK( returned_item != nullptr );
+    REQUIRE( here.get_items( sealed_pos ) != nullptr );
+    CHECK( here.get_items( sealed_pos )->empty() );
+
+    REQUIRE( here.set_ter( window_pos, ter_id( "t_window_domestic" ) ) );
+    const auto bash_result = here.bash( window_pos, 1000 );
+    CHECK( bash_result.success );
+    CHECK( here.ter( window_pos ) == ter_id( "t_window_frame" ) );
+    REQUIRE( here.get_items( window_pos ) != nullptr );
+    CHECK( here.get_items( window_pos )->empty() );
 }
 
 TEST_CASE("moving_between_adjacent_pit_traps") {
@@ -862,6 +889,72 @@ TEST_CASE("tree_terrain_supports_climbing_destination_above") {
 
     CHECK(get_map().supports_above(abs_to_bub(tree_pos)));
     CHECK(here.has_floor_or_support(climb_destination));
+}
+
+TEST_CASE("freshly_constructed_spike_pit_warns_before_first_entry", "[construction][trap]") {
+    clear_all_state();
+
+    auto &you = get_avatar();
+    auto &here = you.get_mapbuffer();
+    const auto target = test_origin + tripoint_rel_ms::east();
+    you.setpos( test_origin );
+    here.set_ter( test_origin, ter_id( "t_floor" ) );
+    here.set_ter( target, ter_id( "t_pit" ) );
+
+    auto partial = std::make_unique<partial_con>( target, you.get_dimension() );
+    partial->id = construction_id( "constr_pit_spiked" );
+    REQUIRE( here.partial_con_set( target, std::move( partial ) ) );
+
+    auto completed_at = target;
+    complete_construction( you, completed_at );
+
+    REQUIRE( here.ter( target ) == ter_id( "t_pit_spiked" ) );
+    CHECK( you.knows_trap( target ) );
+    CHECK_FALSE( g->get_dangerous_tile( abs_to_bub( target ) ).empty() );
+
+    const auto dangerous_prompt = override_option( "DANGEROUS_TERRAIN_WARNING_PROMPT", "IGNORE" );
+    const auto hp_before = you.get_hp();
+    you.dex_cur = 0;
+    you.set_skill_level( skill_id( "dodge" ), 0 );
+    you.moves = 1000;
+    REQUIRE( avatar_action::move( you, tripoint_rel_ms::east() ) );
+
+    CHECK( you.abs_pos() == target );
+    CHECK( you.get_hp() < hp_before );
+}
+
+TEST_CASE("climbing_from_absolute_fence_position_finds_tree_support", "[climbing][coordinates]") {
+    clear_all_state();
+
+    auto &you = get_avatar();
+    auto &here = you.get_mapbuffer();
+    const auto player_pos = test_origin + tripoint_rel_ms( SEEX - 1, SEEY - 1, 1 );
+    const auto below_player = player_pos + tripoint_rel_ms( 0, 0, -1 );
+    const auto tree_support = player_pos + tripoint_rel_ms::east();
+    const auto stairs_pos = player_pos + tripoint_rel_ms::above();
+    const auto tree_pos = tree_support + tripoint_rel_ms::above();
+    you.setpos( player_pos );
+
+    for( const auto &tile : simulated_tiles_in_radius( here, stairs_pos, 1 ) ) {
+        if( tile.abs_pos() != tree_pos ) {
+            here.set_ter( tile.abs_pos(), ter_id( "t_open_air" ) );
+        }
+    }
+    here.set_ter( below_player, ter_id( "t_fence" ) );
+    here.set_ter( player_pos, ter_id( "t_open_air" ) );
+    here.set_ter( tree_support, ter_id( "t_tree" ) );
+    here.set_ter( stairs_pos, ter_id( "t_open_air" ) );
+    here.set_ter( tree_pos, ter_id( "t_treetop" ) );
+
+    CHECK_FALSE( here.has_floor_or_support( player_pos ) );
+    CHECK( here.has_floor_or_support( tree_pos ) );
+    CHECK( here.has_floor( tree_pos ) );
+    CHECK( here.valid_move( player_pos, stairs_pos, { .flying = true } ) );
+    CHECK( map_funcs::climbing_cost( here, player_pos, stairs_pos ).has_value() );
+
+    g->vertical_move( 1, false );
+
+    CHECK( you.abs_pos() == tree_pos );
 }
 
 /* Uncomment when omt pillar stair linkage from #9566 is enabled

@@ -5900,7 +5900,7 @@ bool cata_tiles::draw_critter_at( const tripoint_bub_ms &p, lit_level ll, int &h
                      tile, p, std::nullopt, std::nullopt,
                      lit_level::LIT, false, z_drop, false, height_3d );
     } else if( !invisible[0] ) {
-        const Creature *pcritter = g->critter_at( p, true );
+        const Creature *pcritter = g->u.get_mapbuffer().creature_at( bub_to_abs( p ), true );
         if( pcritter == nullptr ) {
             return false;
         }

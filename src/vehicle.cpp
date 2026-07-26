@@ -572,7 +572,11 @@ bool vehicle::player_in_control( const Character &who ) const
         return true;
     }
 
-    const optional_vpart_position vp = g->m.veh_at( who.bub_pos() );
+    if( get_dimension() != who.get_dimension() ) {
+        return remote_controlled( who );
+    }
+
+    const optional_vpart_position vp = get_mapbuffer().veh_at( who.abs_pos() );
     if( vp && &vp->vehicle() == this &&
         ( ( part_with_feature( vp->part_index(), "CONTROL_ANIMAL", true ) >= 0 &&
             has_engine_type( fuel_type_animal, false ) && has_harnessed_animal() ) ||

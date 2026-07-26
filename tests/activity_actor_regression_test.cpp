@@ -348,6 +348,22 @@ TEST_CASE("salvage actor cancels without targets", "[activity][activity_actor][s
     CHECK(!dummy.activity);
 }
 
+TEST_CASE("salvage actor finishes after its final target", "[activity][activity_actor][salvage]") {
+    clear_map();
+    clear_avatar();
+    avatar& dummy = get_avatar();
+
+    auto activity = player_activity( std::make_unique<salvage_activity_actor>() );
+    REQUIRE( activity.has_actor() );
+
+    const auto debug_message = capture_debugmsg_during( [&] {
+        activity.get_actor()->finish( activity, dummy );
+    } );
+
+    CHECK( debug_message.empty() );
+    CHECK( activity.is_null() );
+}
+
 TEST_CASE(
     "ownerless active thrown items use the supplied absolute position",
     "[activity][item_location][throw]") {

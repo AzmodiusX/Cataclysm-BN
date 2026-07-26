@@ -2068,7 +2068,7 @@ bool game::do_turn()
     }
     // If controlling a vehicle that is owned by someone else
     if( u.in_vehicle && u.controlling_vehicle ) {
-        vehicle *veh = veh_pointer_or_null( m.veh_at( u.bub_pos() ) );
+        vehicle *veh = veh_pointer_or_null( u.get_mapbuffer().veh_at( u.abs_pos() ) );
         if( veh && !veh->handle_potential_theft( u, true ) ) {
             veh->handle_potential_theft( u, false, false );
         }
@@ -2207,7 +2207,7 @@ bool game::do_turn()
         // or the option has been deactivated,
         // might also happen when someone dives from a moving car.
         // or when using the handbrake.
-        vehicle *veh = veh_pointer_or_null( m.veh_at( u.bub_pos() ) );
+        vehicle *veh = veh_pointer_or_null( u.get_mapbuffer().veh_at( u.abs_pos() ) );
         calc_driving_offset( veh );
     }
 
@@ -4852,7 +4852,7 @@ std::optional<tripoint_rel_ms> game::get_veh_dir_indicator_location( bool next )
     if( !get_option<bool>( "VEHICLE_DIR_INDICATOR" ) ) {
         return std::nullopt;
     }
-    const optional_vpart_position vp = m.veh_at( u.bub_pos() );
+    const optional_vpart_position vp = u.get_mapbuffer().veh_at( u.abs_pos() );
     if( !vp ) {
         return std::nullopt;
     }
@@ -4860,7 +4860,7 @@ std::optional<tripoint_rel_ms> game::get_veh_dir_indicator_location( bool next )
     rl_vec2d face = next ? veh->dir_vec() : veh->face_vec();
     float r = 10.0;
     return tripoint_rel_ms( static_cast<int>( r * face.x ), static_cast<int>( r * face.y ),
-                            u.bub_pos().z() );
+                            u.abs_pos().z() );
 }
 
 void game::draw_veh_dir_indicator( bool next )
@@ -7081,7 +7081,7 @@ T *game::critter_at( const tripoint_bub_ms &p, bool allow_hallucination )
         if( !mon_ptr->has_effect( effect_ridden ) || return_ridden_monster ) {
             if constexpr( wants_monster ) {
                 return dynamic_cast<T *>( mon_ptr.get() );
-            } else {
+            } else if constexpr( !wants_player ) {
                 return nullptr;
             }
         }
@@ -7123,7 +7123,7 @@ auto game::critter_at( const tripoint_abs_ms &p, bool allow_hallucination ) -> T
         if( !mon_ptr->has_effect( effect_ridden ) || return_ridden_monster ) {
             if constexpr( wants_monster ) {
                 return dynamic_cast<T *>( mon_ptr.get() );
-            } else {
+            } else if constexpr( !wants_player ) {
                 return nullptr;
             }
         }
@@ -7805,7 +7805,7 @@ void game::toggle_gate( const tripoint_bub_ms &p )
 
 void game::moving_vehicle_dismount( const tripoint_bub_ms &dest_loc )
 {
-    const optional_vpart_position vp = m.veh_at( u.bub_pos() );
+    const optional_vpart_position vp = u.get_mapbuffer().veh_at( u.abs_pos() );
     if( !vp ) {
         debugmsg( "Tried to exit non-existent vehicle." );
         return;
@@ -7838,17 +7838,18 @@ void game::moving_vehicle_dismount( const tripoint_bub_ms &dest_loc )
 void game::control_vehicle()
 {
     static const itype_id fuel_type_animal( "animal" );
+    auto &here = u.get_mapbuffer();
     int veh_part = -1;
     vehicle *veh = remoteveh();
     if( veh == nullptr ) {
-        if( const optional_vpart_position vp = m.veh_at( u.bub_pos() ) ) {
+        if( const optional_vpart_position vp = here.veh_at( u.abs_pos() ) ) {
             veh = &vp->vehicle();
             veh_part = vp->part_index();
         }
     }
     if( veh != nullptr && veh->player_in_control( u ) &&
         veh->avail_part_with_feature( veh_part, "CONTROLS", true ) >= 0 ) {
-        veh->use_controls( tripoint_bub_ms( u.bub_pos() ) );
+        veh->use_controls( u.abs_pos() );
     } else if( veh && veh->player_in_control( u ) &&
                veh->avail_part_with_feature( veh_part, "CONTROL_ANIMAL", true ) >= 0 ) {
         u.controlling_vehicle = false;
@@ -7882,10 +7883,10 @@ void game::control_vehicle()
         }
     } else {    // Start looking for nearby vehicle controls.
         int num_valid_controls = 0;
-        std::optional<tripoint_bub_ms> vehicle_position;
+        std::optional<abs_tile_handle> vehicle_position;
         std::optional<vpart_reference> vehicle_controls;
-        for( const auto elem : m.points_in_radius( g->u.bub_pos(), 1 ) ) {
-            if( const optional_vpart_position vp = m.veh_at( elem ) ) {
+        for( const auto elem : simulated_tiles_in_radius( here, u.abs_pos(), 1 ) ) {
+            if( const optional_vpart_position vp = elem.vehicle_part() ) {
                 const std::optional<vpart_reference> controls = vp.value().part_with_feature( "CONTROLS", true );
                 if( controls ) {
                     num_valid_controls++;
@@ -7898,11 +7899,13 @@ void game::control_vehicle()
             add_msg( _( "No vehicle controls found." ) );
             return;
         } else if( num_valid_controls > 1 ) {
-            vehicle_position = choose_adjacent( _( "Control vehicle where?" ) );
+            if( const auto selected = choose_adjacent( _( "Control vehicle where?" ) ) ) {
+                vehicle_position = abs_tile_handle::fetch( here, bub_to_abs( *selected ) );
+            }
             if( !vehicle_position ) {
                 return;
             }
-            const optional_vpart_position vp = m.veh_at( *vehicle_position );
+            const optional_vpart_position vp = vehicle_position->vehicle_part();
             if( vp ) {
                 vehicle_controls = vp.value().part_with_feature( "CONTROLS", true );
                 if( !vehicle_controls ) {
@@ -7920,7 +7923,7 @@ void game::control_vehicle()
             if( !veh->handle_potential_theft( u ) ) {
                 return;
             }
-            veh->use_controls( tripoint_bub_ms( *vehicle_position ) );
+            veh->use_controls( vehicle_position->abs_pos() );
             //May be folded up (destroyed), so need to re-get it
             veh = g->remoteveh();
         }
@@ -7932,7 +7935,7 @@ void game::control_vehicle()
         // Ghost-vehicle prevention is handled by draw_vpart clearing while moving.
         std::ranges::for_each( veh->get_points(), [&]( const tripoint_abs_ms & target ) {
             u.clear_memorized_tile( target );
-            u.memorize_terrain_tile( target, m.ter( abs_to_bub( target ) ).id().str(), 0, 0 );
+            u.memorize_terrain_tile( target, here.ter( target )->id().str(), 0, 0 );
         } );
         veh->is_following = false;
         veh->is_patrolling = false;
@@ -12835,7 +12838,7 @@ bool game::walk_move( const tripoint_abs_ms &dest_loc, const bool via_ramp )
         //cata_event_dispatch::avatar_moves( u, m, dest_loc );
     }
 
-    auto oldpos = u.abs_pos();
+    const auto oldpos = u.abs_pos();
     auto submap_shift = point_rel_sm::zero();
     {
         ZoneScopedN( "walk_move_place_player" );
@@ -12845,7 +12848,6 @@ bool game::walk_move( const tripoint_abs_ms &dest_loc, const bool via_ramp )
         submap_shift = m.get_abs_sub() - origin_before_setpos;
     }
     auto ms_shift = project_to<coords::ms>( submap_shift );
-    oldpos = oldpos - ms_shift;
 
     if( dragged_creature != nullptr && dragged_creature->has_effect( effect_grabbed ) &&
         dragged_creature->abs_pos() != oldpos && !here.has_creature_at( oldpos ) ) {
@@ -12883,14 +12885,14 @@ bool game::walk_move( const tripoint_abs_ms &dest_loc, const bool via_ramp )
 
 void game::apply_movement_effects()
 {
-    const tripoint_abs_ms dest = u.abs_pos();
     mapbuffer &here = u.get_mapbuffer();
+    const auto dest = *abs_tile_handle::fetch( here, u.abs_pos() );
 
-    const optional_vpart_position vp1 = here.veh_at( dest );
+    const optional_vpart_position vp1 = dest.vehicle_part();
     if( const std::optional<std::string> label = vp1.get_label() ) {
         add_msg( m_info, _( "Label here: %s" ), *label );
     }
-    std::string signage = here.get_signage( dest ).value_or( "" );
+    std::string signage = dest.has_signage() ? dest.get_signage() : "";
     if( !signage.empty() ) {
         if( !u.has_trait( trait_ILLITERATE ) ) {
             add_msg( m_info, _( "The sign says: %s" ), signage );
@@ -12898,19 +12900,19 @@ void game::apply_movement_effects()
             add_msg( m_info, _( "There is a sign here, but you are unable to read it." ) );
         }
     }
-    if( here.has_graffiti_at( dest ) ) {
+    if( dest.has_graffiti_at() ) {
         if( !u.has_trait( trait_ILLITERATE ) ) {
-            add_msg( m_info, _( "Written here: %s" ), here.graffiti_at( dest ).value_or( "" ) );
+            add_msg( m_info, _( "Written here: %s" ), dest.graffiti_at() );
         } else {
             add_msg( m_info, _( "Something is written here, but you are unable to read it." ) );
         }
     }
 
-    if( !here.has_flag( "SEALED", dest ) ) {
+    if( !dest.has_flag( TFLAG_SEALED ) ) {
         ZoneScopedN( "apply_movement_effects_list_items" );
-        const auto items = here.get_items( dest );
+        const auto items = here.get_items( dest.abs_pos() );
         const bool list_items = get_option<bool>( "NO_AUTO_PICKUP_ZONES_LIST_ITEMS" ) ||
-                                !check_zone( zone_type_id( "NO_AUTO_PICKUP" ), dest );
+                                !check_zone( zone_type_id( "NO_AUTO_PICKUP" ), dest.abs_pos() );
         if( list_items && items != nullptr && !items->empty() ) {
             if( u.is_blind() && u.clairvoyance() < 1 ) {
                 add_msg( _( "There's something here, but you can't see what it is." ) );
@@ -12977,20 +12979,20 @@ void game::apply_movement_effects()
         }
     }
 
-    if( here.has_flag( "ROUGH", dest ) && ( !u.in_vehicle ) && ( !u.is_mounted() ) ) {
+    if( dest.has_flag( TFLAG_ROUGH ) && ( !u.in_vehicle ) && ( !u.is_mounted() ) ) {
         if( one_in( 5 ) && u.get_armor_bash( bodypart_id( "foot_l" ) ) < rng( 2, 5 ) ) {
             add_msg( m_bad, _( "You hurt your left foot on the %s!" ),
-                     here.has_flag_ter( "ROUGH", dest ) ? here.tername( dest ) : here.furnname( dest ) );
+                     dest.has_flag( TFLAG_ROUGH ) ? dest.tername() : dest.furnname() );
             u.deal_damage( nullptr, bodypart_id( "foot_l" ), damage_instance( DT_CUT, 1 ) );
         }
         if( one_in( 5 ) && u.get_armor_bash( bodypart_id( "foot_r" ) ) < rng( 2, 5 ) ) {
             add_msg( m_bad, _( "You hurt your right foot on the %s!" ),
-                     here.has_flag_ter( "ROUGH", dest ) ? here.tername( dest ) : here.furnname( dest ) );
+                     dest.has_flag( TFLAG_ROUGH ) ? dest.tername() : dest.furnname() );
             u.deal_damage( nullptr, bodypart_id( "foot_l" ), damage_instance( DT_CUT, 1 ) );
         }
     }
-    if( here.has_flag( "SHARP", dest ) && !one_in( 3 ) && !x_in_y( 1 + u.dex_cur / 2.0, 40 ) &&
-        ( !u.in_vehicle && !here.veh_at( dest ) ) &&
+    if( dest.has_flag( TFLAG_SHARP ) && !one_in( 3 ) && !x_in_y( 1 + u.dex_cur / 2.0, 40 ) &&
+        ( !u.in_vehicle && !dest.vehicle_part() ) &&
         ( u.mutation_value( "movecost_obstacle_modifier" ) > 0.5f ||
           one_in( 4 ) ) && ( u.has_trait( trait_THICKSKIN ) ? !one_in( 8 ) : true ) ) {
         if( u.is_mounted() ) {
@@ -13002,21 +13004,21 @@ void game::apply_movement_effects()
                                damage_instance( DT_CUT, rng( 1, 10 ) ) ).total_damage() > 0 ) {
                 add_msg( m_bad, _( "You cut your %1$s on the %2$s!" ),
                          body_part_name_accusative( bp->token ),
-                         here.has_flag_ter( "SHARP", dest ) ? here.tername( dest ) : here.furnname( dest ) );
+                         dest.has_flag( TFLAG_SHARP ) ? dest.tername() : dest.furnname() );
             }
         }
     }
-    if( here.has_flag( "UNSTABLE", dest ) && !u.is_mounted() ) {
+    if( dest.has_flag( TFLAG_UNSTABLE) && !u.is_mounted() ) {
         u.add_effect( effect_bouldering, 1_turns, bodypart_str_id::NULL_ID() );
     } else if( u.has_effect( effect_bouldering ) ) {
         u.remove_effect( effect_bouldering );
     }
-    if( here.has_flag_ter_or_furn( TFLAG_NO_SIGHT, dest ) ) {
+    if( dest.has_flag( TFLAG_NO_SIGHT ) ) {
         u.add_effect( effect_no_sight, 1_turns, bodypart_str_id::NULL_ID() );
     } else if( u.has_effect( effect_no_sight ) ) {
         u.remove_effect( effect_no_sight );
     }
-    if( here.has_flag( "SWIMMABLE", dest ) && u.has_effect( effect_onfire ) ) {
+    if( dest.has_flag( TFLAG_SWIMMABLE ) && u.has_effect( effect_onfire ) ) {
         add_msg( _( "The water puts out the flames!" ) );
         u.remove_effect( effect_onfire );
         if( u.is_mounted() ) {
@@ -13027,7 +13029,7 @@ void game::apply_movement_effects()
         }
     }
 
-    if( monster *const mon_ptr = critter_at<monster>( dest ) ) {
+    if( monster *const mon_ptr = critter_at<monster>( dest.abs_pos() ) ) {
         monster &critter = *mon_ptr;
         if( !critter.has_effect( effect_ridden ) ) {
             if( u.is_mounted() ) {
@@ -13063,8 +13065,8 @@ void game::apply_movement_effects()
     if( u.in_vehicle ) {
         here.unboard_vehicle( u.abs_pos() );
     }
-    if( u.is_hauling() && ( !here.can_put_items( dest ) ||
-                            here.has_flag( TFLAG_DEEP_WATER, dest ) ||
+    if( u.is_hauling() && ( !here.can_put_items( dest.abs_pos() ) ||
+                            dest.has_flag( TFLAG_DEEP_WATER ) ||
                             vp1 ) ) {
         u.stop_hauling();
     }
@@ -13074,7 +13076,7 @@ void game::apply_movement_effects()
 
     if( u.is_mounted() ) {
         monster *mon = u.mounted_creature.get();
-        mon->setpos( dest );
+        mon->setpos( dest.abs_pos() );
         mon->process_triggers();
         m.creature_in_field( *mon );
     }
@@ -13113,13 +13115,13 @@ void game::apply_movement_effects()
                 }
             };
             for( auto &elem : adjacentDir ) {
-                forage( dest + displace_XY( elem ) );
+                forage( dest.abs_pos() + displace_XY( elem ) );
             }
         }
         const std::string pulp_butcher = get_option<std::string>( "AUTO_PULP_BUTCHER" );
         if( pulp_butcher == "butcher" && u.max_quality( quality_id( "BUTCHER" ) ) > INT_MIN ) {
             std::vector<item *> corpses;
-            for( item * const &it : *here.get_items( dest ) ) {
+            for( item * const &it : *here.get_items( dest.abs_pos() ) ) {
                 corpses.push_back( it );
             }
             if( !corpses.empty() ) {
@@ -13144,10 +13146,10 @@ void game::apply_movement_effects()
             };
             if( pulp_butcher == "pulp_adjacent" ) {
                 for( auto &elem : adjacentDir ) {
-                    pulp( dest + displace_XY( elem ) );
+                    pulp( dest.abs_pos() + displace_XY( elem ) );
                 }
             } else {
-                pulp( dest );
+                pulp( dest.abs_pos() );
             }
         }
     }
@@ -14073,15 +14075,18 @@ void game::vertical_move( int movez, bool force, bool peeking )
 
     // Force means we're going down, even if there's no staircase, etc.
     bool climbing = false;
-    const bool can_fly = character_funcs::can_fly( get_avatar() );
-    const bool can_noclip = character_funcs::can_noclip( get_avatar() );
+    auto &avatar = get_avatar();
+    auto avatar_tile = *abs_tile_handle::fetch( avatar.get_mapbuffer(), avatar.abs_pos() );
+    const bool can_fly = character_funcs::can_fly( avatar );
+    const bool can_noclip = character_funcs::can_noclip( avatar );
+    auto &here = u.get_mapbuffer();
     int move_cost = 100;
-    tripoint_bub_ms stairs( u.bub_pos().x(), u.bub_pos().y(), u.bub_pos().z() + movez );
-    if( !force && movez == 1 && !m.has_flag( "GOES_UP", u.bub_pos() ) &&
+    auto stairs = *abs_tile_handle::fetch( avatar.get_mapbuffer(), avatar.abs_pos() + tripoint_rel_ms( 0, 0, movez ) );
+    if( !force && movez == 1 && !avatar_tile.has_flag( TFLAG_GOES_UP ) &&
         !u.is_underwater() && !can_fly ) {
 
         // Climbing
-        if( m.has_floor_or_support( stairs ) ) {
+        if( here.has_floor_or_support( avatar_tile.abs_pos() ) ) {
             add_msg( m_info, _( "You can't climb here - there's a ceiling above your head." ) );
             // Don't prompt the player if they're already standing on stairs, they might've just hit the wrong key
             if( !m.has_flag( "GOES_DOWN", u.bub_pos() ) ) {
@@ -14090,29 +14095,30 @@ void game::vertical_move( int movez, bool force, bool peeking )
             return;
         }
 
-        std::vector<tripoint_bub_ms> pts;
-        for( const auto &pt : m.points_in_radius( stairs, 1 ) ) {
-            if( m.passable( pt ) &&
-                m.has_floor( pt ) ) {
-                pts.push_back( pt );
+        std::vector<abs_tile_handle> abs_pts;
+        for( const auto &pt : simulated_tiles_in_radius( here, stairs.abs_pos(), 1 ) ) {
+            if( pt.passable() &&
+                here.has_floor( pt.abs_pos() ) ) {
+                abs_pts.push_back( pt );
             }
         }
 
-        const auto cost = map_funcs::climbing_cost( m, u.bub_pos(), stairs );
+        const auto cost = map_funcs::climbing_cost( here, u.abs_pos(), stairs.abs_pos() );
 
         if( !cost.has_value() ) {
             if( u.has_trait( trait_WEB_ROPE ) )  {
-                if( pts.empty() ) {
+                if( abs_pts.empty() ) {
                     add_msg( m_info, _( "There is nothing above you that you can attach a web to." ) );
                 } else if( can_use_mutation_warn( trait_WEB_ROPE, u ) ) {
-                    if( m.move_cost( u.bub_pos() ) != 2 && m.move_cost( u.bub_pos() ) != 3 ) {
+                    auto move_cost = avatar_tile.move_cost();
+                    if( move_cost != 2 && move_cost != 3 ) {
                         add_msg( m_info, _( "You can't spin a web rope there." ) );
-                    } else if( m.has_furn( u.bub_pos() ) ) {
+                    } else if( avatar_tile.furn() != f_null ) {
                         add_msg( m_info, _( "There is already furniture at that location." ) );
                     } else {
                         if( query_yn( "Spin a rope and climb?" ) ) {
                             add_msg( m_good, _( "You spin a rope of web." ) );
-                            m.furn_set( u.bub_pos(), furn_str_id( "f_rope_up_web" ) );
+                            here.set_furn( u.abs_pos(), furn_str_id( "f_rope_up_web" ) );
                             u.mod_moves( to_turns<int>( 2_seconds ) );
                             u.mutation_spend_resources( trait_WEB_ROPE );
                             vertical_move( movez, force, peeking );
@@ -14122,7 +14128,7 @@ void game::vertical_move( int movez, bool force, bool peeking )
 
             } else {
                 add_msg( m_info, _( "You can't climb here - you need walls and/or furniture to brace against." ) );
-                if( !m.has_flag( "GOES_DOWN", u.bub_pos() ) ) {
+                if( !avatar_tile.has_flag( TFLAG_GOES_DOWN ) ) {
                     suggest_auto_walk_to_stairs( u, m, "up" );
                 }
             }
@@ -14130,10 +14136,10 @@ void game::vertical_move( int movez, bool force, bool peeking )
 
         }
 
-        if( pts.empty() ) {
+        if( abs_pts.empty() ) {
             add_msg( m_info,
                      _( "You can't climb here - there is no terrain above you that would support your weight." ) );
-            if( !m.has_flag( "GOES_DOWN", u.bub_pos() ) ) {
+            if( !avatar_tile.has_flag( TFLAG_GOES_DOWN ) ) {
                 suggest_auto_walk_to_stairs( u, m, "up" );
             }
             return;
@@ -14142,19 +14148,23 @@ void game::vertical_move( int movez, bool force, bool peeking )
             climbing = true;
             move_cost = cost.value();
 
+            std::vector<tripoint_bub_ms> pts;
+            for( const auto &pt : abs_pts ) {
+                pts.push_back( abs_to_bub( pt.abs_pos() ) );
+            }
             const std::optional<tripoint_bub_ms> pnt = point_selection_menu( pts );
             if( !pnt ) {
                 return;
             }
-            stairs = *pnt;
+            stairs = *abs_tile_handle::fetch( here, bub_to_abs( *pnt ) );
         }
     }
 
-    if( !climbing && !force && movez == 1 && !m.has_flag( "GOES_UP", u.bub_pos() ) &&
+    if( !climbing && !force && movez == 1 && !avatar_tile.has_flag( TFLAG_GOES_UP ) &&
         !u.is_underwater() ) {
 
-        const auto dest = u.bub_pos() + tripoint_above;
-        const ter_id dest_terrain = m.ter( dest );
+        const auto dest = *abs_tile_handle::fetch( here, u.abs_pos() + tripoint_above );
+        const ter_id dest_terrain = dest.ter();
         const bool dest_is_air = dest_terrain == t_open_air;
 
         const auto &mutations = get_avatar().get_mutations();
@@ -14164,7 +14174,7 @@ void game::vertical_move( int movez, bool force, bool peeking )
             return;
         }
 
-        if( m.impassable( dest ) || !dest_is_air ) {
+        if( !dest.passable() || !dest_is_air ) {
             if( !can_noclip ) {
                 for( const trait_id &tid : mutations ) {
                     const auto &mdata = tid.obj();
@@ -14175,7 +14185,7 @@ void game::vertical_move( int movez, bool force, bool peeking )
                 add_msg( m_info, _( "There is something above blocking your way." ) );
                 return;
             } else {
-                if( dest.z() > OVERMAP_HEIGHT ) {
+                if( dest.abs_pos().z() > OVERMAP_HEIGHT ) {
                     add_msg( m_info, _( "Tried to move outside of zlevel world bounds." ) );
                     return;
                 }
@@ -14193,32 +14203,32 @@ void game::vertical_move( int movez, bool force, bool peeking )
             // add flying flavor text here
         }
 
-    } else if( !force && movez == -1 && !m.has_flag( "GOES_DOWN", u.bub_pos() ) &&
+    } else if( !force && movez == -1 && !avatar_tile.has_flag( TFLAG_GOES_DOWN ) &&
                !u.is_underwater() ) {
-
-        const auto dest = u.bub_pos() + tripoint_below;
+        
+        const auto dest = *abs_tile_handle::fetch( here, u.abs_pos() + tripoint_below );
 
         // Check if player is standing on open air
-        const ter_id here_terrain = m.ter( u.bub_pos() );
+        const ter_id here_terrain = dest.ter();
         const bool standing_on_air = here_terrain == t_open_air;
 
         if( !can_fly ) {
             add_msg( m_info, _( "You can't go down here!" ) );
-            if( !m.has_flag( "GOES_UP", u.bub_pos() ) ) {
+            if( !dest.has_flag( TFLAG_GOES_UP ) ) {
                 suggest_auto_walk_to_stairs( u, m, "down" );
             }
             return;
         }
 
-        if( m.impassable( dest ) || !standing_on_air ) {
+        if( dest.impassable() || !standing_on_air ) {
             if( !can_noclip ) {
                 add_msg( m_info, _( "You can't go down here!" ) );
-                if( !m.has_flag( "GOES_UP", u.bub_pos() ) ) {
+                if( !dest.has_flag( TFLAG_GOES_UP ) ) {
                     suggest_auto_walk_to_stairs( u, m, "down" );
                 }
                 return;
             } else {
-                if( dest.z() < -OVERMAP_DEPTH ) {
+                if( dest.abs_pos().z() < -OVERMAP_DEPTH ) {
                     add_msg( m_info, _( "Tried to move outside of zlevel world bounds." ) );
                     return;
                 }
@@ -14253,13 +14263,13 @@ void game::vertical_move( int movez, bool force, bool peeking )
     bool surfacing = false;
     bool submerging = false;
     // > and < are used for diving underwater.
-    if( m.has_flag( TFLAG_SWIMMABLE, u.bub_pos() ) ) {
+    if( avatar_tile.has_flag( TFLAG_SWIMMABLE ) ) {
         swimming = true;
-        const ter_id &target_ter = m.ter( u.bub_pos() + tripoint_rel_ms( 0, 0, movez ) );
+        const ter_id &target_ter = stairs.ter();
 
         // If we're in a water tile that has both air above and deep enough water to submerge in...
-        if( m.has_flag( TFLAG_DEEP_WATER, u.bub_pos() ) &&
-            !m.has_flag( TFLAG_WATER_CUBE, u.bub_pos() ) ) {
+        if( avatar_tile.has_flag( TFLAG_DEEP_WATER ) &&
+            !avatar_tile.has_flag( TFLAG_WATER_CUBE ) ) {
             // ...and we're trying to swim down
             if( movez == -1 ) {
                 // ...and we're already submerged
@@ -14307,7 +14317,7 @@ void game::vertical_move( int movez, bool force, bool peeking )
             }
         }
         // If we're in a water tile that is entirely water
-        else if( m.has_flag( TFLAG_WATER_CUBE, u.bub_pos() ) ) {
+        else if( avatar_tile.has_flag( TFLAG_WATER_CUBE ) ) {
             // If you're at this point, you should already be underwater, but force that to be the case.
             if( !u.is_underwater() ) {
                 u.oxygen = 30 + 2 * u.str_cur;
@@ -14328,9 +14338,7 @@ void game::vertical_move( int movez, bool force, bool peeking )
             }
             // ...and we're trying to move up
             else if( movez == 1 ) {
-                const std::optional<vpart_reference> vp = get_map().veh_at( u.bub_pos() + tripoint_rel_ms( 0, 0,
-                        movez ) ).part_with_feature( VPFLAG_BOARDABLE,
-                                                     true );
+                const std::optional<vpart_reference> vp = stairs.vehicle_part().part_with_feature( VPFLAG_BOARDABLE, true );
                 if( vp ) {
                     add_msg( m_info, _( "You can't board a boat from underneath it!" ) );
                     return;
@@ -14358,7 +14366,7 @@ void game::vertical_move( int movez, bool force, bool peeking )
         if( !pnt ) {
             return;
         }
-        stairs = *pnt;
+        stairs = *abs_tile_handle::fetch( here, bub_to_abs( *pnt ) );
     }
 
     if( !force ) {
@@ -14384,7 +14392,7 @@ void game::vertical_move( int movez, bool force, bool peeking )
     } else {
         u.moves -= move_cost;
         // Risk of failing, simple stuff like ladders are exempt
-        if( climbing && movez == 1 && m.climb_difficulty( u.bub_pos() ) > 1 ) {
+        if( climbing && movez == 1 && here.climb_difficulty( u.abs_pos() ) > 1 ) {
             if( g->slip_down() ) {
                 return;
             }
@@ -14392,7 +14400,7 @@ void game::vertical_move( int movez, bool force, bool peeking )
     }
     for( const auto &np : npcs_to_bring ) {
         if( np->in_vehicle ) {
-            m.unboard_vehicle( np->bub_pos() );
+            here.unboard_vehicle( np->abs_pos() );
         }
     }
 
@@ -14401,11 +14409,7 @@ void game::vertical_move( int movez, bool force, bool peeking )
         // toggle our underwater state in the same location.
         return;
     }
-
-    const auto old_pos = g->u.bub_pos();
-    const auto origin_before_setpos = m.get_abs_sub();
-    u.setpos( map_local_to_abs( m, stairs ) );
-    const auto submap_shift = ( m.get_abs_sub() - origin_before_setpos );
+    u.setpos( stairs.abs_pos() );
 
     // if an NPC or monster is on the stiars when player ascends/descends
     // they may end up merged on th esame tile, do some displacement to resolve that.
@@ -14490,26 +14494,25 @@ void game::vertical_move( int movez, bool force, bool peeking )
 
     // This ugly check is here because of stair teleport bullshit
     // TODO: Remove stair teleport bullshit
-    if( rl_dist( g->u.bub_pos(), old_pos ) <= 1 ) {
+    if( rl_dist( avatar.abs_pos(), avatar_tile.abs_pos() ) <= 1 ) {
         for( monster *m : monsters_following ) {
-            m->set_dest( g->u.abs_pos() );
+            m->set_dest( avatar.abs_pos() );
         }
     }
 
     if( rope_ladder ) {
-        m.ter_set( u.bub_pos(), t_rope_up );
+        here.set_ter( avatar.abs_pos(), t_rope_up );
     }
 
-    if( m.ter( stairs ) == t_manhole_cover ) {
-        m.spawn_item( stairs + point( rng( -1, 1 ), rng( -1, 1 ) ), itype_manhole_cover );
-        m.ter_set( stairs, t_manhole );
+    if( stairs.ter() == t_manhole_cover ) {
+        here.spawn_item( stairs.abs_pos() + point( rng( -1, 1 ), rng( -1, 1 ) ), itype_manhole_cover );
+        here.set_ter( stairs.abs_pos(), t_manhole );
     }
 
     if( u.is_hauling() ) {
-        const auto adjusted_pos = old_pos - project_to<coords::ms>( submap_shift );
-        start_hauling( adjusted_pos );
+        start_hauling( abs_to_bub( avatar_tile.abs_pos() ) );
     }
-    if( m.has_flag( "UNSTABLE", u.bub_pos() ) && !u.is_mounted() ) {
+    if( here.has_flag( TFLAG_UNSTABLE, u.abs_pos() ) && !u.is_mounted() ) {
         u.add_effect( effect_bouldering, 1_turns, bodypart_str_id::NULL_ID() );
     } else if( u.has_effect( effect_bouldering ) ) {
         u.remove_effect( effect_bouldering );
@@ -14517,7 +14520,7 @@ void game::vertical_move( int movez, bool force, bool peeking )
 
     m.invalidate_map_cache( g->get_levz() );
     // Upon force movement, traps can not be avoided.
-    m.creature_on_trap( u, !force );
+    here.creature_on_trap( u, !force );
 
     cata_event_dispatch::avatar_moves( u, u.abs_pos() );
 }

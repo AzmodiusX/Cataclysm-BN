@@ -182,8 +182,9 @@ namespace
 
 auto adjacent_grabber_for( const monster &target ) -> Creature *
 {
-    for( const auto &p : get_map().points_in_radius( target.bub_pos(), 1, 0 ) ) {
-        Creature *const grabber = g->critter_at<Creature>( p );
+    auto &here = target.get_mapbuffer();
+    for( const auto &p : simulated_tiles_in_radius( here, target.abs_pos(), 1 ) ) {
+        Creature *const grabber = here.creature_at( p.abs_pos() );
         if( grabber != nullptr && grabber != &target && grabber->has_effect( effect_grabbing ) ) {
             return grabber;
         }
@@ -307,17 +308,21 @@ static const std::map<monster_attitude, std::pair<std::string, color_id>> attitu
 };
 
 // Returns all the players around pos who don't have grabbing monsters adjacent to them
-static std::vector<player *> find_targets_to_ungrab( const tripoint_bub_ms &pos )
+static std::vector<player *> find_targets_to_ungrab( const monster &source,
+        const tripoint_abs_ms &pos )
 {
     std::vector<player *> result;
-    for( auto &player_pos : g->m.points_in_radius( pos, 1, 0 ) ) {
-        player *p = g->critter_at<player>( player_pos );
+    auto &here = source.get_mapbuffer();
+    for( const auto &player_pos : simulated_tiles_in_radius( here, pos, 1 ) ) {
+        Creature *const creature = here.creature_at( player_pos.abs_pos() );
+        player *const p = creature != nullptr ? creature->as_player() : nullptr;
         if( !p || !p->has_effect( effect_grabbed ) ) {
             continue;
         }
         bool grabbed = false;
-        for( auto &mon_pos : g->m.points_in_radius( player_pos, 1, 0 ) ) {
-            const monster *const mon = g->critter_at<monster>( mon_pos );
+        for( const auto &mon_pos : simulated_tiles_in_radius( here, player_pos.abs_pos(), 1 ) ) {
+            const Creature *const creature_at = here.creature_at( mon_pos.abs_pos() );
+            const monster *const mon = creature_at != nullptr ? creature_at->as_monster() : nullptr;
             if( mon && mon->has_effect( effect_grabbing ) ) {
                 grabbed = true;
                 break;
@@ -2007,8 +2012,9 @@ void monster::process_triggers()
 
     process_trigger( mon_trigger::FIRE, [this]() {
         int ret = 0;
-        for( const auto &p : g->m.points_in_radius( bub_pos(), 3 ) ) {
-            ret += 5 * g->m.get_field_intensity( p, fd_fire );
+        auto &here = get_mapbuffer();
+        for( const auto &tile : simulated_tiles_in_radius( here, abs_pos(), 3 ) ) {
+            ret += 5 * tile.get_field_intensity( fd_fire );
         }
         return ret;
     } );
@@ -3145,11 +3151,12 @@ void monster::process_turn()
         local_attack_data.cooldown = std::max( 0, local_attack_data.cooldown -
                                                action_time_scale::calendar_turns_this_tick() );
     }
+    auto &here = get_mapbuffer();
     // Persist grabs as long as there's an adjacent target.
     if( has_effect( effect_grabbing ) ) {
         auto found_grabbed_target = false;
-        for( const auto &dest : g->m.points_in_radius( bub_pos(), 1, 0 ) ) {
-            const Creature *const target = g->critter_at<Creature>( dest );
+        for( const auto &dest : simulated_tiles_in_radius( here, abs_pos(), 1 ) ) {
+            const Creature *const target = here.creature_at( dest.abs_pos() );
             if( target != nullptr && target != this && target->has_effect( effect_grabbed ) ) {
                 found_grabbed_target = true;
                 add_effect( effect_grabbing, 2_turns );
@@ -3159,7 +3166,6 @@ void monster::process_turn()
             remove_effect( effect_grabbing );
         }
     }
-    auto &here = get_mapbuffer();
     // We update electrical fields here since they act every turn.
     if( !is_hallucination() && has_flag( MF_ELECTRIC_FIELD ) ) {
         if( has_effect( effect_emp ) ) {
@@ -3178,23 +3184,20 @@ void monster::process_turn()
         } else {
             for( const auto &zap : simulated_tiles_in_radius( here, abs_pos(), 1 ) ) {
                 const bool player_sees = g->u.sees( zap.abs_pos() );
-                const auto items = here.get_items( zap.abs_pos() );
-                if( items ) {
-                    for( const auto &item : *items ) {
-                        if( item->made_of( LIQUID ) && item->flammable() ) { // start a fire!
-                            here.add_field( zap.abs_pos(), { .type = fd_fire, .intensity = 2, .age = 1_minutes } );
-                            sound_event se;
-                            se.origin = abs_pos();
-                            se.volume = 60;
-                            se.category = sounds::sound_t::combat;
-                            se.description = _( "fwoosh!" );
-                            se.from_monster = true;
-                            se.monfaction = faction.id();
-                            se.id = "fire";
-                            se.variant = "ignition";
-                            sounds::sound( se );
-                            break;
-                        }
+                for( const auto &item : zap.items() ) {
+                    if( item->made_of( LIQUID ) && item->flammable() ) { // start a fire!
+                        here.add_field( zap.abs_pos(), { .type = fd_fire, .intensity = 2, .age = 1_minutes } );
+                        sound_event se;
+                        se.origin = abs_pos();
+                        se.volume = 60;
+                        se.category = sounds::sound_t::combat;
+                        se.description = _( "fwoosh!" );
+                        se.from_monster = true;
+                        se.monfaction = faction.id();
+                        se.id = "fire";
+                        se.variant = "ignition";
+                        sounds::sound( se );
+                        break;
                     }
                 }
                 if( zap.abs_pos() != abs_pos() ) {
@@ -3436,7 +3439,7 @@ void monster::die( Creature *nkiller )
     }
     if( has_effect( effect_grabbing ) ) {
         remove_effect( effect_grabbing );
-        for( player *p : find_targets_to_ungrab( bub_pos() ) ) {
+        for( player *p : find_targets_to_ungrab( *this, abs_pos() ) ) {
             p->add_msg_player_or_npc( m_good, _( "The last enemy holding you collapses!" ),
                                       _( "The last enemy holding <npcname> collapses!" ) );
             p->remove_effect( effect_grabbed );
@@ -4202,7 +4205,7 @@ void monster::on_damage_of_type( int amt, damage_type dt, const bodypart_id &bp 
     if( has_effect( effect_grabbing ) && ( dt == DT_BASH || dt == DT_CUT || dt == DT_STAB ) &&
         x_in_y( amt * 10, full_hp ) ) {
         remove_effect( effect_grabbing );
-        for( player *p : find_targets_to_ungrab( bub_pos() ) ) {
+        for( player *p : find_targets_to_ungrab( *this, abs_pos() ) ) {
             p->add_msg_player_or_npc( m_good, _( "%s flinches, letting you go!" ),
                                       _( "%s flinches, letting <npcname> go!" ),
                                       disp_name( false, true ) );

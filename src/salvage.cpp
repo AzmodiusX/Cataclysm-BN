@@ -519,7 +519,7 @@ void salvage_activity_actor::do_turn( player_activity &act, Character &who )
 
 void salvage_activity_actor::finish( player_activity &act, Character & )
 {
-    if( progress.empty() || !progress.complete() ) {
+    if( !progress.empty() && !progress.complete() ) {
         debugmsg( "salvage_activity_actor call finish function while able to start new salvage" );
     }
     add_msg( _( "You finish salvaging." ) );

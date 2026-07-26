@@ -622,7 +622,7 @@ class vehicle
          *  Operate vehicle controls
          *  @param pos location of physical controls to operate (ignored during remote operation)
          */
-        void use_controls( const tripoint_bub_ms &pos );
+        void use_controls( const tripoint_abs_ms &pos );
 
         // Fold up the vehicle
         bool fold_up();

@@ -635,3 +635,42 @@ TEST_CASE("broken_door_and_lock_can_be_removed", "[vehicle]") {
     CHECK(veh_ptr->can_unmount(door_idx, door_reason));
     CHECK(veh_ptr->can_unmount(lock_idx, lock_reason));
 }
+
+TEST_CASE("motorcycle_controls_follow_awkward_absolute_movement", "[vehicle][coordinates]") {
+    clear_all_state();
+
+    auto &you = get_avatar();
+    auto &here = you.get_mapbuffer();
+    you.setpos( test_origin );
+    you.controlling_vehicle = true;
+    build_test_map( ter_id( "t_floor" ) );
+
+    auto *veh_ptr = here.add_vehicle( vproto_id( "motorcycle" ), test_origin, 0_degrees, 100, 0 );
+    REQUIRE( veh_ptr != nullptr );
+    REQUIRE( here.board_vehicle( test_origin, you ) );
+    REQUIRE( you.in_vehicle );
+    veh_ptr->velocity = 100;
+    REQUIRE_FALSE( veh_ptr->get_parts_at( test_origin, "CONTROLS", part_status_flag::any ).empty() );
+    REQUIRE( veh_ptr->player_in_control( you ) );
+    const auto controls_part = veh_ptr->part_with_feature( tripoint_mnt_veh::zero(),
+                              "CONTROLS", false );
+    REQUIRE( controls_part >= 0 );
+
+    const auto awkward_moves = std::array<tripoint_rel_ms, 4>{
+        tripoint_rel_ms::east(),
+        tripoint_rel_ms::north(),
+        tripoint_rel_ms::west(),
+        tripoint_rel_ms::south(),
+    };
+    for( const auto &delta : awkward_moves ) {
+        veh_ptr = here.move_vehicle( *veh_ptr, delta, veh_ptr->face );
+        REQUIRE( veh_ptr != nullptr );
+        you.setpos( veh_ptr->abs_part_location( controls_part ) );
+
+        CHECK( here.veh_at( you.abs_pos() ).has_value() );
+        CHECK( &here.veh_at( you.abs_pos() )->vehicle() == veh_ptr );
+        CHECK_FALSE( veh_ptr->get_parts_at( you.abs_pos(), "CONTROLS",
+                                             part_status_flag::any ).empty() );
+        CHECK( veh_ptr->player_in_control( you ) );
+    }
+}

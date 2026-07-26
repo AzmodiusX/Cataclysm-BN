@@ -129,7 +129,7 @@ bool game::grabbed_veh_move( const tripoint_rel_ms &dp )
             return false;
         }
     }
-    const vehicle *veh_under_player = veh_pointer_or_null( m.veh_at( u.bub_pos() ) );
+    const vehicle *veh_under_player = veh_pointer_or_null( u.get_mapbuffer().veh_at( u.abs_pos() ) );
     if( grabbed_vehicle == veh_under_player ) {
         u.grab_point = -dp;
         return false;
