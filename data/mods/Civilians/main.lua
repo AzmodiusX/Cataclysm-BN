@@ -122,14 +122,14 @@ local function process_civilian_corpse_pulping(monster, all_creatures, map)
     end
   end
 
-  local m_pos = monster:get_pos_ms()
+  local m_bub_pos = monster:bub_pos()
   ---@type Item?
   local found_corpse = nil
   ---@type TripointBubMs?
   local corpse_pos = nil
 
   -- 2. Scan surroundings for unpulped corpses (radius 8 tiles)
-  local points = map:points_in_radius(m_pos, CONFIG.PULPING_RADIUS, 0)
+  local points = map:points_in_radius(m_bub_pos, CONFIG.PULPING_RADIUS, 0)
   for _, pt in ipairs(points) do
     if map:has_items_at(pt) then
       local map_stack = map:get_items_at(pt)
@@ -154,14 +154,14 @@ local function process_civilian_corpse_pulping(monster, all_creatures, map)
   ---@cast corpse_pos TripointBubMs
 
   -- 3. Determine distance and execute action
-  local dist = coords.rl_dist(m_pos, corpse_pos) or math.maxinteger
+  local dist = coords.rl_dist(m_bub_pos, corpse_pos) or math.maxinteger
   if dist <= 1 then
     -- Close enough, execute pulping action
     found_corpse:set_damage(found_corpse:get_max_damage())
     found_corpse:set_flag(FLAG_PULPED)
 
     -- Issue system message (only when the player can see this civilian)
-    if gapi.get_avatar():sees(monster:get_pos_ms()) then
+    if gapi.get_avatar():sees(monster:abs_pos()) then
       gapi.add_msg(
         MsgType.info,
         string.format("<color_light_red>%s pulped the corpse on the ground!</color>", monster:get_name())
