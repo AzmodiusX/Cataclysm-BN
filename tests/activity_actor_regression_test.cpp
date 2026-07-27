@@ -353,15 +353,15 @@ TEST_CASE("salvage actor finishes after its final target", "[activity][activity_
     clear_avatar();
     avatar& dummy = get_avatar();
 
-    auto activity = player_activity( std::make_unique<salvage_activity_actor>() );
-    REQUIRE( activity.has_actor() );
+    auto activity = player_activity(std::make_unique<salvage_activity_actor>());
+    REQUIRE(activity.has_actor());
 
-    const auto debug_message = capture_debugmsg_during( [&] {
-        activity.get_actor()->finish( activity, dummy );
-    } );
+    const auto debug_message = capture_debugmsg_during([&] {
+        activity.get_actor()->finish(activity, dummy);
+    });
 
-    CHECK( debug_message.empty() );
-    CHECK( activity.is_null() );
+    CHECK(debug_message.empty());
+    CHECK(activity.is_null());
 }
 
 TEST_CASE(

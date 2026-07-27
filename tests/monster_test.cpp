@@ -732,84 +732,84 @@ TEST_CASE("zombie_technician_pull_uses_physical_clear_path", "[monster][z-level]
 TEST_CASE("normal_sized_character_mount_status_diagnostic", "[mount][diagnostic]") {
     clear_all_state();
 
-    auto &you = get_avatar();
-    auto &here = you.get_mapbuffer();
+    auto& you = get_avatar();
+    auto& here = you.get_mapbuffer();
     const auto player_pos = test_origin;
     const auto horse_pos = player_pos + tripoint_rel_ms::east();
-    you.setpos( player_pos );
-    build_test_map( ter_id( "t_floor" ) );
-    here.set_ter( player_pos, ter_id( "t_floor" ) );
-    here.set_ter( horse_pos, ter_id( "t_floor" ) );
-    you.set_skill_level( skill_id( "survival" ), 4 );
+    you.setpos(player_pos);
+    build_test_map(ter_id("t_floor"));
+    here.set_ter(player_pos, ter_id("t_floor"));
+    here.set_ter(horse_pos, ter_id("t_floor"));
+    you.set_skill_level(skill_id("survival"), 4);
 
-    auto &horse = spawn_test_monster( "mon_horse", abs_to_bub( horse_pos ) );
+    auto& horse = spawn_test_monster("mon_horse", abs_to_bub(horse_pos));
     horse.friendly = -1;
-    horse.setpos( player_pos );
+    horse.setpos(player_pos);
     const auto pathfinding = you.get_pathfinding_pair();
-    const auto route = Pathfinding::route( here, you.abs_pos(), horse.abs_pos(),
-                                           pathfinding.first, pathfinding.second );
-    const auto status = you.get_mountable_status( horse );
+    const auto route = Pathfinding::
+        route(here, you.abs_pos(), horse.abs_pos(), pathfinding.first, pathfinding.second);
+    const auto status = you.get_mountable_status(horse);
 
-    CAPTURE( horse.type->id.str() );
-    CAPTURE( static_cast<int>( horse.type->size ) );
-    CAPTURE( static_cast<int>( horse.get_size() ) );
-    CAPTURE( static_cast<int>( horse.get_size() ) - static_cast<int>( horse.type->size ) );
-    CAPTURE( static_cast<int>( you.get_size() ) );
-    CAPTURE( route.size() );
-    CAPTURE( route.empty() );
-    CAPTURE( status.mountable );
-    CAPTURE( status.skills );
-    CAPTURE( status.size );
-    CAPTURE( status.carry_weight );
-    CAPTURE( status.can_mount() );
-    CAPTURE( horse.get_carried_weight() );
-    CAPTURE( horse.weight_capacity() );
-    CAPTURE( you.get_weight() );
+    CAPTURE(horse.type->id.str());
+    CAPTURE(static_cast<int>(horse.type->size));
+    CAPTURE(static_cast<int>(horse.get_size()));
+    CAPTURE(static_cast<int>(horse.get_size()) - static_cast<int>(horse.type->size));
+    CAPTURE(static_cast<int>(you.get_size()));
+    CAPTURE(route.size());
+    CAPTURE(route.empty());
+    CAPTURE(status.mountable);
+    CAPTURE(status.skills);
+    CAPTURE(status.size);
+    CAPTURE(status.carry_weight);
+    CAPTURE(status.can_mount());
+    CAPTURE(horse.get_carried_weight());
+    CAPTURE(horse.weight_capacity());
+    CAPTURE(you.get_weight());
 
-    REQUIRE( status.can_mount() );
+    REQUIRE(status.can_mount());
 }
 
 TEST_CASE("friendly_creature_on_player_tile_remains_visible", "[monster][visibility][mapbuffer]") {
     clear_all_state();
 
-    auto &you = get_avatar();
-    auto &here = you.get_mapbuffer();
+    auto& you = get_avatar();
+    auto& here = you.get_mapbuffer();
     const auto player_pos = test_origin;
     const auto spore_start = player_pos + tripoint_rel_ms::east();
-    you.setpos( player_pos );
+    you.setpos(player_pos);
 
-    auto &spore = spawn_test_monster( "mon_spore", abs_to_bub( spore_start ) );
+    auto& spore = spawn_test_monster("mon_spore", abs_to_bub(spore_start));
     spore.friendly = -1;
-    spore.setpos( player_pos );
+    spore.setpos(player_pos);
 
-    REQUIRE( here.creature_at( player_pos ) == &spore );
-    CHECK( here.has_creature_at( player_pos ) );
-    CHECK( you.sees( spore ) );
-    CHECK( g->critter_at<monster>( abs_to_bub( player_pos ) ) == &spore );
-    CHECK( g->critter_at<avatar>( player_pos ) == &you );
+    REQUIRE(here.creature_at(player_pos) == &spore);
+    CHECK(here.has_creature_at(player_pos));
+    CHECK(you.sees(spore));
+    CHECK(g->critter_at<monster>(abs_to_bub(player_pos)) == &spore);
+    CHECK(g->critter_at<avatar>(player_pos) == &you);
 }
 
 TEST_CASE("fungal_spore_threshold_counts_mapbuffer_creatures", "[fungal][mapbuffer]") {
     clear_all_state();
 
-    auto &you = get_avatar();
-    auto &here = you.get_mapbuffer();
-    you.setpos( test_origin );
+    auto& you = get_avatar();
+    auto& here = you.get_mapbuffer();
+    you.setpos(test_origin);
     const auto original_threshold = fungal_opt.spore_creatures_threshold;
-    const auto restore_threshold = on_out_of_scope( [original_threshold] {
+    const auto restore_threshold = on_out_of_scope([original_threshold] {
         fungal_opt.spore_creatures_threshold = original_threshold;
-    } );
+    });
     fungal_opt.spore_creatures_threshold = 2;
 
-    fungal_effects effects( *g, here );
+    fungal_effects effects(*g, here);
     const auto first_target = test_origin + tripoint_rel_ms::east();
     const auto second_target = test_origin + tripoint_rel_ms::north();
-    here.set_ter( first_target, ter_id( "t_floor" ) );
-    here.set_ter( second_target, ter_id( "t_floor" ) );
+    here.set_ter(first_target, ter_id("t_floor"));
+    here.set_ter(second_target, ter_id("t_floor"));
 
-    effects.fungalize( first_target, nullptr, 1.0 );
-    REQUIRE( here.creature_at( first_target ) != nullptr );
+    effects.fungalize(first_target, nullptr, 1.0);
+    REQUIRE(here.creature_at(first_target) != nullptr);
 
-    effects.fungalize( second_target, nullptr, 1.0 );
-    CHECK( here.creature_at( second_target ) == nullptr );
+    effects.fungalize(second_target, nullptr, 1.0);
+    CHECK(here.creature_at(second_target) == nullptr);
 }

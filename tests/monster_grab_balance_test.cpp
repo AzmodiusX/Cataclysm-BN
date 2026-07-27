@@ -173,39 +173,40 @@ TEST_CASE("Crowd crush drains breath while grabbed", "[player][melee][grab]") {
     CHECK(dummy.oxygen < 30);
 }
 
-TEST_CASE("grabbed_monster_stays_in_absolute_space_across_submap_shift", "[monster][grab][coordinates]") {
+TEST_CASE(
+    "grabbed_monster_stays_in_absolute_space_across_submap_shift", "[monster][grab][coordinates]") {
     clear_all_state();
 
-    auto &you = get_avatar();
-    clear_character( you );
-    const auto player_start = test_origin + tripoint_rel_ms( SEEX - 1, SEEY - 2, 0 );
+    auto& you = get_avatar();
+    clear_character(you);
+    const auto player_start = test_origin + tripoint_rel_ms(SEEX - 1, SEEY - 2, 0);
     const auto monster_start = player_start + tripoint_rel_ms::north();
-    you.setpos( player_start );
-    auto &nurse = spawn_test_monster( "mon_zombie_nurse", abs_to_bub( monster_start ) );
+    you.setpos(player_start);
+    auto& nurse = spawn_test_monster("mon_zombie_nurse", abs_to_bub(monster_start));
 
-    const auto effect_grabbed = efftype_id( "grabbed" );
-    const auto effect_grabbing = efftype_id( "grabbing" );
-    you.add_effect( effect_grabbing, 1_days, body_part_torso );
-    nurse.add_effect( effect_grabbed, 1_days );
-    REQUIRE( you.has_effect( effect_grabbing ) );
-    REQUIRE( nurse.has_effect( effect_grabbed ) );
+    const auto effect_grabbed = efftype_id("grabbed");
+    const auto effect_grabbing = efftype_id("grabbing");
+    you.add_effect(effect_grabbing, 1_days, body_part_torso);
+    nurse.add_effect(effect_grabbed, 1_days);
+    REQUIRE(you.has_effect(effect_grabbing));
+    REQUIRE(nurse.has_effect(effect_grabbed));
 
-    REQUIRE( avatar_action::move( you, tripoint_rel_ms::east() ) );
-    CHECK( you.abs_pos() == player_start + tripoint_rel_ms::east() );
-    CHECK( nurse.abs_pos() == player_start );
+    REQUIRE(avatar_action::move(you, tripoint_rel_ms::east()));
+    CHECK(you.abs_pos() == player_start + tripoint_rel_ms::east());
+    CHECK(nurse.abs_pos() == player_start);
 
-    const auto bubble_shift = tripoint_rel_ms( SEEX * 2, SEEY * 2, 0 );
+    const auto bubble_shift = tripoint_rel_ms(SEEX * 2, SEEY * 2, 0);
     const auto shifted_player = you.abs_pos() + bubble_shift;
     const auto shifted_nurse = nurse.abs_pos() + bubble_shift;
-    you.setpos( shifted_player );
-    nurse.setpos( shifted_nurse );
-    REQUIRE( you.abs_pos() == shifted_player );
-    REQUIRE( nurse.abs_pos() == shifted_nurse );
+    you.setpos(shifted_player);
+    nurse.setpos(shifted_nurse);
+    REQUIRE(you.abs_pos() == shifted_player);
+    REQUIRE(nurse.abs_pos() == shifted_nurse);
 
-    nurse.set_moves( 100 );
+    nurse.set_moves(100);
     nurse.process_turn();
 
-    CHECK( nurse.abs_pos() == shifted_nurse );
-    CHECK( you.get_mapbuffer().creature_at( shifted_nurse ) == &nurse );
-    CHECK( nurse.has_effect( effect_grabbed ) );
+    CHECK(nurse.abs_pos() == shifted_nurse);
+    CHECK(you.get_mapbuffer().creature_at(shifted_nurse) == &nurse);
+    CHECK(nurse.has_effect(effect_grabbed));
 }

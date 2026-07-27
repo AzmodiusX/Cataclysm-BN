@@ -13008,7 +13008,7 @@ void game::apply_movement_effects()
             }
         }
     }
-    if( dest.has_flag( TFLAG_UNSTABLE) && !u.is_mounted() ) {
+    if( dest.has_flag( TFLAG_UNSTABLE ) && !u.is_mounted() ) {
         u.add_effect( effect_bouldering, 1_turns, bodypart_str_id::NULL_ID() );
     } else if( u.has_effect( effect_bouldering ) ) {
         u.remove_effect( effect_bouldering );
@@ -14081,7 +14081,8 @@ void game::vertical_move( int movez, bool force, bool peeking )
     const bool can_noclip = character_funcs::can_noclip( avatar );
     auto &here = u.get_mapbuffer();
     int move_cost = 100;
-    auto stairs = *abs_tile_handle::fetch( avatar.get_mapbuffer(), avatar.abs_pos() + tripoint_rel_ms( 0, 0, movez ) );
+    auto stairs = *abs_tile_handle::fetch( avatar.get_mapbuffer(),
+                                           avatar.abs_pos() + tripoint_rel_ms( 0, 0, movez ) );
     if( !force && movez == 1 && !avatar_tile.has_flag( TFLAG_GOES_UP ) &&
         !u.is_underwater() && !can_fly ) {
 
@@ -14205,7 +14206,7 @@ void game::vertical_move( int movez, bool force, bool peeking )
 
     } else if( !force && movez == -1 && !avatar_tile.has_flag( TFLAG_GOES_DOWN ) &&
                !u.is_underwater() ) {
-        
+
         const auto dest = *abs_tile_handle::fetch( here, u.abs_pos() + tripoint_below );
 
         // Check if player is standing on open air
@@ -14338,7 +14339,8 @@ void game::vertical_move( int movez, bool force, bool peeking )
             }
             // ...and we're trying to move up
             else if( movez == 1 ) {
-                const std::optional<vpart_reference> vp = stairs.vehicle_part().part_with_feature( VPFLAG_BOARDABLE, true );
+                const std::optional<vpart_reference> vp = stairs.vehicle_part().part_with_feature( VPFLAG_BOARDABLE,
+                        true );
                 if( vp ) {
                     add_msg( m_info, _( "You can't board a boat from underneath it!" ) );
                     return;
