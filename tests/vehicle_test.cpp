@@ -25,8 +25,8 @@
 #include "vehicle.h"
 #include "vehicle_part.h"
 #include "vehicle_wait.h"
-#include "vpart_range.h"
 #include "vpart_position.h"
+#include "vpart_range.h"
 
 #include <algorithm>
 #include <memory>
@@ -651,7 +651,8 @@ TEST_CASE("vehicle_door_movement_respects_door_lock_state", "[vehicle][door][reg
     REQUIRE(veh_ptr != nullptr);
 
     const auto door_idx = veh_ptr->part_with_feature(tripoint_mnt_veh(1, 0, 0), "OPENABLE", true);
-    const auto lock_idx = veh_ptr->part_with_feature(tripoint_mnt_veh(1, 0, 0), "DOOR_LOCKING", true);
+    const auto lock_idx =
+        veh_ptr->part_with_feature(tripoint_mnt_veh(1, 0, 0), "DOOR_LOCKING", true);
     REQUIRE(door_idx >= 0);
     REQUIRE(lock_idx >= 0);
 
@@ -671,10 +672,12 @@ TEST_CASE("vehicle_door_movement_respects_door_lock_state", "[vehicle][door][reg
 
     door_part.open = false;
     lock_part.enabled = true;
-    CHECK_FALSE(here.open_door(door_pos, {
-        .inside = false,
-        .who = &you,
-    }));
+    CHECK_FALSE(here.open_door(
+        door_pos,
+        {
+            .inside = false,
+            .who = &you,
+        }));
     CHECK_FALSE(door_part.open);
 }
 
@@ -738,11 +741,9 @@ TEST_CASE("leaving_blimp_balloon_unboards_passenger", "[vehicle][aircraft][regre
 
     const auto balloon_pos = test_origin + tripoint_rel_ms::west();
     const auto all_parts = blimp->get_all_parts();
-    const auto balloon_part = std::ranges::find_if(
-                                  all_parts, [&]( const vpart_reference &part ) {
-        return part.info().get_id() == vpart_id("airship_balloon") &&
-               part.abs_pos() == balloon_pos;
-    } );
+    const auto balloon_part = std::ranges::find_if(all_parts, [&](const vpart_reference& part) {
+        return part.info().get_id() == vpart_id("airship_balloon") && part.abs_pos() == balloon_pos;
+    });
     REQUIRE(balloon_part != all_parts.end());
     CHECK_FALSE(balloon_part->has_feature("BOARDABLE"));
     REQUIRE(here.veh_at(balloon_pos));

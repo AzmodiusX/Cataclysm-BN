@@ -1363,7 +1363,7 @@ class mapbuffer
         mapbuffer_lookup_options options = {} ) -> bool;
         /// Open a door at @p p with optional character-aware vehicle checks.
         auto open_door( const tripoint_abs_ms &p,
-        const mapbuffer_open_door_options &options ) -> bool;
+                        const mapbuffer_open_door_options &options ) -> bool;
         /// Close a door at @p p (mutates terrain/furniture to its closed variant).
         auto close_door( const tripoint_abs_ms &p, bool inside, bool check_only,
         mapbuffer_lookup_options options = {} ) -> bool;
@@ -1414,7 +1414,7 @@ class mapbuffer
         mapbuffer_lookup_options options = {} ) -> void;
         /// Unboard a passenger whose vehicle part may not be at @p p.
         auto unboard_vehicle( const tripoint_abs_ms &p,
-        const mapbuffer_unboard_vehicle_options &options ) -> void;
+                              const mapbuffer_unboard_vehicle_options &options ) -> void;
 
         /// Apply field effects at the creature's position.
         auto creature_in_field( Creature &critter,

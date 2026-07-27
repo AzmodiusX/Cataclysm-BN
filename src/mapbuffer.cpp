@@ -5334,7 +5334,7 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
                 return true;
             }
             const auto abs_route = Pathfinding::route( *this, origin.abs_pos(), target,
-                                     pf_settings, rt_settings );
+                                   pf_settings, rt_settings );
             if( !abs_route.empty() ) {
                 return true;
             }

@@ -142,9 +142,11 @@ TEST_CASE("mapbuffer_item_placement_rejects_sealed_tiles", "[mapbuffer][item][re
     REQUIRE(here.has_flag("SEALED", sealed_pos));
 
     auto blocked_item = item::spawn("rock");
-    auto returned_item = here.add_item_or_charges(sealed_pos, std::move(blocked_item), {
-        .overflow = false,
-    });
+    auto returned_item = here.add_item_or_charges(
+        sealed_pos, std::move(blocked_item),
+        {
+            .overflow = false,
+        });
     CHECK(returned_item != nullptr);
     REQUIRE(here.get_items(sealed_pos) != nullptr);
     CHECK(here.get_items(sealed_pos)->empty());
@@ -156,11 +158,9 @@ TEST_CASE("mapbuffer_item_placement_rejects_sealed_tiles", "[mapbuffer][item][re
     REQUIRE(here.get_items(window_pos) != nullptr);
     CHECK(here.get_items(window_pos)->empty());
 
-    auto overflow_items = size_t{ 0 };
-    for( const auto &tile : simulated_tiles_in_radius( here, window_pos, 1 ) ) {
-        if( tile.abs_pos() != window_pos ) {
-            overflow_items += tile.items().size();
-        }
+    auto overflow_items = size_t{0};
+    for (const auto& tile : simulated_tiles_in_radius(here, window_pos, 1)) {
+        if (tile.abs_pos() != window_pos) { overflow_items += tile.items().size(); }
     }
     CHECK(overflow_items > 0);
 }

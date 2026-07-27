@@ -675,9 +675,9 @@ bool avatar_action::move( avatar &you, const tripoint_rel_ms &d )
     if( dst_veh ) {
         if( veh_closed_door ) {
             if( !here.open_door( dest_loc, {
-                .inside = !outside_vehicle,
-                .who = &you,
-            } ) ) {
+            .inside = !outside_vehicle,
+            .who = &you,
+        } ) ) {
                 return false;
             }
 

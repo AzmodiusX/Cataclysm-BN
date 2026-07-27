@@ -37,10 +37,10 @@ static auto make_blank_submap(mapbuffer& mb, const tripoint_abs_sm& pos) -> subm
     return mb.lookup_submap_in_memory(pos);
 }
 
-static auto add_field_to_submap(submap& sm, const point_sm_ms& local,
-                                const field_type_id& type, const int intensity,
-                                const time_duration& age) -> field_entry* {
-    if( sm.get_field(local).add_field(type, intensity, age) ) {
+static auto add_field_to_submap(
+    submap& sm, const point_sm_ms& local, const field_type_id& type, const int intensity,
+    const time_duration& age) -> field_entry* {
+    if (sm.get_field(local).add_field(type, intensity, age)) {
         ++sm.field_count;
         sm.field_cache.push_back(local);
         sm.is_uniform = false;
@@ -93,7 +93,7 @@ TEST_CASE("shock_vent_emits_electricity_from_hidden_field", "[simulation][field]
 
     const auto center = FAR_SM_POS;
     const auto local = point_sm_ms(SEEX / 2, SEEY / 2);
-    for( const auto &offset : closest_points_first(point_abs_sm::zero(), 1) ) {
+    for (const auto& offset : closest_points_first(point_abs_sm::zero(), 1)) {
         const auto submap_pos = center + tripoint_rel_sm(offset.x(), offset.y(), 0);
         auto* sm = make_blank_submap(MAPBUFFER, submap_pos);
         REQUIRE(sm != nullptr);
@@ -112,13 +112,13 @@ TEST_CASE("shock_vent_emits_electricity_from_hidden_field", "[simulation][field]
     REQUIRE(vent != nullptr);
     CHECK(vent->get_field_intensity() == 3);
 
-    auto electricity_tiles = size_t{ 0 };
-    for( const auto &offset : closest_points_first(point_abs_sm::zero(), 1) ) {
+    auto electricity_tiles = size_t{0};
+    for (const auto& offset : closest_points_first(point_abs_sm::zero(), 1)) {
         const auto submap_pos = center + tripoint_rel_sm(offset.x(), offset.y(), 0);
         const auto* sm = MAPBUFFER.lookup_submap_in_memory(submap_pos);
         REQUIRE(sm != nullptr);
-        for( const auto &field_pos : sm->field_cache ) {
-            if( sm->get_field(field_pos).find_field(fd_electricity) != nullptr ) {
+        for (const auto& field_pos : sm->field_cache) {
+            if (sm->get_field(field_pos).find_field(fd_electricity) != nullptr) {
                 ++electricity_tiles;
             }
         }
