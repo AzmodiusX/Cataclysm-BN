@@ -120,7 +120,7 @@ struct vehicle_part {
         bool can_reload( const item *obj = nullptr ) const;
 
         /** If this part is capable of wholly containing something, process it. */
-        void process_contents( bool e_heater );
+        void process_contents( bool e_heater, int turns = 1 );
 
         /**
          *  Try adding @param liquid to tank optionally limited by @param qty

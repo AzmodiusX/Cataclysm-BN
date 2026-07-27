@@ -179,7 +179,7 @@ TEST_CASE("minirose_lua_detonates", "[lua][minirose]") {
     fake_item["set_charges"] = [&](const sol::table&, const int charges) {
         nuke_charges = charges;
     };
-    fake_item["invoke_at"] = [&](const sol::table&, const tripoint_bub_ms&) { ++calls_invoked; };
+    fake_item["invoke_at"] = [&](const sol::table&, const tripoint_abs_ms&) { ++calls_invoked; };
 
     auto fake_gapi = lua.create_table();
     fake_gapi["create_item"] = [&](const itype_id& id, const int count) {
@@ -217,6 +217,7 @@ TEST_CASE("minirose_lua_detonates", "[lua][minirose]") {
         minirose_armed = false;
     };
     fake_char["bub_pos"] = [](const sol::table&) { return bub_test_origin(); };
+    fake_char["abs_pos"] = [](const sol::table&) { return test_origin; };
     fake_char["is_avatar"] = [](const sol::table&) { return true; };
 
     const auto load_res = lua.load_file("data/json/lua/minirose.lua");

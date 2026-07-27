@@ -5416,11 +5416,15 @@ void map::update_lum( item &loc, bool add )
     } );
 }
 
-static bool process_map_items( item *item_ref, const temperature_flag flag )
+static bool process_map_items( item *item_ref, const temperature_flag flag, const int turns )
 {
     ZoneScopedN( "process_map_items" );
-    return item_ref->game_object<item>::attempt_detach( [&flag]( detached_ptr<item> &&it ) {
-        return item::process( std::move( it ), nullptr, false, flag );
+    return item_ref->game_object<item>::attempt_detach( [&flag, &turns]( detached_ptr<item> &&it ) {
+        auto ret = std::move( it );
+        std::ranges::for_each( std::views::iota( 0, turns ), [&]( const auto ) {
+            ret = item::process( std::move( ret ), nullptr, false, flag );
+        } );
+        return ret;
     } );
 }
 
@@ -5500,7 +5504,7 @@ std::vector<tripoint_abs_sm> map::check_submap_active_item_consistency()
     return result;
 }
 
-void map::process_items()
+void map::process_items( int turns )
 {
     // Defer explosion drains during processing: an item here can be detached but
     // still in-stack, and a re-entrant drain would re-detonate it forever (#9696).
@@ -5527,7 +5531,7 @@ void map::process_items()
                                          || veh->has_cargo_recharge;
             }
             if( has_vehicle_with_items ) {
-                process_items_in_vehicles( sm );
+                process_items_in_vehicles( sm, turns );
             }
         } );
     }
@@ -5559,7 +5563,7 @@ void map::process_items()
                     total_active_items += counts.total;
                     total_rottable_active_items += counts.rottable;
                 }
-                process_items_in_submap( *current_submap, local_pos, active_items );
+                process_items_in_submap( *current_submap, local_pos, active_items, turns );
             }
         }
     }
@@ -5568,7 +5572,7 @@ void map::process_items()
 }
 
 auto map::process_items_in_submap( submap &current_submap, const tripoint_bub_sm &gridp,
-                                   std::vector<item *> &active_items ) -> void
+                                   std::vector<item *> &active_items, int turns ) -> void
 {
     ZoneScopedN( "process_items_in_submap" );
     // Get a COPY of the active item list for this submap.
@@ -5588,12 +5592,12 @@ auto map::process_items_in_submap( submap &current_submap, const tripoint_bub_sm
             }
 
             const auto flag = rot::temp::for_location( *active_item_ref );
-            process_map_items( active_item_ref, flag );
+            process_map_items( active_item_ref, flag, turns );
         }
     }
 }
 
-void map::process_items_in_vehicles( submap &current_submap )
+void map::process_items_in_vehicles( submap &current_submap, int turns )
 {
     // a copy, important if the vehicle list changes because a
     // vehicle got destroyed by a bomb (an active item!), this list
@@ -5611,15 +5615,15 @@ void map::process_items_in_vehicles( submap &current_submap )
             continue;
         }
 
-        process_items_in_vehicle( *cur_veh, current_submap );
+        process_items_in_vehicle( *cur_veh, current_submap, turns );
     }
 }
 
-void map::process_items_in_vehicle( vehicle &cur_veh, submap &current_submap )
+void map::process_items_in_vehicle( vehicle &cur_veh, submap &current_submap, int turns )
 {
     const bool engine_heater_is_on = cur_veh.has_part( "E_HEATER", true ) && cur_veh.engine_on;
     for( const vpart_reference &vp : cur_veh.get_any_parts( VPFLAG_FLUIDTANK ) ) {
-        vp.part().process_contents( engine_heater_is_on );
+        vp.part().process_contents( engine_heater_is_on, turns );
     }
 
     // If there is nothing to process, skip the expensive cargo-part collection.
@@ -5653,7 +5657,7 @@ void map::process_items_in_vehicle( vehicle &cur_veh, submap &current_submap )
         if( target.is_food() || target.is_food_container() || target.is_corpse() ) {
             flag = rot::temp::for_part( cur_veh, it->part_index(), engine_heater_is_on );
         }
-        if( !process_map_items( active_item_ref, flag ) ) {
+        if( !process_map_items( active_item_ref, flag, turns ) ) {
             // If the item was NOT destroyed, we can skip the remainder,
             // which handles fallout from the vehicle being damaged.
             continue;

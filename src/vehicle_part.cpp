@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cmath>
 #include <memory>
+#include <ranges>
 #include <set>
 
 #include "avatar.h"
@@ -469,7 +470,7 @@ bool vehicle_part::can_reload( const item *obj ) const
     return ammo_remaining() < ammo_capacity();
 }
 
-void vehicle_part::process_contents( const bool e_heater )
+void vehicle_part::process_contents( const bool e_heater, const int turns )
 {
     // for now we only care about processing food containers since things like
     // fuel don't care about temperature yet
@@ -486,10 +487,12 @@ void vehicle_part::process_contents( const bool e_heater )
             flag = temperature_flag::TEMP_FREEZER;
         }
 
-        auto *const base_location = base.get_loc_hack();
-        detached_ptr<item> detached_base = base.release();
-        detached_base->saved_loc = base_location;
-        base = item::process( std::move( detached_base ), nullptr, false, flag );
+        std::ranges::for_each( std::views::iota( 0, turns ), [&]( const auto ) {
+            auto *const base_location = base.get_loc_hack();
+            detached_ptr<item> detached_base = base.release();
+            detached_base->saved_loc = base_location;
+            base = item::process( std::move( detached_base ), nullptr, false, flag );
+        } );
     }
 }
 
