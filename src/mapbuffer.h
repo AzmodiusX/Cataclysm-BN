@@ -294,7 +294,7 @@ class abs_tile_handle
         ::trap_id trap_id() const;
         auto ter_obj()   const -> const ter_t &;
         auto furn_obj()  const -> const furn_t &;
-        auto trap_obj()  const -> const class trap &;
+        auto trap_obj()  const -> const struct trap &;
         auto field()   const -> const class field &;
         auto items()   const -> const location_vector<item> &;
         auto furn_vars() const -> const data_vars::data_set &;
@@ -1214,11 +1214,11 @@ class mapbuffer
         auto obstacle_name( const tripoint_abs_ms &p,
         mapbuffer_lookup_options options = {} ) -> std::string;
         auto sees( const tripoint_abs_ms &F, const tripoint_abs_ms &T, int range,
-        int &bresenham_slope, mapbuffer_lookup_options options = {} ) -> const bool;
+        int &bresenham_slope, mapbuffer_lookup_options options = {} ) -> bool;
         auto sees( const tripoint_abs_ms &F, const tripoint_abs_ms &T, int range,
-        mapbuffer_lookup_options options = {} ) -> const bool;
+        mapbuffer_lookup_options options = {} ) -> bool;
         auto obstacle_coverage( const tripoint_abs_ms &loc1, const tripoint_abs_ms &loc2,
-        const mapbuffer_lookup_options options = {} ) -> const int;
+        const mapbuffer_lookup_options options = {} ) -> int;
         /// Returns a string containing relevant flags (e.g. "sharp", "rough").
         auto features( const tripoint_abs_ms &p,
         mapbuffer_lookup_options options = {} ) -> std::string;

@@ -6820,7 +6820,7 @@ auto mapbuffer::obstacle_name( const tripoint_abs_ms &p,
 }
 
 auto mapbuffer::sees( const tripoint_abs_ms &F, const tripoint_abs_ms &T, const int range,
-                      mapbuffer_lookup_options options ) -> const bool
+                      mapbuffer_lookup_options options ) -> bool
 {
     int dummy = 0;
     return sees( F, T, range, dummy, options );
@@ -6830,7 +6830,7 @@ auto mapbuffer::sees( const tripoint_abs_ms &F, const tripoint_abs_ms &T, const 
  * This one is internal-only, we don't want to expose the slope tweaking ickiness outside the map class.
  **/
 auto mapbuffer::sees( const tripoint_abs_ms &F, const tripoint_abs_ms &T, const int range,
-                      int &bresenham_slope, mapbuffer_lookup_options options ) -> const bool
+                      int &bresenham_slope, mapbuffer_lookup_options options ) -> bool
 {
     if( ( range >= 0 && range < rl_dist( F, T ) ) ) {
         bresenham_slope = 0;
@@ -6900,7 +6900,7 @@ auto mapbuffer::sees( const tripoint_abs_ms &F, const tripoint_abs_ms &T, const 
 }
 
 auto mapbuffer::obstacle_coverage( const tripoint_abs_ms &loc1, const tripoint_abs_ms &loc2,
-                                   const mapbuffer_lookup_options options ) -> const int
+                                   const mapbuffer_lookup_options options ) -> int
 {
     const auto tile1 = lookup_tile( *this, loc1, options );
     const auto tile2 = lookup_tile( *this, loc2, options );

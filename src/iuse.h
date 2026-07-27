@@ -17,7 +17,7 @@ class monster;
 class player;
 struct iteminfo;
 template<typename T> class ret_val;
-struct mapbuffer;
+class mapbuffer;
 
 // iuse methods returning a bool indicating whether to consume a charge of the item being used.
 namespace iuse
