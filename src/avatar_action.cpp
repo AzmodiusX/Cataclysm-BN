@@ -674,7 +674,10 @@ bool avatar_action::move( avatar &you, const tripoint_rel_ms &d )
     // Vehicle Openable
     if( dst_veh ) {
         if( veh_closed_door ) {
-            if( !here.open_door( dest_loc, !outside_vehicle ) ) {
+            if( !here.open_door( dest_loc, {
+                .inside = !outside_vehicle,
+                .who = &you,
+            } ) ) {
                 return false;
             }
 

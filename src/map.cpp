@@ -4935,7 +4935,7 @@ bool map::can_open_door_veh(
 
     const int openable = vp->vehicle().next_part_to_open( vp->part_index(), !inside );
     if( openable < 0 ) {
-        const int openable_other_way = vp->vehicle().next_part_to_open( vp->part_index(), !inside );
+        const int openable_other_way = vp->vehicle().next_part_to_open( vp->part_index(), inside );
         if( openable_other_way >= 0 ) {
             const auto you = std::visit( []( auto &&v ) { return static_cast<const Creature *>( v );}, who );
             if( inside ) {

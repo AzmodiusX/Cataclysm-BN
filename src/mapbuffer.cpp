@@ -4724,16 +4724,15 @@ auto mapbuffer::climb_difficulty( const tripoint_abs_ms &p,
         best_difficulty = 7;
     }
 
-    for( const auto &pt : points_in_radius( p, 1 ) ) {
-        const auto tile = abs_tile_handle::fetch( *this, pt, options );
-        if( !tile || !tile->passable() ) {
+    for( const auto &tile : simulated_tiles_in_radius( *this, p, 1 ) ) {
+        if( !tile.passable() ) {
             best_difficulty = std::min( best_difficulty, 10 );
             blocks_movement++;
-        } else if( tile->vehicle_part() ) {
+        } else if( tile.vehicle_part() ) {
             best_difficulty = std::min( best_difficulty, 7 );
         }
 
-        if( best_difficulty > 5 && tile && has_flag( *tile, "CLIMBABLE" ) ) {
+        if( best_difficulty > 5 && has_flag( tile, "CLIMBABLE" ) ) {
             best_difficulty = 5;
         }
     }
@@ -5325,11 +5324,22 @@ auto mapbuffer::add_item_or_charges( const tripoint_abs_ms &p, detached_ptr<item
         PathfindingSettings pf_settings;
         pf_settings.bash_strength_val = 0;
         RouteSettings rt_settings;
-        rt_settings.max_dist = 2;
+        rt_settings.max_dist = 3;
         rt_settings.max_s_coeff = 4.0f;
-        auto abs_route = Pathfinding::route( *this, p, target,
-                                             pf_settings, rt_settings );
-        return !abs_route.empty();
+        for( const auto &origin : simulated_tiles_in_radius( *this, p, 1 ) ) {
+            if( origin.abs_pos() == p || !origin.passable() ) {
+                continue;
+            }
+            if( origin.abs_pos() == target ) {
+                return true;
+            }
+            const auto abs_route = Pathfinding::route( *this, origin.abs_pos(), target,
+                                     pf_settings, rt_settings );
+            if( !abs_route.empty() ) {
+                return true;
+            }
+        }
+        return false;
     };
 
     auto place_item = [&]( const abs_tile_handle & tile ) {
@@ -7494,7 +7504,16 @@ auto mapbuffer::can_open_door( const tripoint_abs_ms &p, bool inside,
 auto mapbuffer::open_door( const tripoint_abs_ms &p, bool inside,
                            const mapbuffer_lookup_options options ) -> bool
 {
-    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options );
+    return open_door( p, {
+        .inside = inside,
+        .lookup = options,
+    } );
+}
+
+auto mapbuffer::open_door( const tripoint_abs_ms &p,
+                           const mapbuffer_open_door_options &options ) -> bool
+{
+    const auto tile = abs_tile_handle::fetch_terrain_only( *this, p, options.lookup );
     if( !tile ) {
         return false;
     }
@@ -7502,10 +7521,10 @@ auto mapbuffer::open_door( const tripoint_abs_ms &p, bool inside,
     // Try terrain door
     const auto &ter = tile->ter_obj();
     if( ter.open ) {
-        if( has_flag( str_OPENCLOSE_INSIDE, p, options ) && !inside ) {
+        if( has_flag( str_OPENCLOSE_INSIDE, p, options.lookup ) && !options.inside ) {
             return false;
         }
-        if( !set_ter( p, ter.open, options ) ) {
+        if( !set_ter( p, ter.open, options.lookup ) ) {
             return false;
         }
         sound_event se;
@@ -7523,10 +7542,10 @@ auto mapbuffer::open_door( const tripoint_abs_ms &p, bool inside,
     // Try furniture door
     const auto &furn = tile->furn_obj();
     if( furn.open ) {
-        if( has_flag( str_OPENCLOSE_INSIDE, p, options ) && !inside ) {
+        if( has_flag( str_OPENCLOSE_INSIDE, p, options.lookup ) && !options.inside ) {
             return false;
         }
-        if( !set_furn( p, furn.open, options ) ) {
+        if( !set_furn( p, furn.open, options.lookup ) ) {
             return false;
         }
         sound_event se;
@@ -7542,17 +7561,39 @@ auto mapbuffer::open_door( const tripoint_abs_ms &p, bool inside,
     }
 
     // Try vehicle door
-    const auto vp = veh_at( p, options );
+    const auto vp = veh_at( p, options.lookup );
     if( !vp ) {
         return false;
     }
 
-    const int openable = vp->vehicle().next_part_to_open( vp->part_index(), !inside );
+    // Preserve the legacy, character-less query used by NPC and monster movement.
+    // Character-aware callers apply the vehicle's ownership and door-lock rules below.
+    if( options.who == nullptr && vp->vehicle().is_locked ) {
+        return false;
+    }
+
+    if( options.who != nullptr && options.who->is_mounted() ) {
+        const auto mounted_creature = options.who->mounted_creature.get();
+        if( mounted_creature == nullptr || !mounted_creature->has_flag( MF_MOUNTABLE_DOORS ) ) {
+            options.who->add_msg_if_player( m_info, _( "You can't open things while you're riding." ) );
+            return false;
+        }
+    }
+
+    const auto openable = vp->vehicle().next_part_to_open( vp->part_index(), !options.inside );
     if( openable < 0 ) {
         return false;
     }
 
-    if( vp->vehicle().is_locked ) {
+    if( options.who != nullptr && options.who->is_avatar() &&
+        !vp->vehicle().handle_potential_theft( *options.who->as_avatar() ) ) {
+        return false;
+    }
+
+    const auto lock_part = vp.part_with_feature( "DOOR_LOCKING", true );
+    const auto has_locked_door = lock_part.has_value() && lock_part->part().enabled;
+    const auto is_owner = options.who != nullptr && vp->vehicle().is_owned_by( *options.who );
+    if( has_locked_door && ( !is_owner || vp->vehicle().is_locked ) ) {
         return false;
     }
 
@@ -8621,17 +8662,49 @@ auto mapbuffer::board_vehicle( const tripoint_abs_ms &p, Character &who,
 auto mapbuffer::unboard_vehicle( const tripoint_abs_ms &p, bool dead_passenger,
                                  const mapbuffer_lookup_options options ) -> void
 {
-    auto vp = veh_at( p, options ).part_with_feature( VPFLAG_BOARDABLE, false );
-    if( !vp ) {
+    unboard_vehicle( p, {
+        .dead_passenger = dead_passenger,
+        .lookup = options,
+    } );
+}
+
+auto mapbuffer::unboard_vehicle( const tripoint_abs_ms &p,
+                                 const mapbuffer_unboard_vehicle_options &options ) -> void
+{
+    const auto vehicle_part_at_position = veh_at( p, options.lookup );
+    if( !vehicle_part_at_position ) {
+        if( options.passenger != nullptr ) {
+            options.passenger->in_vehicle = false;
+            options.passenger->controlling_vehicle = false;
+        }
         return;
     }
-    vp->part().remove_flag( vehicle_part::passenger_flag );
-    vp->vehicle().invalidate_mass();
-    Character *passenger = g->critter_by_id<Character>( vp->part().passenger_id );
-    if( passenger && !dead_passenger ) {
+
+    auto &veh = vehicle_part_at_position->vehicle();
+    std::optional<vpart_reference> passenger_part;
+    for( const auto &candidate : veh.get_any_parts( VPFLAG_BOARDABLE ) ) {
+        if( !candidate.part().has_flag( vehicle_part::passenger_flag ) ) {
+            continue;
+        }
+        if( options.passenger == nullptr ||
+            candidate.part().passenger_id == options.passenger->getID() ) {
+            passenger_part = candidate;
+            break;
+        }
+    }
+    if( !passenger_part ) {
+        return;
+    }
+
+    auto &part = passenger_part->part();
+    auto *passenger = options.passenger != nullptr ? options.passenger :
+                      g->critter_by_id<Character>( part.passenger_id );
+    part.remove_flag( vehicle_part::passenger_flag );
+    veh.invalidate_mass();
+    if( passenger && !options.dead_passenger ) {
         passenger->in_vehicle = false;
         if( passenger->controlling_vehicle ) {
-            vp->vehicle().skidding = true;
+            veh.skidding = true;
         }
         passenger->controlling_vehicle = false;
     }

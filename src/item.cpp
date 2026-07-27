@@ -11657,7 +11657,7 @@ bool item::on_drop()
 
     // Prevent items with DESTROY_ON_DROP from being dropped onto the ground
     if( has_flag( flag_DESTROY_ON_DROP ) && ( !made_of( LIQUID ) ||
-            !m.has_flag( flag_LIQUIDCONT, pos ) ) ) {
+            !here.has_flag( TFLAG_LIQUIDCONT, pos ) ) ) {
         return true;
     }
 

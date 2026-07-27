@@ -13063,7 +13063,9 @@ void game::apply_movement_effects()
     }
 
     if( u.in_vehicle ) {
-        here.unboard_vehicle( u.abs_pos() );
+        here.unboard_vehicle( u.abs_pos(), {
+            .passenger = &u,
+        } );
     }
     if( u.is_hauling() && ( !here.can_put_items( dest.abs_pos() ) ||
                             dest.has_flag( TFLAG_DEEP_WATER ) ||

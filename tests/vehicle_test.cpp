@@ -1,4 +1,5 @@
 #include "avatar.h"
+#include "avatar_action.h"
 #include "calendar.h"
 #include "cata_utility.h"
 #include "catch/catch.hpp"
@@ -24,6 +25,7 @@
 #include "vehicle.h"
 #include "vehicle_part.h"
 #include "vehicle_wait.h"
+#include "vpart_range.h"
 #include "vpart_position.h"
 
 #include <algorithm>
@@ -636,6 +638,46 @@ TEST_CASE("broken_door_and_lock_can_be_removed", "[vehicle]") {
     CHECK(veh_ptr->can_unmount(lock_idx, lock_reason));
 }
 
+TEST_CASE("vehicle_door_movement_respects_door_lock_state", "[vehicle][door][regression]") {
+    clear_all_state();
+
+    auto& you = get_avatar();
+    auto& here = you.get_mapbuffer();
+    you.setpos(test_origin);
+    you.moves = 1000;
+    build_test_map(ter_id("t_floor"));
+
+    auto* veh_ptr = here.add_vehicle(vproto_id("cross_split_test"), test_origin, 0_degrees, 0, 0);
+    REQUIRE(veh_ptr != nullptr);
+
+    const auto door_idx = veh_ptr->part_with_feature(tripoint_mnt_veh(1, 0, 0), "OPENABLE", true);
+    const auto lock_idx = veh_ptr->part_with_feature(tripoint_mnt_veh(1, 0, 0), "DOOR_LOCKING", true);
+    REQUIRE(door_idx >= 0);
+    REQUIRE(lock_idx >= 0);
+
+    auto& door_part = veh_ptr->part(door_idx);
+    auto& lock_part = veh_ptr->part(lock_idx);
+    door_part.open = false;
+    lock_part.enabled = false;
+    veh_ptr->is_locked = true;
+
+    const auto door_pos = veh_ptr->abs_part_location(door_idx);
+    REQUIRE(door_pos == test_origin + tripoint_rel_ms::east());
+    REQUIRE_FALSE(you.in_vehicle);
+
+    REQUIRE(avatar_action::move(you, tripoint_rel_ms::east()));
+    CHECK(door_part.open);
+    CHECK(you.abs_pos() == test_origin);
+
+    door_part.open = false;
+    lock_part.enabled = true;
+    CHECK_FALSE(here.open_door(door_pos, {
+        .inside = false,
+        .who = &you,
+    }));
+    CHECK_FALSE(door_part.open);
+}
+
 TEST_CASE("motorcycle_controls_follow_awkward_absolute_movement", "[vehicle][coordinates]") {
     clear_all_state();
 
@@ -673,4 +715,42 @@ TEST_CASE("motorcycle_controls_follow_awkward_absolute_movement", "[vehicle][coo
             veh_ptr->get_parts_at(you.abs_pos(), "CONTROLS", part_status_flag::any).empty());
         CHECK(veh_ptr->player_in_control(you));
     }
+}
+
+TEST_CASE("leaving_blimp_balloon_unboards_passenger", "[vehicle][aircraft][regression]") {
+    clear_all_state();
+
+    auto& you = get_avatar();
+    auto& here = you.get_mapbuffer();
+    you.setpos(test_origin);
+    you.moves = 1000;
+    build_test_map(ter_id("t_floor"));
+
+    auto* blimp = here.add_vehicle(vproto_id("blimp"), test_origin, 0_degrees, 0, 0);
+    REQUIRE(blimp != nullptr);
+
+    const auto seat_idx = blimp->part_with_feature(tripoint_mnt_veh::zero(), "BOARDABLE", true);
+    REQUIRE(seat_idx >= 0);
+    const auto seat_pos = blimp->abs_part_location(seat_idx);
+    REQUIRE(here.board_vehicle(seat_pos, you));
+    REQUIRE(you.in_vehicle);
+    REQUIRE(blimp->part(seat_idx).has_flag(vehicle_part::passenger_flag));
+
+    const auto balloon_pos = test_origin + tripoint_rel_ms::west();
+    const auto all_parts = blimp->get_all_parts();
+    const auto balloon_part = std::ranges::find_if(
+                                  all_parts, [&]( const vpart_reference &part ) {
+        return part.info().get_id() == vpart_id("airship_balloon") &&
+               part.abs_pos() == balloon_pos;
+    } );
+    REQUIRE(balloon_part != all_parts.end());
+    CHECK_FALSE(balloon_part->has_feature("BOARDABLE"));
+    REQUIRE(here.veh_at(balloon_pos));
+
+    REQUIRE(avatar_action::move(you, tripoint_rel_ms::west()));
+
+    CHECK(you.abs_pos() == balloon_pos);
+    CHECK_FALSE(you.in_vehicle);
+    CHECK_FALSE(you.controlling_vehicle);
+    CHECK_FALSE(blimp->part(seat_idx).has_flag(vehicle_part::passenger_flag));
 }
