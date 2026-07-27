@@ -11655,9 +11655,15 @@ bool item::on_drop()
         }
     }
 
+    // Prevent items with DESTROY_ON_DROP from being dropped onto the ground
+    if( has_flag( flag_DESTROY_ON_DROP ) && ( !made_of( LIQUID ) ||
+            !m.has_flag( flag_LIQUIDCONT, pos ) ) ) {
+        return true;
+    }
+
     // dropping liquids, even currently frozen ones, on the ground makes them
     // dirty
-    if( made_of( LIQUID ) && !here.has_flag( flag_LIQUIDCONT, pos ) &&
+    if( made_of( LIQUID ) && !here.has_flag( TFLAG_LIQUIDCONT, pos ) &&
         !has_own_flag( flag_DIRTY ) ) {
         set_flag( flag_DIRTY );
     }
