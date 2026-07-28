@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <numeric>
+#include <optional>
 
 #include "avatar.h"
 #include "character.h"
@@ -207,7 +208,8 @@ bool game::grabbed_veh_move( const tripoint_rel_ms &dp )
     }
 
     std::string blocker_name = _( "errors in movement code" );
-    const auto get_move_dir = [&]( const tripoint_rel_ms & dir, const tripoint_rel_ms & from ) {
+    const auto get_move_dir = [&]( const tripoint_rel_ms & dir,
+                                   const tripoint_rel_ms & from ) -> std::optional<tripoint_rel_ms> {
         tileray mdir;
 
         mdir.init( dir.xy() );
@@ -235,24 +237,27 @@ bool game::grabbed_veh_move( const tripoint_rel_ms &dp )
         if( !colls.empty() ) {
             blocker_name = colls.front().target_name;
         }
-        return failed ? tripoint_rel_ms::zero() : actual_dir;
+        if( failed ) {
+            return std::nullopt;
+        }
+        return actual_dir;
     };
 
     // First try the move as intended
     // But if that fails and the move is a zig-zag, try to recover:
     // Try to place the vehicle in the position player just left rather than "flattening" the zig-zag
-    tripoint_rel_ms final_dp_veh = get_move_dir( dp_veh, next_grab );
-    if( final_dp_veh == tripoint_rel_ms::zero() && zigzag ) {
+    std::optional<tripoint_rel_ms> final_dp_veh = get_move_dir( dp_veh, next_grab );
+    if( !final_dp_veh && zigzag ) {
         final_dp_veh = get_move_dir( -tripoint_rel_ms( prev_grab.xy(), 0 ), -horizontal_dp );
     }
 
-    if( final_dp_veh == tripoint_rel_ms::zero() ) {
+    if( !final_dp_veh ) {
         add_msg( _( "The %s collides with %s." ), grabbed_vehicle->name, blocker_name );
         u.grab_point = prev_grab;
         return true;
     }
 
-    m.displace_vehicle( *grabbed_vehicle, final_dp_veh );
+    m.displace_vehicle( *grabbed_vehicle, *final_dp_veh );
 
     if( grabbed_vehicle ) {
         grabbed_vehicle->shift_zlevel();

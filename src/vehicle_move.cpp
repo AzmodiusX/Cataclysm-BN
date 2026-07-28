@@ -518,7 +518,6 @@ auto vehicle::collision( const vehicle_collision_options &options ) -> bool
         colls.push_back( fake_coll );
         velocity = 0;
         vertical_velocity = 0;
-        add_msg( m_debug, "Collision check on a dirty vehicle %s", name );
         return true;
     }
 
