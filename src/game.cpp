@@ -12000,7 +12000,7 @@ void game::butcher()
     const int factor = u.max_quality( quality_id( "BUTCHER" ) );
     const int factorD = u.max_quality( quality_id( "CUT_FINE" ) );
     const std::string no_knife_msg = _( "You don't have a butchering tool." );
-    const std::string no_corpse_msg = _( "There are no corpses here to butcher." );
+    const std::string no_corpse_msg = _( "There is nothing here to butcher or salvage." );
 
     //You can't butcher on sealed terrain- you have to smash/shovel/etc it open first
     if( m.has_flag( "SEALED", u.bub_pos() ) ) {

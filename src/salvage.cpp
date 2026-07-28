@@ -480,8 +480,16 @@ void salvage_activity_actor::do_turn( player_activity &act, Character &who )
         targets.erase( targets.begin() );
         progress.pop();
         if( targets.empty() ) {
+            act.set_to_null();
             return;
         }
+        if( !targets.front().loc ) {
+            debugmsg( "Lost target of ", get_type() );
+            act.set_to_null();
+            return;
+        }
+        progress.emplace( targets.front().loc->tname(),
+                          salvage::moves_to_salvage( *targets.front().loc ) );
     }
     if( !progress.empty() && progress.front().not_started() ) {
         auto &target = targets.front();
