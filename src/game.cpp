@@ -7821,7 +7821,7 @@ void game::moving_vehicle_dismount( const tripoint_bub_ms &dest_loc )
     // TODO:: make dir() const correct!
     const units::angle d = ray.dir();
     add_msg( _( "You dive from the %s." ), veh->name );
-    m.unboard_vehicle( u.bub_pos() );
+    apply_pre_movement_effects( bub_to_abs( dest_loc ) );
     u.moves -= 200;
     // Dive three tiles in the direction of tox and toy
     fling_creature( &u, d, 30, true );
@@ -7843,9 +7843,9 @@ void game::control_vehicle()
     int veh_part = -1;
     vehicle *veh = remoteveh();
     if( veh == nullptr ) {
-        if( const optional_vpart_position vp = here.veh_at( u.abs_pos() ) ) {
-            veh = &vp->vehicle();
-            veh_part = vp->part_index();
+        if( const auto direct_vehicle_part = here.veh_at( u.abs_pos() ) ) {
+            veh = &direct_vehicle_part->vehicle();
+            veh_part = direct_vehicle_part->part_index();
         }
     }
     if( veh != nullptr && veh->player_in_control( u ) &&
@@ -12843,10 +12843,7 @@ bool game::walk_move( const tripoint_abs_ms &dest_loc, const bool via_ramp )
     auto submap_shift = point_rel_sm::zero();
     {
         ZoneScopedN( "walk_move_place_player" );
-        const auto origin_before_setpos = m.get_abs_sub();
-        u.setpos( dest_loc );
-        apply_movement_effects();
-        submap_shift = m.get_abs_sub() - origin_before_setpos;
+        submap_shift = place_player( dest_loc );
     }
     auto ms_shift = project_to<coords::ms>( submap_shift );
 
@@ -12884,7 +12881,19 @@ bool game::walk_move( const tripoint_abs_ms &dest_loc, const bool via_ramp )
     return true;
 }
 
-void game::apply_movement_effects()
+auto game::apply_pre_movement_effects( const tripoint_abs_ms &destination ) -> void
+{
+    if( !u.in_vehicle || destination == u.abs_pos() ) {
+        return;
+    }
+
+    auto &here = u.get_mapbuffer();
+    here.unboard_vehicle( u.abs_pos(), {
+        .passenger = &u,
+    } );
+}
+
+void game::apply_movement_effects( const tripoint_abs_ms &previous )
 {
     mapbuffer &here = u.get_mapbuffer();
     const auto dest = *abs_tile_handle::fetch( here, u.abs_pos() );
@@ -13063,11 +13072,6 @@ void game::apply_movement_effects()
         }
     }
 
-    if( u.in_vehicle ) {
-        here.unboard_vehicle( u.abs_pos(), {
-            .passenger = &u,
-        } );
-    }
     if( u.is_hauling() && ( !here.can_put_items( dest.abs_pos() ) ||
                             dest.has_flag( TFLAG_DEEP_WATER ) ||
                             vp1 ) ) {
@@ -13077,11 +13081,11 @@ void game::apply_movement_effects()
     m.invalidate_visibility_caches();
     mon_info_cache_dirty = true;
 
-    if( u.is_mounted() ) {
-        monster *mon = u.mounted_creature.get();
-        mon->setpos( dest.abs_pos() );
-        mon->process_triggers();
-        m.creature_in_field( *mon );
+        if( u.is_mounted() ) {
+            monster *mon = u.mounted_creature.get();
+            mon->setpos( dest.abs_pos() );
+            mon->process_triggers();
+            m.creature_in_field( *mon );
     }
 
     if( get_option<bool>( "AUTO_FEATURES" ) && mostseen == 0 && !u.is_mounted() ) {
@@ -13156,13 +13160,19 @@ void game::apply_movement_effects()
             }
         }
     }
+
+    if( vp1.part_with_feature( "BOARDABLE", true ) && !u.is_mounted() ) {
+        here.board_vehicle( u.abs_pos(), u );
+    }
 }
 
 auto game::place_player( const tripoint_abs_ms &dest ) -> point_rel_sm
 {
     const auto origin_before_setpos = m.get_abs_sub();
+    apply_pre_movement_effects( dest );
+    auto prev_pos = u.abs_pos();
     u.setpos( dest );
-    apply_movement_effects();
+    apply_movement_effects( prev_pos );
     return m.get_abs_sub() - origin_before_setpos;
 }
 
@@ -13260,9 +13270,7 @@ bool game::phasing_move( const tripoint_abs_ms &dest_loc, const bool via_ramp )
             return false;
         }
 
-        if( u.in_vehicle ) {
-            m.unboard_vehicle( u.bub_pos() );
-        }
+        apply_pre_movement_effects( dest );
 
         add_msg( _( "You quantum tunnel through the %d-tile wide barrier!" ), tunneldist );
         //tunneling costs 100 bionic power per impassable tile, but the first 100 was already drained by activation.

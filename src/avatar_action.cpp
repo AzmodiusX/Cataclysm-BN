@@ -887,9 +887,7 @@ void avatar_action::swim( avatar &you, const tripoint_abs_ms &p )
         }
     }
     bool diagonal = ( p.xy() != you.abs_pos().xy() );
-    if( you.in_vehicle ) {
-        here.unboard_vehicle( you.abs_pos() );
-    }
+    g->apply_pre_movement_effects( p );
     if( you.is_mounted() && here.veh_at( you.abs_pos() ).part_with_feature( VPFLAG_BOARDABLE, true ) ) {
         add_msg( m_warning, _( "You cannot board a vehicle while mounted." ) );
         return;
