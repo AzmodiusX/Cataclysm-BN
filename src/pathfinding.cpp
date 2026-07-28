@@ -340,7 +340,6 @@ void Pathfinding::produce_d_map( mapbuffer &buffer,
     d_map->z = z;
     d_map->origin = grid_min;
     d_map->settings = settings;
-    d_map->domain = Pathfinding::MapDomain::ABSOLUTE_DOMAIN;
 
     Pathfinding::d_maps.push_back( std::move( d_map ) );
 }
@@ -752,12 +751,16 @@ Pathfinding::ExpansionOutcome Pathfinding::expand_2d_up_to(
             const auto &terrain = new_tile.terrain.obj();
             const auto &furniture = new_tile.furniture.obj();
             const auto move_cost = new_tile.move_cost;
+            const bool is_impassable_source = cur_point == start && move_cost == 0;
 
             float cur_g = this->g_at( cur_point );
             // May be false for relative search, so we'll reuse g-values there
             const bool is_g_calc_needed = cur_g == 0.0;
 
-            if( is_g_calc_needed ) {
+            if( is_impassable_source ) {
+                const auto next_move_cost = next_tile ? static_cast<float>( next_tile->move_cost() ) : 1.0f;
+                cur_g = std::max( 1.0f, next_move_cost );
+            } else if( is_g_calc_needed ) {
                 bool is_diag = dir.x() != 0 && dir.y() != 0;
                 cur_g += is_diag ? 0.75 * move_cost : 0.5 * move_cost;
                 cur_g *= this->settings.move_cost_coeff;
