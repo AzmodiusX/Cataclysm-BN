@@ -13081,11 +13081,11 @@ void game::apply_movement_effects( const tripoint_abs_ms &previous )
     m.invalidate_visibility_caches();
     mon_info_cache_dirty = true;
 
-        if( u.is_mounted() ) {
-            monster *mon = u.mounted_creature.get();
-            mon->setpos( dest.abs_pos() );
-            mon->process_triggers();
-            m.creature_in_field( *mon );
+    if( u.is_mounted() ) {
+        monster *mon = u.mounted_creature.get();
+        mon->setpos( dest.abs_pos() );
+        mon->process_triggers();
+        m.creature_in_field( *mon );
     }
 
     if( get_option<bool>( "AUTO_FEATURES" ) && mostseen == 0 && !u.is_mounted() ) {

@@ -366,7 +366,8 @@ TEST_CASE("salvage actor finishes after its final target", "[activity][activity_
     CHECK(activity.is_null());
 }
 
-TEST_CASE("salvage actor completes every multi-salvage target", "[activity][activity_actor][salvage]") {
+TEST_CASE(
+    "salvage actor completes every multi-salvage target", "[activity][activity_actor][salvage]") {
     clear_map();
     clear_avatar();
     avatar& dummy = get_avatar();
@@ -386,31 +387,25 @@ TEST_CASE("salvage actor completes every multi-salvage target", "[activity][acti
 
     const auto count_sheets = [&]() {
         auto result = 0;
-        for( const item *const target : *here.get_items(test_origin) ) {
-            if( target->typeId() == itype_id("sheet") ) {
-                ++result;
-            }
+        for (const item* const target : *here.get_items(test_origin)) {
+            if (target->typeId() == itype_id("sheet")) { ++result; }
         }
         return result;
     };
 
     const auto debug_message = capture_debugmsg_during([&] {
-        for( const auto attempt : std::views::iota( 0, 1000 ) ) {
-            ( void )attempt;
-            if( !dummy.activity || count_sheets() < 2 ) {
-                break;
-            }
+        for (const auto attempt : std::views::iota(0, 1000)) {
+            (void)attempt;
+            if (!dummy.activity || count_sheets() < 2) { break; }
             dummy.moves = 100000;
             dummy.activity->do_turn(dummy);
         }
         CHECK(count_sheets() == 1);
         CHECK(dummy.activity);
 
-        for( const auto attempt : std::views::iota( 0, 1000 ) ) {
-            ( void )attempt;
-            if( !dummy.activity ) {
-                break;
-            }
+        for (const auto attempt : std::views::iota(0, 1000)) {
+            (void)attempt;
+            if (!dummy.activity) { break; }
             dummy.moves = 100000;
             dummy.activity->do_turn(dummy);
         }

@@ -209,7 +209,7 @@ bool game::grabbed_veh_move( const tripoint_rel_ms &dp )
 
     std::string blocker_name = _( "errors in movement code" );
     const auto get_move_dir = [&]( const tripoint_rel_ms & dir,
-                                   const tripoint_rel_ms & from ) -> std::optional<tripoint_rel_ms> {
+    const tripoint_rel_ms & from ) -> std::optional<tripoint_rel_ms> {
         tileray mdir;
 
         mdir.init( dir.xy() );
@@ -220,7 +220,7 @@ bool game::grabbed_veh_move( const tripoint_rel_ms &dp )
         // Grabbed part has to stay at distance 1 to the player
         // and in roughly the same direction.
         const auto new_part_pos = grabbed_vehicle->abs_ms_location() +
-                                  grabbed_vehicle->part( grabbed_part ).precalc[ 1 ];
+        grabbed_vehicle->part( grabbed_part ).precalc[ 1 ];
         const auto expected_pos = player_next_pos + from;
         const auto actual_dir = tripoint_rel_ms( expected_pos.xy() - new_part_pos.xy(), 0 );
 
@@ -234,10 +234,12 @@ bool game::grabbed_veh_move( const tripoint_rel_ms &dp )
             .bash_floor = false,
             .ignored_critter = &u,
         } );
-        if( !colls.empty() ) {
+        if( !colls.empty() )
+        {
             blocker_name = colls.front().target_name;
         }
-        if( failed ) {
+        if( failed )
+        {
             return std::nullopt;
         }
         return actual_dir;
