@@ -725,7 +725,8 @@ TEST_CASE("leaving_blimp_balloon_unboards_passenger", "[vehicle][aircraft][regre
     you.moves = 1000;
     build_test_map(ter_id("t_floor"));
 
-    auto* blimp = here.add_vehicle(vproto_id("blimp"), test_origin, 0_degrees, 0, 0);
+    auto* blimp = here.add_vehicle(vproto_id("blimp"), test_origin, 270_degrees,
+                                                       0, 0, true, false);
     REQUIRE(blimp != nullptr);
 
     const auto seat_idx = blimp->part_with_feature(tripoint_mnt_veh::zero(), "BOARDABLE", true);
@@ -735,16 +736,27 @@ TEST_CASE("leaving_blimp_balloon_unboards_passenger", "[vehicle][aircraft][regre
     REQUIRE(you.in_vehicle);
     REQUIRE(blimp->part(seat_idx).has_flag(vehicle_part::passenger_flag));
 
-    const auto balloon_pos = test_origin + tripoint_rel_ms::west();
+    const auto balloon_pos = test_origin + point_rel_ms(3, 1);
     const auto all_parts = blimp->get_all_parts();
-    const auto balloon_part = std::ranges::find_if(all_parts, [&](const vpart_reference& part) {
-        return part.info().get_id() == vpart_id("airship_balloon") && part.abs_pos() == balloon_pos;
-    });
-    REQUIRE(balloon_part != all_parts.end());
-    CHECK_FALSE(balloon_part->has_feature("BOARDABLE"));
+    const auto door_pos = balloon_pos + point_rel_ms::west();
+    const auto door_part_pos = abs_tile_handle::fetch(here, door_pos)->vehicle_part();
+    REQUIRE(door_part_pos);
+    const auto door_part = door_part_pos->part_with_feature("OPENABLE", true);
+    REQUIRE(door_part);
+    const auto door_index = door_part->part_index();
+    if(!blimp->is_open(door_index)) {
+        blimp->open(door_index);
+    }
+    REQUIRE(blimp->is_open(door_index));
+    const auto balloon_part = abs_tile_handle::fetch(here, balloon_pos)->vehicle_part();
+    REQUIRE(balloon_part);
+    CHECK_FALSE(balloon_part->part_with_feature("BOARDABLE", true));
     REQUIRE(here.veh_at(balloon_pos));
-
-    REQUIRE(avatar_action::move(you, tripoint_rel_ms::west()));
+    CHECK(seat_pos == test_origin);
+    REQUIRE(avatar_action::move(you, point_rel_ms::south()));
+    REQUIRE(avatar_action::move(you, point_rel_ms::east()));
+    REQUIRE(avatar_action::move(you, point_rel_ms::east()));
+    REQUIRE(avatar_action::move(you, point_rel_ms::east()));
 
     CHECK(you.abs_pos() == balloon_pos);
     CHECK_FALSE(you.in_vehicle);

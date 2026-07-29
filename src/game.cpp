@@ -12883,14 +12883,15 @@ bool game::walk_move( const tripoint_abs_ms &dest_loc, const bool via_ramp )
 
 auto game::apply_pre_movement_effects( const tripoint_abs_ms &destination ) -> void
 {
-    if( !u.in_vehicle || destination == u.abs_pos() ) {
+    if( destination == u.abs_pos() ) {
         return;
     }
-
     auto &here = u.get_mapbuffer();
-    here.unboard_vehicle( u.abs_pos(), {
-        .passenger = &u,
-    } );
+    if( u.in_vehicle ) {
+        here.unboard_vehicle( u.abs_pos(), {
+            .passenger = &u,
+        } );
+    }
 }
 
 void game::apply_movement_effects( const tripoint_abs_ms &previous )
