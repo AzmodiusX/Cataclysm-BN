@@ -13,9 +13,11 @@
 #include "mapbuffer.h"
 #include "player_activity.h"
 #include "player_helpers.h"
+#include "salvage.h"
 
 #include <array>
 #include <memory>
+#include <ranges>
 #include <sstream>
 
 namespace {
@@ -362,6 +364,61 @@ TEST_CASE("salvage actor finishes after its final target", "[activity][activity_
 
     CHECK(debug_message.empty());
     CHECK(activity.is_null());
+}
+
+TEST_CASE("salvage actor completes every multi-salvage target", "[activity][activity_actor][salvage]") {
+    clear_map();
+    clear_avatar();
+    avatar& dummy = get_avatar();
+    dummy.setpos(test_origin);
+    dummy.i_add(item::spawn("knife_butcher"));
+
+    auto& here = dummy.get_mapbuffer();
+    auto first_sheet = item::spawn("sheet");
+    auto second_sheet = item::spawn("sheet");
+    REQUIRE_FALSE(here.add_item_or_charges(test_origin, std::move(first_sheet)));
+    REQUIRE_FALSE(here.add_item_or_charges(test_origin, std::move(second_sheet)));
+    REQUIRE(here.get_items(test_origin) != nullptr);
+    REQUIRE(here.get_items(test_origin)->size() == 2);
+
+    REQUIRE(salvage::salvage_all(dummy));
+    REQUIRE(dummy.activity);
+
+    const auto count_sheets = [&]() {
+        auto result = 0;
+        for( const item *const target : *here.get_items(test_origin) ) {
+            if( target->typeId() == itype_id("sheet") ) {
+                ++result;
+            }
+        }
+        return result;
+    };
+
+    const auto debug_message = capture_debugmsg_during([&] {
+        for( const auto attempt : std::views::iota( 0, 1000 ) ) {
+            ( void )attempt;
+            if( !dummy.activity || count_sheets() < 2 ) {
+                break;
+            }
+            dummy.moves = 100000;
+            dummy.activity->do_turn(dummy);
+        }
+        CHECK(count_sheets() == 1);
+        CHECK(dummy.activity);
+
+        for( const auto attempt : std::views::iota( 0, 1000 ) ) {
+            ( void )attempt;
+            if( !dummy.activity ) {
+                break;
+            }
+            dummy.moves = 100000;
+            dummy.activity->do_turn(dummy);
+        }
+    });
+
+    CHECK(debug_message.empty());
+    CHECK(count_sheets() == 0);
+    CHECK_FALSE(dummy.activity);
 }
 
 TEST_CASE(

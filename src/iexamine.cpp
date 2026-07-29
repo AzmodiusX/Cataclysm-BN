@@ -1772,31 +1772,28 @@ static void apply_lock_picking_tool( player &p, item *it, const tripoint_bub_ms 
     }
 }
 
-static bool pick_lock( player &p, const tripoint_bub_ms &examp )
+bool iexamine::can_pick_lock( player &p )
 {
-    map &here = get_map();
-
     if( p.has_bionic( bio_lockpick ) ) {
-        if( p.get_power_level() >= bio_lockpick->power_activate ) {
-            p.mod_power_level( -bio_lockpick->power_activate );
-            p.add_msg_if_player( m_info, _( "You activate your %s." ), bio_lockpick->name );
-            p.assign_activity( std::make_unique<player_activity>( lockpick_activity_actor::use_bionic(
-                                   item::spawn( bio_lockpick->fake_item ), bub_to_abs( examp ) ) ) );
-            return true;
-        } else {
-            p.add_msg_if_player( m_info, _( "You don't have enough power to activate your %s." ),
-                                 bio_lockpick->name );
-            return false;
-        }
+        return p.get_power_level() >= bio_lockpick->power_activate;
+    }
+    return find_best_lock_picking_tool( p ) != nullptr;
+}
+
+void iexamine::pick_lock( player &p, const tripoint_bub_ms &examp )
+{
+    if( p.has_bionic( bio_lockpick ) ) {
+        p.mod_power_level( -bio_lockpick->power_activate );
+        p.add_msg_if_player( m_info, _( "You activate your %s." ), bio_lockpick->name );
+        p.assign_activity( std::make_unique<player_activity>( lockpick_activity_actor::use_bionic(
+                               item::spawn( bio_lockpick->fake_item ), bub_to_abs( examp ) ) ) );
+        return;
     }
 
     safe_reference<item> lock_picking_tool = find_best_lock_picking_tool( p );
     if( lock_picking_tool ) {
         apply_lock_picking_tool( p, lock_picking_tool.get(), examp );
-        return true;
     }
-
-    return false;
 }
 
 /**
@@ -1810,7 +1807,8 @@ void iexamine::locked_object( player &p, const tripoint_bub_ms &examp )
     // if the furniture/terrain is also lockpickable
     // try lockpicking first if we're crouched
     if( lockpick_activity_actor::is_pickable( here, pos ) && p.movement_mode_is( CMM_CROUCH ) ) {
-        if( pick_lock( p, examp ) ) {
+        if( can_pick_lock( p ) ) {
+            pick_lock( p, examp );
             return;
         }
     }
@@ -1841,7 +1839,9 @@ void iexamine::locked_object( player &p, const tripoint_bub_ms &examp )
     }
 
     if( lockpick_activity_actor::is_pickable( here, pos ) ) {
-        if( !pick_lock( p, examp ) ) {
+        if( can_pick_lock( p ) ) {
+            pick_lock( p, examp );
+        } else {
             if( prying_tool ) {
                 add_msg( m_info,
                          _( "The %s is locked.  If only you had something to pick its lock, or a stronger prying tool…" ),
@@ -1879,7 +1879,9 @@ void iexamine::locked_object_pickable( player &p, const tripoint_bub_ms &examp )
         target = here.tername( examp );
     }
 
-    if( !pick_lock( p, examp ) ) {
+    if( can_pick_lock( p ) ) {
+        pick_lock( p, examp );
+    } else {
         add_msg( m_info, _( "The %s is locked.  If only you had something to pick its lock…" ),
                  target );
     }

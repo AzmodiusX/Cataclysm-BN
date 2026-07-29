@@ -33,6 +33,7 @@
 #include "game_constants.h"
 #include "game_inventory.h"
 #include "gun_mode.h"
+#include "iexamine.h"
 #include "int_id.h"
 #include "inventory.h"
 #include "item.h"
@@ -678,6 +679,16 @@ bool avatar_action::move( avatar &you, const tripoint_rel_ms &d )
             .inside = !outside_vehicle,
             .who = &you,
         } ) ) {
+                if( const auto lock = vp_dst.part_with_feature( "DOOR_LOCKING", true );
+                    lock && lock->part().enabled ) {
+                    const auto can_pick = iexamine::can_pick_lock( you );
+                    if( can_pick && query_yn( _( "The %s is locked.  Pick the lock?" ), dst_veh->name ) ) {
+                        iexamine::locked_object_pickable( you, abs_to_bub( dest_loc ) );
+                    } else if( !can_pick ) {
+                        add_msg( m_info, _( "The %s is locked.  If only you had something to pick its lock…" ),
+                                 dst_veh->name );
+                    }
+                }
                 return false;
             }
 

@@ -672,13 +672,9 @@ TEST_CASE("vehicle_door_movement_respects_door_lock_state", "[vehicle][door][reg
 
     door_part.open = false;
     lock_part.enabled = true;
-    CHECK_FALSE(here.open_door(
-        door_pos,
-        {
-            .inside = false,
-            .who = &you,
-        }));
+    CHECK_FALSE(avatar_action::move(you, tripoint_rel_ms::east()));
     CHECK_FALSE(door_part.open);
+    CHECK(you.abs_pos() == test_origin);
 }
 
 TEST_CASE("motorcycle_controls_follow_awkward_absolute_movement", "[vehicle][coordinates]") {
