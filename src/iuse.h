@@ -90,6 +90,7 @@ int capture_monster_act( Character *, item *, bool, const tripoint_abs_ms * );
 int debug_grenade( Character *, item *, bool, const tripoint_abs_ms * );
 int debug_grenade_act( Character *, item *, bool, const tripoint_abs_ms * );
 int c4( Character *, item *, bool, const tripoint_abs_ms * );
+int c4_breaching( Character *, item *, bool, const tripoint_abs_ms * );
 int arrow_flammable( Character *, item *, bool, const tripoint_abs_ms * );
 int acidbomb_act( Character *, item *, bool, const tripoint_abs_ms * );
 int grenade_inc_act( Character *, item *, bool, const tripoint_abs_ms * );
@@ -299,4 +300,3 @@ struct use_function {
         /** @return Used by @ref item::info to get description of the actor */
         void dump_info( const item &, std::vector<iteminfo> & ) const;
 };
-

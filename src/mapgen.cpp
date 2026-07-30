@@ -2397,7 +2397,8 @@ class jmapgen_spawn_item : public jmapgen_piece
             if( total_spawns == 0 ) {
                 return;
             }
-            for( int i = 1; i < spawns; i++ ) {
+
+            for( int i = 1; i < total_spawns; i++ ) {
                 detached_ptr<item> tmp = item::spawn( *itm );
                 if( activate_on_spawn ) {
                     tmp->activate();
