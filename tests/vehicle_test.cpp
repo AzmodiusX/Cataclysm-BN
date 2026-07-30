@@ -725,8 +725,7 @@ TEST_CASE("leaving_blimp_balloon_unboards_passenger", "[vehicle][aircraft][regre
     you.moves = 1000;
     build_test_map(ter_id("t_floor"));
 
-    auto* blimp = here.add_vehicle(vproto_id("blimp"), test_origin, 270_degrees,
-                                                       0, 0, true, false);
+    auto* blimp = here.add_vehicle(vproto_id("blimp"), test_origin, 270_degrees, 0, 0, true, false);
     REQUIRE(blimp != nullptr);
 
     const auto seat_idx = blimp->part_with_feature(tripoint_mnt_veh::zero(), "BOARDABLE", true);
@@ -744,9 +743,7 @@ TEST_CASE("leaving_blimp_balloon_unboards_passenger", "[vehicle][aircraft][regre
     const auto door_part = door_part_pos->part_with_feature("OPENABLE", true);
     REQUIRE(door_part);
     const auto door_index = door_part->part_index();
-    if(!blimp->is_open(door_index)) {
-        blimp->open(door_index);
-    }
+    if (!blimp->is_open(door_index)) { blimp->open(door_index); }
     REQUIRE(blimp->is_open(door_index));
     const auto balloon_part = abs_tile_handle::fetch(here, balloon_pos)->vehicle_part();
     REQUIRE(balloon_part);

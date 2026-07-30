@@ -383,9 +383,7 @@ TEST_CASE(
     REQUIRE(here.get_items(test_origin)->size() == 2);
 
     iuse_locations targets;
-    for (item* const target : *here.get_items(test_origin)) {
-        targets.emplace_back(*target, 0);
-    }
+    for (item* const target : *here.get_items(test_origin)) { targets.emplace_back(*target, 0); }
     dummy.assign_activity(std::make_unique<player_activity>(
         std::make_unique<salvage_activity_actor>(std::move(targets), dummy.abs_pos(), true)));
     REQUIRE(dummy.activity);
