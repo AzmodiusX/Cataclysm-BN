@@ -488,6 +488,37 @@ TEST_CASE(
     CHECK_NOTHROW(dummy.activity->get_progress_message(dummy));
 }
 
+TEST_CASE(
+    "read activity preserves continuous reading and skill progress",
+    "[activity][activity_actor][reading]") {
+    clear_map();
+    clear_avatar();
+    avatar& dummy = get_avatar();
+    dummy.setID( character_id( 1 ), true );
+    detached_ptr<item> det = item::spawn("manual_mechanics");
+    auto &book = dummy.i_add(std::move(det));
+    dummy.i_add( item::spawn( "atomic_lamp" ) );
+    dummy.do_read(&book);
+
+    auto actor = std::make_unique<read_activity_actor>(
+                      safe_reference<item>( &book ), std::vector<read_activity_actor::npc_learner>(),
+                      false, 1 );
+    actor->continuous_reader_id = dummy.getID().get_value();
+    dummy.assign_activity( std::make_unique<player_activity>( std::move( actor ) ) );
+    REQUIRE(dummy.activity);
+
+    const auto progress = dummy.activity->get_progress_message(dummy);
+    REQUIRE(progress);
+    CHECK(progress->find("%") != std::string::npos);
+
+    dummy.moves = 100000;
+    dummy.activity->do_turn(dummy);
+
+    REQUIRE(dummy.activity);
+    CHECK(dummy.activity->has_actor());
+    CHECK(dummy.activity->get_actor()->get_type() == activity_id("ACT_READ"));
+}
+
 TEST_CASE("butcher actor owns progress after corpse setup", "[activity][activity_actor][butcher]") {
     clear_map();
     clear_avatar();

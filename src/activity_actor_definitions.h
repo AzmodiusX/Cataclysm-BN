@@ -1163,6 +1163,8 @@ class read_activity_actor : public activity_actor
         void start( player_activity &act, Character &who ) override;
         void do_turn( player_activity &act, Character &who ) override;
         void finish( player_activity &act, Character &who ) override;
+        auto get_progress_message( const player_activity &act,
+                                   const Character &who ) const -> act_progress_message override;
 
         void serialize( JsonOut &jsout ) const override;
         static std::unique_ptr<activity_actor> deserialize( JsonIn &jsin );

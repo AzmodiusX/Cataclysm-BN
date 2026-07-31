@@ -4364,6 +4364,8 @@ std::unique_ptr<activity_actor> read_activity_actor::legacy_deserialize( const J
 {
     auto actor = std::make_unique<read_activity_actor>();
 
+    data.read( "index", actor->continuous_reader_id );
+
     // Check for martial arts flag first
     auto str_values = data.get_string_array( "str_values" );
     if( str_values.size() == 1 && str_values[0] == "martial_art" ) {
@@ -4425,6 +4427,27 @@ void read_activity_actor::do_turn( player_activity &act, Character &who )
             act.set_to_null();
         }
     }
+}
+
+auto read_activity_actor::get_progress_message(
+    const player_activity &, const Character &who ) const -> act_progress_message
+{
+    if( !book || !book->type->book ) {
+        return act_progress_message::make_empty();
+    }
+
+    const auto &reading = book->type->book;
+    const auto &skill = reading->skill;
+    if( skill && who.get_skill_level( skill ) < reading->level &&
+        who.get_skill_level_object( skill ).can_train() ) {
+        const auto &skill_level = who.get_skill_level_object( skill );
+        return act_progress_message::make_extra_info( string_format(
+                    pgettext( "reading progress", "%s %d -> %d (%d%%)" ),
+                    skill->name(), skill_level.level(), skill_level.level() + 1,
+                    skill_level.exercise() ) );
+    }
+
+    return act_progress_message::make_empty();
 }
 
 void read_activity_actor::finish( player_activity &act, Character &who )

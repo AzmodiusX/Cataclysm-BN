@@ -195,7 +195,7 @@ class avatar : public player
         int time_to_read( const item &book, const Character &reader,
                           const Character *learner = nullptr ) const;
         /** Handles reading effects and returns true if activity started */
-        bool read( item *loc, bool continuous = false );
+        bool read( item *loc, bool continuous = false, int continuous_reader = 0 );
         /** Completes book reading action. **/
         void do_read( item *loc,
         const std::vector<std::pair<character_id, float>> &learners = {},

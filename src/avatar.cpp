@@ -529,7 +529,7 @@ diary *avatar::get_avatar_diary()
  * str_values: Parallel to values, these contain the learning penalties (as doubles in string form) as follows:
  *             Experience gained = Experience normally gained * penalty
  */
-bool avatar::read( item *loc, const bool continuous )
+auto avatar::read( item *loc, const bool continuous, const int continuous_reader ) -> bool
 {
     if( !loc ) {
         add_msg( m_info, _( "Never mind." ) );
@@ -579,6 +579,7 @@ bool avatar::read( item *loc, const bool continuous )
     std::map<npc *, std::string> fun_learners;
     std::map<npc *, std::string> nonlearners;
     std::vector<read_activity_actor::npc_learner> npc_learners;
+    auto selected_continuous_reader = 0;
     auto candidates = character_funcs::get_crafting_helpers( *this );
     for( npc *elem : candidates ) {
         const int lvl = elem->get_skill_level( skill );
@@ -682,6 +683,7 @@ bool avatar::read( item *loc, const bool continuous )
                 add_msg( m_info, _( "Never mind." ) );
                 return false;
             }
+            selected_continuous_reader = menu.ret;
         }
         if( it.type->use_methods.contains( "MA_MANUAL" ) ) {
 
@@ -701,6 +703,7 @@ bool avatar::read( item *loc, const bool continuous )
                 add_msg( m_info, _( "Never mind." ) );
                 return false;
             }
+            selected_continuous_reader = menu.ret;
         }
         add_msg( m_info, _( "Now reading %s, %s to stop early." ),
                  it.type_name(), press_x( ACTION_PAUSE ) );
@@ -785,7 +788,7 @@ bool avatar::read( item *loc, const bool continuous )
     auto read_actor = std::make_unique<read_activity_actor>(
                           safe_reference<item>( &it ), std::move( npc_learners ), is_martial_arts, time_taken
                       );
-    read_actor->continuous_reader_id = continuous ? this->activity->index : 0;
+    read_actor->continuous_reader_id = continuous ? continuous_reader : selected_continuous_reader;
     assign_activity( std::make_unique<player_activity>( std::move( read_actor ) ) );
 
     // Reinforce any existing morale bonus/penalty, so it doesn't decay
@@ -1097,7 +1100,7 @@ void avatar::do_read( item *loc,
 
     if( continuous ) {
         activity->set_to_null();
-        read( loc, true );
+        read( loc, true, continuous_reader );
         if( activity ) {
             return;
         }
