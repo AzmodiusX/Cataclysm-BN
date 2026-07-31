@@ -130,6 +130,16 @@ TEST_CASE("mapgen_items_stay_on_sealed_container_tiles", "[mapgen][item][regress
     }
 }
 
+TEST_CASE("map_i_at_returns_empty_for_missing_bubble_tile", "[map][item][regression]") {
+    clear_all_state();
+    g->place_player( test_origin );
+
+    const auto missing_tile = tripoint_bub_ms( -100 * SEEX, -100 * SEEY, 0 );
+    REQUIRE_FALSE( get_map().inbounds( missing_tile ) );
+
+    CHECK( get_map().i_at( missing_tile ).empty() );
+}
+
 TEST_CASE("mapbuffer_item_placement_rejects_sealed_tiles", "[mapbuffer][item][regression]") {
     clear_all_state();
     g->place_player(test_origin);

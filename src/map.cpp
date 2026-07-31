@@ -5134,6 +5134,14 @@ map_stack map::i_at( const tripoint_bub_ms &p )
     const auto abs_pos = map_local_to_abs( *this, p );
     point_sm_ms l;
     submap *const current_submap = get_submap_at( p, l );
+    if( current_submap == nullptr ) {
+        nulitems.clear();
+        return map_stack( {
+            .stack = &nulitems,
+            .location = abs_pos,
+            .local_origin = this,
+        } );
+    }
     return map_stack( {
         .stack = &current_submap->get_items( l ),
         .location = abs_pos,
