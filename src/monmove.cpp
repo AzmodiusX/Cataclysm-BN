@@ -2247,7 +2247,7 @@ bool monster::bash_at( const tripoint_abs_ms &p )
     if( target != nullptr && attitude_to( *target ) == Attitude::A_FRIENDLY ) {
         return false;
     }
-    if( !can_move_to( p ) || one_in( 3 ) ) {
+    if( can_move_to( p ) && !one_in( 3 ) ) {
         return false;
     }
     if( !buf.is_bashable( p ) || bash_skill() <= 0 || is_pet() ) {

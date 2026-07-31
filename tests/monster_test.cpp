@@ -551,6 +551,26 @@ TEST_CASE("monster_move_through_vehicle_holes") {
     CHECK(m2 == nullptr);
 }
 
+TEST_CASE("zombie_bashes_an_impassable_fence", "[monster][pathfinding][bash]") {
+    clear_all_state();
+    clear_map();
+
+    auto &you = get_avatar();
+    you.setpos( test_origin + tripoint_east * 2 );
+    auto &here = you.get_mapbuffer();
+    const auto fence_pos = test_origin + tripoint_east;
+    here.set_ter( fence_pos, ter_id( "t_chainfence" ) );
+
+    auto &zombie = spawn_test_monster( "mon_zombie_brute", abs_to_bub( test_origin ) );
+
+    REQUIRE( zombie.bash_skill() > 0 );
+    REQUIRE_FALSE( zombie.can_move_to( fence_pos ) );
+    REQUIRE( here.is_bashable( fence_pos ) );
+
+    CHECK( zombie.bash_at( fence_pos ) );
+    CHECK( here.ter( fence_pos ) == ter_id( "t_chainfence" ) );
+}
+
 TEST_CASE("monster_vertical_melee_respects_floors", "[monster][z-level]") {
     clear_all_state();
     clear_map();
