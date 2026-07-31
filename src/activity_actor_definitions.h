@@ -937,6 +937,52 @@ class repair_actor : public activity_actor
         static std::unique_ptr<activity_actor> legacy_deserialize( const JsonObject &data );
 };
 
+struct train_skill_activity_actor_options {
+    std::string training_skill;
+    int training_skill_xp = 0;
+    int training_skill_xp_chance = 0;
+    int training_skill_max_level = 0;
+    int training_skill_fatigue = 0;
+    int training_skill_interval = 0;
+    int moves_total = 0;
+    safe_reference<item> tool;
+    bool pseudo_tool = false;
+    tripoint_abs_ms pseudo_tool_pos = tripoint_abs_ms::zero();
+    itype_id pseudo_tool_type;
+};
+
+class train_skill_activity_actor : public activity_actor
+{
+    private:
+        std::string training_skill;
+        int training_skill_xp = 0;
+        int training_skill_xp_chance = 0;
+        int training_skill_max_level = 0;
+        int training_skill_fatigue = 0;
+        int training_skill_interval = 0;
+        int moves_total = 0;
+        safe_reference<item> tool;
+        bool pseudo_tool = false;
+        tripoint_abs_ms pseudo_tool_pos = tripoint_abs_ms::zero();
+        itype_id pseudo_tool_type;
+
+    public:
+        train_skill_activity_actor() = default;
+        explicit train_skill_activity_actor( train_skill_activity_actor_options options );
+
+        activity_id get_type() const override { return activity_id( "ACT_TRAIN_SKILL" ); }
+        auto start( player_activity &act, Character &who ) -> void override;
+        auto do_turn( player_activity &act, Character &who ) -> void override;
+        auto finish( player_activity &act, Character &who ) -> void override;
+        auto serialize( JsonOut &jsout ) const -> void override;
+        static auto deserialize( JsonIn &jsin ) -> std::unique_ptr<activity_actor>;
+        static auto legacy_deserialize( const JsonObject &data ) -> std::unique_ptr<activity_actor>;
+
+    private:
+        auto get_tool( Character &who ) const -> item *;
+        auto apply_training( Character &who, item &training_tool ) const -> bool;
+};
+
 class wear_actor : public activity_actor
 {
     public:

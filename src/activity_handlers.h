@@ -181,7 +181,6 @@ void pickaxe_do_turn( player_activity *act, player *p );
 void game_do_turn( player_activity *act, player *p );
 void generic_game_do_turn( player_activity *act, player *p );
 void vibe_do_turn( player_activity *act, player *p );
-void train_skill_do_turn( player_activity *act, player *p );
 void multiple_chop_planks_do_turn( player_activity *act, player *p );
 void eat_menu_do_turn( player_activity *act, player *p );
 void consume_food_menu_do_turn( player_activity *act, player *p );
@@ -234,7 +233,6 @@ void wait_weather_finish( player_activity *act, player *p );
 void try_sleep_finish( player_activity *act, player *p );
 // operation_finish — moved into operation_actor::finish()
 void vibe_finish( player_activity *act, player *p );
-void train_skill_finish( player_activity *act, player *p );
 void atm_finish( player_activity *act, player *p );
 void eat_menu_finish( player_activity *act, player *p );
 void pry_nails_finish( player_activity *act, player *p );
@@ -278,4 +276,3 @@ void patch_activity_for_furniture( player_activity &activity,
 } // namespace repair_activity_hack
 
 } // namespace activity_handlers
-

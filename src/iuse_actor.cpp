@@ -128,7 +128,6 @@ static const activity_id ACT_SPELLCASTING( "ACT_SPELLCASTING" );
 static const activity_id ACT_STUDY_SPELL( "ACT_STUDY_SPELL" );
 static const activity_id ACT_START_FIRE( "ACT_START_FIRE" );
 static const activity_id ACT_VIBE( "ACT_VIBE" );
-static const activity_id ACT_TRAIN_SKILL( "ACT_TRAIN_SKILL" );
 
 static const efftype_id effect_accumulated_mutagen( "accumulated_mutagen" );
 static const efftype_id effect_asthma( "asthma" );
@@ -6329,16 +6328,21 @@ int train_skill_actor::use( Character &p, item &i, bool, const tripoint_abs_ms &
     }
 
     p.add_msg_if_player( training_msg );
-    // using metadata is the easiest way to transfer this over to the activity handler and also allow it to function as furniture
-    p.set_value( "training_iuse_skill", training_skill );
-    p.set_value( "training_iuse_skill_xp", std::to_string( training_skill_xp ) );
-    p.set_value( "training_iuse_skill_xp_max_level", std::to_string( training_skill_max_level ) );
-    p.set_value( "training_iuse_skill_fatigue", std::to_string( training_skill_fatigue ) );
-    p.set_value( "training_iuse_skill_interval", std::to_string( training_skill_interval ) );
-    p.set_value( "training_iuse_skill_xp_chance", std::to_string( training_skill_xp_chance ) );
-    p.assign_activity( ACT_TRAIN_SKILL, hours * 360000, -1, 0, "training" );
-    p.activity->str_values.emplace_back( i.typeId() );
-    p.activity->add_tool( &i );
+    auto options = train_skill_activity_actor_options{
+        .training_skill = training_skill,
+        .training_skill_xp = training_skill_xp,
+        .training_skill_xp_chance = training_skill_xp_chance,
+        .training_skill_max_level = training_skill_max_level,
+        .training_skill_fatigue = training_skill_fatigue,
+        .training_skill_interval = training_skill_interval,
+        .moves_total = hours * 360000,
+        .tool = i.has_flag( flag_PSEUDO ) ? safe_reference<item>() : safe_reference<item>( &i ),
+        .pseudo_tool = i.has_flag( flag_PSEUDO ),
+        .pseudo_tool_pos = pt,
+        .pseudo_tool_type = i.typeId(),
+    };
+    p.assign_activity( std::make_unique<player_activity>(
+                           std::make_unique<train_skill_activity_actor>( std::move( options ) ) ) );
 
     return 0;
 }

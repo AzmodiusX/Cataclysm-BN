@@ -1,9 +1,11 @@
 #include "activity_actor.h"
 #include "activity_actor_definitions.h"
 
+#include <algorithm>
 #include <cmath>
 #include <list>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -3209,6 +3211,252 @@ void vehicle_work_actor::finish( player_activity &act, Character &who )
             debugmsg( "process_activity ACT_VEHICLE: vehicle not found" );
         }
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// train_skill_activity_actor (ACT_TRAIN_SKILL)
+// ─────────────────────────────────────────────────────────────────────────────
+
+train_skill_activity_actor::train_skill_activity_actor(
+    train_skill_activity_actor_options options
+) : training_skill( std::move( options.training_skill ) )
+    , training_skill_xp( options.training_skill_xp )
+    , training_skill_xp_chance( options.training_skill_xp_chance )
+    , training_skill_max_level( options.training_skill_max_level )
+    , training_skill_fatigue( options.training_skill_fatigue )
+    , training_skill_interval( options.training_skill_interval )
+    , moves_total( options.moves_total )
+    , tool( std::move( options.tool ) )
+    , pseudo_tool( options.pseudo_tool )
+    , pseudo_tool_pos( options.pseudo_tool_pos )
+    , pseudo_tool_type( std::move( options.pseudo_tool_type ) )
+{}
+
+namespace
+{
+
+auto get_train_skill_iuse( const itype_id &tool_type ) -> const train_skill_actor *
+{
+    if( !tool_type.is_valid() ) {
+        return nullptr;
+    }
+    const use_function *use = tool_type->get_use( "train_skill" );
+    if( use == nullptr ) {
+        return nullptr;
+    }
+    return dynamic_cast<const train_skill_actor *>( use->get_actor_ptr() );
+}
+
+auto train_skill_options_from_iuse( const train_skill_actor &iuse,
+                                    int duration ) -> train_skill_activity_actor_options
+{
+    return {
+        .training_skill = iuse.training_skill,
+        .training_skill_xp = iuse.training_skill_xp,
+        .training_skill_xp_chance = iuse.training_skill_xp_chance,
+        .training_skill_max_level = iuse.training_skill_max_level,
+        .training_skill_fatigue = iuse.training_skill_fatigue,
+        .training_skill_interval = iuse.training_skill_interval,
+        .moves_total = duration,
+    };
+}
+
+} // namespace
+
+auto train_skill_activity_actor::get_tool( Character &who ) const -> item *
+{
+    if( !pseudo_tool ) {
+        return tool ? &*tool : nullptr;
+    }
+
+    mapbuffer &here = who.get_mapbuffer();
+    const auto furniture = here.furn( pseudo_tool_pos );
+    if( !furniture ) {
+        debugmsg( "Lost furniture for skill training at %s", pseudo_tool_pos.to_string() );
+        return nullptr;
+    }
+
+    const auto &item_types = furniture->obj().crafting_pseudo_item_types();
+    const bool is_valid_tool = std::ranges::any_of( item_types,
+    [this]( const itype &item_type ) {
+        return item_type.get_id() == pseudo_tool_type;
+    } );
+    if( !is_valid_tool ) {
+        debugmsg( "Lost pseudo training tool %s at %s", pseudo_tool_type.c_str(),
+                  pseudo_tool_pos.to_string() );
+        return nullptr;
+    }
+
+    item *fake_tool = item::spawn_temporary( pseudo_tool_type, calendar::turn, 0 );
+    fake_tool->set_flag( flag_PSEUDO );
+    if( fake_tool->has_flag( flag_USES_GRID_POWER ) ) {
+        auto *tracker = get_distribution_grid_tracker_for( who.get_dimension() );
+        if( tracker == nullptr ) {
+            debugmsg( "Lost power grid for pseudo training tool %s at %s",
+                      pseudo_tool_type.c_str(), pseudo_tool_pos.to_string() );
+            return nullptr;
+        }
+        fake_tool->charges = tracker->grid_at( pseudo_tool_pos ).get_resource();
+    }
+    return fake_tool;
+}
+
+auto train_skill_activity_actor::apply_training( Character &who, item &training_tool ) const -> bool
+{
+    const skill_id skill( training_skill );
+    if( !skill.is_valid() ) {
+        debugmsg( "Invalid skill %s for ACT_TRAIN_SKILL", training_skill );
+        return false;
+    }
+
+    who.mod_fatigue( training_skill_fatigue );
+    who.mod_stamina( -training_skill_fatigue * 36 );
+
+    if( training_tool.ammo_remaining() > 0 ) {
+        const int original_charges = training_tool.charges;
+        training_tool.ammo_consume( 1 );
+        if( pseudo_tool ) {
+            const int discharged = original_charges - training_tool.charges;
+            if( discharged > 0 ) {
+                auto *tracker = get_distribution_grid_tracker_for( who.get_dimension() );
+                if( tracker != nullptr ) {
+                    const int unfulfilled_demand = tracker->grid_at( pseudo_tool_pos ).mod_resource( -discharged );
+                    if( unfulfilled_demand != 0 ) {
+                        debugmsg( "Pseudo training tool discharged more power than available: %d kJ",
+                                  unfulfilled_demand );
+                    }
+                }
+            }
+        }
+    } else if( training_tool.ammo_required() > 0 ) {
+        who.add_msg_if_player( m_info, _( "The %s runs out of power." ), training_tool.tname() );
+        return false;
+    }
+
+    if( who.get_skill_level( skill ) >= training_skill_max_level ) {
+        who.add_msg_if_player( m_info, _( "You can no longer learn anything from this." ) );
+        return false;
+    }
+
+    if( rng( 1, 100 ) < training_skill_xp_chance ) {
+        who.practice( skill, training_skill_xp, training_skill_max_level );
+    }
+    return true;
+}
+
+auto train_skill_activity_actor::start( player_activity &, Character & ) -> void
+{
+    if( progress.empty() ) {
+        progress.emplace( "training", moves_total );
+    }
+}
+
+auto train_skill_activity_actor::do_turn( player_activity &act, Character &who ) -> void
+{
+    if( training_skill_interval <= 0 ) {
+        debugmsg( "Invalid training interval for ACT_TRAIN_SKILL: %d", training_skill_interval );
+        act.set_to_null();
+        return;
+    }
+
+    if( action_time_scale::once_every_this_tick( 1_minutes * training_skill_interval ) ) {
+        item *training_tool = get_tool( who );
+        if( training_tool == nullptr || !apply_training( who, *training_tool ) ) {
+            act.set_to_null();
+            return;
+        }
+    }
+
+    if( who.get_fatigue() >= fatigue_levels::dead_tired ) {
+        who.add_msg_if_player( _( "You're too tired to continue." ) );
+        act.set_to_null();
+    }
+}
+
+auto train_skill_activity_actor::finish( player_activity &act, Character &who ) -> void
+{
+    who.add_msg_if_player( m_good, _( "You feel like you've learned a little bit." ) );
+    act.set_to_null();
+}
+
+auto train_skill_activity_actor::serialize( JsonOut &jsout ) const -> void
+{
+    jsout.start_object();
+    jsout.member( "progress", activity_actor::progress );
+    jsout.member( "training_skill", training_skill );
+    jsout.member( "training_skill_xp", training_skill_xp );
+    jsout.member( "training_skill_xp_chance", training_skill_xp_chance );
+    jsout.member( "training_skill_max_level", training_skill_max_level );
+    jsout.member( "training_skill_fatigue", training_skill_fatigue );
+    jsout.member( "training_skill_interval", training_skill_interval );
+    jsout.member( "moves_total", moves_total );
+    jsout.member( "tool", tool );
+    jsout.member( "pseudo_tool", pseudo_tool );
+    jsout.member( "pseudo_tool_pos", pseudo_tool_pos );
+    jsout.member( "pseudo_tool_type", pseudo_tool_type );
+    jsout.end_object();
+}
+
+auto train_skill_activity_actor::deserialize( JsonIn &jsin ) -> std::unique_ptr<activity_actor>
+{
+    auto actor = std::make_unique<train_skill_activity_actor>();
+    JsonObject data = jsin.get_object();
+    data.read( "progress", actor->activity_actor::progress );
+    data.read( "training_skill", actor->training_skill );
+    data.read( "training_skill_xp", actor->training_skill_xp );
+    data.read( "training_skill_xp_chance", actor->training_skill_xp_chance );
+    data.read( "training_skill_max_level", actor->training_skill_max_level );
+    data.read( "training_skill_fatigue", actor->training_skill_fatigue );
+    data.read( "training_skill_interval", actor->training_skill_interval );
+    data.read( "moves_total", actor->moves_total );
+    data.read( "tool", actor->tool );
+    data.read( "pseudo_tool", actor->pseudo_tool );
+    data.read( "pseudo_tool_pos", actor->pseudo_tool_pos );
+    data.read( "pseudo_tool_type", actor->pseudo_tool_type );
+    return actor;
+}
+
+auto train_skill_activity_actor::legacy_deserialize( const JsonObject &data )
+    -> std::unique_ptr<activity_actor>
+{
+    auto str_values = data.get_string_array( "str_values" );
+    auto values = data.get_int_array( "values" );
+    if( str_values.empty() ) {
+        debugmsg( "Legacy ACT_TRAIN_SKILL has no tool type" );
+        return nullptr;
+    }
+
+    const bool is_furniture = values.size() >= 3 &&
+                              values[2] == static_cast<int>( hack_type_t::furniture );
+    const itype_id tool_type( is_furniture && str_values.size() >= 2 ? str_values[1] : str_values[0] );
+    const train_skill_actor *iuse = get_train_skill_iuse( tool_type );
+    if( iuse == nullptr ) {
+        debugmsg( "Legacy ACT_TRAIN_SKILL tool %s has no train_skill use", tool_type.c_str() );
+        return nullptr;
+    }
+
+    auto options = train_skill_options_from_iuse( *iuse, data.get_int( "moves_total", 0 ) );
+    options.pseudo_tool = is_furniture;
+    options.pseudo_tool_type = tool_type;
+    if( is_furniture ) {
+        auto coords = std::vector<tripoint_abs_ms>();
+        data.read( "coords", coords );
+        if( coords.empty() ) {
+            debugmsg( "Legacy ACT_TRAIN_SKILL furniture activity has no position" );
+            return nullptr;
+        }
+        options.pseudo_tool_pos = coords.front();
+    } else {
+        auto tools = std::vector<safe_reference<item>>();
+        data.read( "tools", tools );
+        if( !tools.empty() ) {
+            options.tool = std::move( tools.front() );
+        }
+    }
+
+    auto actor = std::make_unique<train_skill_activity_actor>( std::move( options ) );
+    restore_legacy_progress( *actor, data, "training" );
+    return actor;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -6651,6 +6899,7 @@ deserialize_functions = {
     { activity_id( "ACT_STASH" ), &stash_activity_actor::deserialize },
     { activity_id( "ACT_STUDY_SPELL" ), &study_spell_actor::deserialize },
     { activity_id( "ACT_THROW" ), &throw_activity_actor::deserialize },
+    { activity_id( "ACT_TRAIN_SKILL" ), &train_skill_activity_actor::deserialize },
     { activity_id( "ACT_TRAIN" ), &train_actor::deserialize },
     { activity_id( "ACT_ASSIST" ), &assist_activity_actor::deserialize },
     { activity_id( "ACT_BLEED" ), &butcher_actor::deserialize },
@@ -6705,6 +6954,7 @@ legacy_deserialize_functions = {
     { activity_id( "ACT_START_ENGINES" ), &start_engines_actor::legacy_deserialize },
     { activity_id( "ACT_START_FIRE" ), &start_fire_actor::legacy_deserialize },
     { activity_id( "ACT_STUDY_SPELL" ), &study_spell_actor::legacy_deserialize },
+    { activity_id( "ACT_TRAIN_SKILL" ), &train_skill_activity_actor::legacy_deserialize },
     { activity_id( "ACT_TRAIN" ), &train_actor::legacy_deserialize },
     { activity_id( "ACT_TRAIN_PET" ), &train_pet_actor::legacy_deserialize },
     { activity_id( "ACT_TREE_COMMUNION" ), &tree_communion_actor::legacy_deserialize },

@@ -180,7 +180,6 @@ static const activity_id ACT_VEHICLE( "ACT_VEHICLE" );
 static const activity_id ACT_VEHICLE_DECONSTRUCTION( "ACT_VEHICLE_DECONSTRUCTION" );
 static const activity_id ACT_VEHICLE_REPAIR( "ACT_VEHICLE_REPAIR" );
 static const activity_id ACT_VIBE( "ACT_VIBE" );
-static const activity_id ACT_TRAIN_SKILL( "ACT_TRAIN_SKILL" );
 static const activity_id ACT_WAIT( "ACT_WAIT" );
 static const activity_id ACT_WAIT_NPC( "ACT_WAIT_NPC" );
 static const activity_id ACT_WAIT_STAMINA( "ACT_WAIT_STAMINA" );
@@ -262,7 +261,6 @@ activity_handlers::do_turn_functions = {
     { ACT_GAME, game_do_turn },
     { ACT_GENERIC_GAME, generic_game_do_turn },
     { ACT_VIBE, vibe_do_turn },
-    { ACT_TRAIN_SKILL, train_skill_do_turn },
     { ACT_MULTIPLE_FISH, multiple_fish_do_turn },
     { ACT_MULTIPLE_CONSTRUCTION, multiple_construction_do_turn },
     { ACT_MULTIPLE_MINE, multiple_mine_do_turn },
@@ -320,7 +318,6 @@ activity_handlers::finish_functions = {
     { ACT_TRY_SLEEP, try_sleep_finish },
     // operation_finish — moved into operation_actor::finish()
     { ACT_VIBE, vibe_finish },
-    { ACT_TRAIN_SKILL, train_skill_finish },
     { ACT_ATM, atm_finish },
     { ACT_EAT_MENU, eat_menu_finish },
     { ACT_CONSUME_FOOD_MENU, eat_menu_finish },
@@ -1365,117 +1362,6 @@ namespace repair_activity_hack
 // never use `player_activity::coords`
 // and use `player::activity::values` with only one item.
 
-std::optional<hack_type_t> get_hack_type( const player_activity &activity )
-{
-    // Uses real tool
-    if( activity.values.size() < 2 ) {
-        return std::nullopt;
-    }
-    assert( !activity.coords.empty() );
-    // Old save data, probably
-    if( activity.values.size() == 2 ) {
-        return hack_type_t::vehicle;
-    }
-    return static_cast<hack_type_t>( activity.values[2] );
-}
-
-tripoint_bub_ms get_position( const player_activity &activity )
-{
-    return abs_to_bub( activity.coords.at( 0 ) );
-}
-
-item *get_fake_tool( hack_type_t hack_type, const player_activity &activity )
-{
-    const tripoint_bub_ms position = get_position( activity );
-    const map &m = get_map();
-    //TODO!: chhhecks of big
-    item *fake_item = &null_item_reference();
-
-    switch( hack_type ) {
-        case hack_type_t::vehicle: {
-            const optional_vpart_position pos = m.veh_at( position );
-            if( !pos ) {
-                debugmsg( "Failed to find vehicle while using it for repair at %s", position.to_string() );
-                return fake_item;
-            }
-            const vehicle &veh = pos->vehicle();
-
-            fake_item = item::spawn_temporary( activity.str_values[1], calendar::turn, 0 );
-            fake_item->charges = veh.fuel_left( itype_battery );
-
-            break;
-        }
-        case hack_type_t::furniture: {
-            if( !m.has_furn( position ) ) {
-                debugmsg( "Failed to find furniture while using it for repair at %s", position.to_string() );
-                // Return nullitem in that case
-                return fake_item;
-            }
-            const furn_t &furniture = m.furn( position ).obj();
-            const std::vector<itype> item_type_list = furniture.crafting_pseudo_item_types();
-
-            if( item_type_list.empty() ) {
-                return fake_item;
-            }
-
-            for( const itype &item_type : item_type_list ) {
-                if( item_type.get_id() == static_cast<itype_id>( activity.str_values[1] ) ) {
-                    const auto abspos = activity.coords.at( 0 );
-                    const distribution_grid &grid = get_distribution_grid_tracker().grid_at( abspos );
-                    fake_item = item::spawn_temporary( item_type.get_id(), calendar::turn, 0 );
-                    fake_item->charges = grid.get_resource( true );
-                    break;
-                }
-            }
-            break;
-        }
-    }
-
-    fake_item->set_flag( flag_PSEUDO );
-    return fake_item;
-}
-
-void discharge_real_power_source(
-    hack_type_t hack_type,
-    const tripoint_bub_ms &position,
-    item &tool,
-    const int original_charges
-)
-{
-    const int used_charges = original_charges - tool.charges;
-
-    if( used_charges <= 0 ) {
-        return;
-    }
-
-    const map &m = get_map();
-
-    int unfulfilled_demand = 0;
-    switch( hack_type ) {
-        case hack_type_t::vehicle: {
-            optional_vpart_position pos = m.veh_at( position );
-            if( !pos ) {
-                return;
-            }
-            vehicle &veh = pos->vehicle();
-            unfulfilled_demand = veh.discharge_battery( used_charges );
-            break;
-        }
-        case hack_type_t::furniture: {
-            const auto abspos = bub_to_abs( position );
-            distribution_grid &grid = get_distribution_grid_tracker().grid_at( abspos );
-            unfulfilled_demand = grid.mod_resource( -used_charges );
-            break;
-        }
-    }
-    if( unfulfilled_demand != 0 ) {
-        debugmsg(
-            "Fake tool discharged grid/veh more than grid/veh had!  Unfulfilled demand %d kJ",
-            unfulfilled_demand
-        );
-    }
-}
-
 void patch_activity_for_vehicle(
     player_activity &activity,
     const tripoint_bub_ms &veh_part_position,
@@ -1508,7 +1394,7 @@ void patch_activity_for_furniture( player_activity &activity,
     // Player may start another activity on welder/soldering iron
     // Check it here instead of furniture interaction code
     // because we want to encapsulate hack here.
-    if( activity.id() != ACT_REPAIR_ITEM && activity.id() != ACT_TRAIN_SKILL ) {
+    if( activity.id() != ACT_REPAIR_ITEM ) {
         return;
     }
 
@@ -1524,92 +1410,6 @@ void patch_activity_for_furniture( player_activity &activity,
 
 } // namespace repair_activity_hack
 } // namespace activity_handlers
-
-void activity_handlers::train_skill_do_turn( player_activity *act, player *p )
-{
-    namespace hack = activity_handlers::repair_activity_hack;
-
-    std::optional<hack_type_t> hack_type = hack::get_hack_type( *act );
-    const tripoint_bub_ms hack_pos = hack_type ? hack::get_position( * act ) : tripoint_bub_ms{};
-    int hack_original_charges = 0;
-    item *main_tool = nullptr;
-    if( hack_type ) {
-        main_tool = hack::get_fake_tool( hack_type.value(), *act );
-        if( main_tool != nullptr ) {
-            hack_original_charges = main_tool ? main_tool->charges : 0;
-        }
-    } else {
-        main_tool = &*act->get_tools().front();
-    }
-    if( main_tool == nullptr ) {
-        debugmsg( "train skill tools array and hack values are empty. this would have caused invalid safe reference error" );
-        act->moves_left = 0;
-        return;
-    }
-    item &skill_training_item = *main_tool;
-    int training_skill_interval = atoi( p->get_value( "training_iuse_skill_interval" ).c_str() );
-
-    if( training_skill_interval <= 0 ) {
-        debugmsg( "training_iuse_skill_interval is invalid ( %d )", training_skill_interval );
-        act->moves_left = 0;
-        return;
-    }
-
-    if( action_time_scale::once_every_this_tick( 1_minutes * training_skill_interval ) ) {
-        // pull metadata. this is probably the easiest way to get this data from the JSON definition
-        std::string training_skill = p->get_value( "training_iuse_skill" );
-        if( training_skill.empty() ) {
-            debugmsg( "training_iuse_skill is empty" );
-            act->moves_left = 0;
-            return;
-        }
-        int training_skill_xp = atoi( p->get_value( "training_iuse_skill_xp" ).c_str() );
-        int training_skill_max_level = atoi( p->get_value( "training_iuse_skill_xp_max_level" ).c_str() );
-        int training_skill_xp_chance = atoi( p->get_value( "training_iuse_skill_xp_chance" ).c_str() );
-        int training_skill_fatigue = atoi( p->get_value( "training_iuse_skill_fatigue" ).c_str() );
-
-        p->mod_fatigue( training_skill_fatigue );
-        p->mod_stamina( -training_skill_fatigue * 36 );
-        if( skill_training_item.ammo_remaining() > 0 ) {
-            skill_training_item.ammo_consume( 1 );
-            if( hack_type.has_value() ) {
-                hack::discharge_real_power_source(
-                    hack_type.value(),
-                    hack_pos,
-                    skill_training_item,
-                    hack_original_charges
-                );
-            }
-        } else if( skill_training_item.ammo_required() > 0 ) {
-            act->moves_left = 0;
-            add_msg( m_info, _( "The %s runs out of power." ), skill_training_item.tname() );
-            return;
-        }
-        if( p->get_skill_level( skill_id( training_skill ) ) >= training_skill_max_level ) {
-            act->moves_left = 0;
-            add_msg( m_info, _( "You can no longer learn anything from this." ) );
-            return;
-        }
-        if( rng( 1, 100 ) < training_skill_xp_chance ) {
-            p->practice( skill_id( training_skill ), training_skill_xp,
-                         training_skill_max_level );
-        }
-    }
-
-    // needs rest
-    if( p->get_fatigue() >= fatigue_levels::dead_tired ) {
-        if( hack_type.has_value() ) {
-            hack::discharge_real_power_source(
-                hack_type.value(),
-                hack_pos,
-                skill_training_item,
-                hack_original_charges
-            );
-        }
-        act->moves_left = 0;
-        add_msg( m_info, _( "You're too tired to continue." ) );
-    }
-}
 
 // repair_item_finish — MOVED INTO repair_actor::finish()
 
@@ -2112,12 +1912,6 @@ void activity_handlers::vibe_finish( player_activity *act, player *p )
 {
     p->add_msg_if_player( m_good, _( "You feel much better." ) );
     p->add_morale( MORALE_FEELING_GOOD, 10, 40 );
-    act->set_to_null();
-}
-
-void activity_handlers::train_skill_finish( player_activity *act, player *p )
-{
-    p->add_msg_if_player( m_good, _( "You feel like you've learned a little bit." ) );
     act->set_to_null();
 }
 

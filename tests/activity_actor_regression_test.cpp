@@ -1,6 +1,7 @@
 #include "activity_actor.h"
 #include "activity_actor_definitions.h"
 #include "activity_handlers.h"
+#include "action_time_scale.h"
 #include "avatar.h"
 #include "cata_utility.h"
 #include "catch/catch.hpp"
@@ -14,6 +15,7 @@
 #include "player_activity.h"
 #include "player_helpers.h"
 #include "salvage.h"
+#include "skill.h"
 
 #include <array>
 #include <memory>
@@ -86,7 +88,8 @@ const auto migrated_actor_ids = std::array{
     activity_id("ACT_SHEAR"),        activity_id("ACT_SKIN"),
     activity_id("ACT_SOCIALIZE"),    activity_id("ACT_START_ENGINES"),
     activity_id("ACT_START_FIRE"),   activity_id("ACT_STASH"),
-    activity_id("ACT_STUDY_SPELL"),  activity_id("ACT_TRAIN"),
+    activity_id("ACT_STUDY_SPELL"),  activity_id("ACT_TRAIN_SKILL"),
+    activity_id("ACT_TRAIN"),
     activity_id("ACT_TRAIN_PET"),    activity_id("ACT_TREE_COMMUNION"),
     activity_id("ACT_VEHICLE"),      activity_id("ACT_WAIT_NPC"),
     activity_id("ACT_WAIT_STAMINA"), activity_id("ACT_WEAR")};
@@ -266,6 +269,45 @@ TEST_CASE(
     dummy.activity->get_actor()->progress.emplace("training", 1);
     process_activity(dummy);
     CHECK(!dummy.activity);
+}
+
+TEST_CASE(
+    "skill training uses its own actor and continues past one iteration",
+    "[activity][activity_actor][train_skill]") {
+    clear_map();
+    clear_avatar();
+    set_time(calendar::turn_zero + 1_minutes);
+    avatar &dummy = get_avatar();
+    item &training_tool = dummy.i_add( item::spawn( "fake_training_exercise_machine" ) );
+    const skill_id training_skill( "swimming" );
+    dummy.set_skill_level( training_skill, 0 );
+    const int old_exercise = dummy.get_skill_level_object( training_skill ).exercise( true );
+
+    dummy.assign_activity( std::make_unique<player_activity>(
+                               std::make_unique<train_skill_activity_actor>(
+                                   train_skill_activity_actor_options{
+                                       .training_skill = training_skill.str(),
+                                       .training_skill_xp = 1,
+                                       .training_skill_xp_chance = 101,
+                                       .training_skill_max_level = 5,
+                                       .training_skill_fatigue = 1,
+                                       .training_skill_interval = 1,
+                                       .moves_total = 1000,
+                                       .tool = safe_reference<item>( &training_tool ),
+                                   } ) ) );
+    REQUIRE( dummy.activity );
+    REQUIRE( dummy.activity->has_actor() );
+    CHECK( dynamic_cast<repair_actor *>( dummy.activity->get_actor() ) == nullptr );
+    CHECK( dynamic_cast<train_skill_activity_actor *>( dummy.activity->get_actor() ) != nullptr );
+
+    {
+        action_time_scale::scoped_calendar_turns_this_tick one_minute( 10 );
+        dummy.moves = dummy.get_speed();
+        dummy.activity->do_turn( dummy );
+    }
+
+    CHECK( dummy.activity );
+    CHECK( dummy.get_skill_level_object( training_skill ).exercise( true ) > old_exercise );
 }
 
 TEST_CASE(
