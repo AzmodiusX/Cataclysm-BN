@@ -348,13 +348,14 @@ struct level_cache {
     // Source tiles touched in light_source_buffer.
     std::vector<point_bub_ms>        light_source_points;
 
-    // True when the tile has sky access via the 3×3 overhang rule (top-down floor cascade).
-    // False means fully enclosed — protected from rain, wind, weather effects.
-    std::vector<char>               outside_cache;
+        // Reality-bubble cache: true when the tile has sky access via the 3×3
+        // overhang rule.  This is not the final outside/sheltered answer;
+        // predicate functions layer vehicle state on top.
+        std::vector<char>               outside_cache;
 
-    // True when at least one tile within 3×3 above has overhead coverage (floor or sheltered
-    // tile at z+1).  Distinct from outside_cache: a tile can be outside yet sheltered (overhang).
-    std::vector<char>               sheltered_cache;
+        // Reality-bubble cache: true when at least one tile within 3×3 above
+        // provides overhead coverage.  This is not the final predicate answer.
+        std::vector<char>               sheltered_cache;
 
     // true when vehicle below has "ROOF" or "OPAQUE" part, furniture below has "SUN_ROOF_ABOVE"
     //      or terrain doesn't have "NO_FLOOR" flag

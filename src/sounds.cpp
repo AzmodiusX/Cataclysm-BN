@@ -1308,17 +1308,10 @@ auto submap::rebuild_absorption_cache( const map &m, const tripoint_bub_sm &grid
     if( !absorption_dirty ) {
         return;
     }
-    // outside_cache must be current before building the absorption cache.
-    // We still want the level cache above us to grab our floor checks with.
-    const level_cache *above = ( grid_pos.z() < OVERMAP_HEIGHT )
-                               ? &m.get_cache_ref( grid_pos.z() + 1 )
-                               : nullptr;
-
-    if( outside_dirty ) {
-        // Fortunatly there is a nullptr catch in rebuild_outside_cache.
-        rebuild_outside_cache( above, grid_pos );
-    }
     const auto &lev_cache = m.get_cache_ref( grid_pos.z() );
+    const auto *above = grid_pos.z() < OVERMAP_HEIGHT
+                        ? &m.get_cache_ref( grid_pos.z() + 1 )
+                        : nullptr;
 
     const season_type &season = season_of_year( calendar::turn );
     // If we are at max zlev, always assume the tile above us has no floor.

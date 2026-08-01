@@ -3454,13 +3454,13 @@ void cata_tiles::draw( point dest, const tripoint_bub_ms &center, int width, int
                         SDL_Color block_color;
                         std::string label;
                         if( outside && !sheltered ) {
-                            block_color = { 0, 200, 0, 100 };   // green - fully open
+                            block_color = { 0, 200, 0, 80 };   // green - fully open
                             label = "O";
                         } else if( outside && sheltered ) {
-                            block_color = { 200, 200, 0, 100 };  // yellow - overhang
+                            block_color = { 200, 200, 0, 80 };  // yellow - overhang
                             label = "S";
                         } else {
-                            block_color = { 200, 0, 0, 100 };    // red - indoors
+                            block_color = { 200, 0, 0, 80 };    // red - indoors
                             label = "I";
                         }
                         color_blocks.first = SDL_BLENDMODE_BLEND;

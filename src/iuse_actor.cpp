@@ -384,7 +384,7 @@ int iuse_transform::use( Character &p, item &it, bool t, const tripoint_abs_ms &
     if( p.is_worn( it ) ) {
         p.reset_encumbrance();
         // This is most likely wrong: it doubles temperature shift for the turn!
-        p.update_bodytemp( get_map(), get_weather() );
+        p.update_bodytemp( get_weather() );
         p.on_item_wear( it );
     }
     p.inv_update_invlet_cache_with_item( it );
@@ -6463,7 +6463,7 @@ int iuse_music_player::use( Character &p, item &it, bool t, const tripoint_abs_m
     if( p.is_worn( it ) ) {
         p.reset_encumbrance();
         // This is most likely wrong: it doubles temperature shift for the turn!
-        p.update_bodytemp( get_map(), get_weather() );
+        p.update_bodytemp( get_weather() );
         p.on_item_wear( it );
     }
     p.inv_update_invlet_cache_with_item( it );

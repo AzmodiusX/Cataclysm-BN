@@ -521,7 +521,7 @@ class Character : public Creature, public location_visitable<Character>
         /** Returns if the player has hibernation mutation and is asleep and well fed */
         bool is_hibernating() const;
         /** Maintains body temperature */
-        void update_bodytemp( const map &m, const weather_manager &weather );
+        void update_bodytemp( const weather_manager &weather );
 
         /** Getters/setters for body part temperature.
          *  This could go under Creature, but Character is the class with update_bodytemp. */

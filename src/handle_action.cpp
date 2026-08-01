@@ -277,6 +277,7 @@ static bool init_weather_anim( const weather_type_id &wtype, weather_printable &
 static void generate_weather_anim_frame( const weather_type_id &wtype, weather_printable &wPrint )
 {
     map &m = get_map();
+    mapbuffer &mb = m.get_mapbuffer();
     avatar &u = get_avatar();
 
     const visibility_variables &cache = m.get_visibility_variables_cache();
@@ -329,7 +330,8 @@ static void generate_weather_anim_frame( const weather_type_id &wtype, weather_p
 
         const lit_level lighting = visibility_cache[map_cache.idx( mapp.x(), mapp.y() )];
 
-        if( m.is_outside( mapp ) && m.get_visibility( lighting, cache ) == VIS_CLEAR &&
+        if( !weather::is_sheltered( mb, bub_to_abs( mapp ) ) &&
+            m.get_visibility( lighting, cache ) == VIS_CLEAR &&
             !g->critter_at( mapp, true ) ) {
             // Suppress if a critter is there
             wPrint.vdrops.emplace_back( iRand.x, iRand.y );

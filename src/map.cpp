@@ -173,22 +173,6 @@ static const std::string str_OPENCLOSE_INSIDE( "OPENCLOSE_INSIDE" );
 namespace
 {
 
-auto horde_should_avoid_vehicle_tile( const map &here, const tripoint_bub_ms &p,
-                                      const mongroup &group ) -> bool
-{
-    if( !group.horde ) {
-        return false;
-    }
-
-    const auto vp = here.veh_at( p );
-    if( !vp ) {
-        return false;
-    }
-
-    const auto &veh = vp->vehicle();
-    return veh.is_owned_by( get_avatar() );
-}
-
 auto quantized_light_signature_value( const float value ) -> int
 {
     return static_cast<int>( std::lround( value * 4.0f ) );
@@ -625,12 +609,6 @@ void map::set_outside_cache_dirty( const int zlev )
     if( inbounds_z( zlev ) ) {
         level_cache &ch = get_cache( zlev );
         ch.outside_cache_dirty.set();
-        get_mapbuffer().mark_submap_caches_dirty( {
-            .begin = abs_sub,
-            .end = abs_sub + point_rel_sm( my_MAPSIZE, my_MAPSIZE ),
-            .zlev = zlev,
-            .outside = true,
-        } );
     }
 }
 
@@ -644,25 +622,18 @@ void map::set_outside_cache_dirty( const tripoint_bub_ms &p )
     const auto smp = proj.quotient_tripoint;
     const auto l = proj.remainder;
 
-    // Helper: mark one submap grid cell dirty in both the bitset and the submap flag.
+    // Helper: mark one submap grid cell dirty in the flat cache.
     auto mark = [&]( const tripoint_bub_sm & p ) {
         if( p.x() < 0 || p.y() < 0 || p.x() >= my_MAPSIZE || p.y() >= my_MAPSIZE ) {
             return;
         }
         ch.outside_cache_dirty.set( static_cast<size_t>( ch.bidx( p.x(), p.y() ) ) );
-        const auto abs_sm = map_local_to_abs( *this, tripoint_bub_sm{ p.x(), p.y(), p.z() } );
-        get_mapbuffer().mark_submap_caches_dirty( {
-            .begin = abs_sm.xy(),
-            .end = abs_sm.xy() + point_rel_sm( 1, 1 ),
-            .zlev = abs_sm.z(),
-            .outside = true,
-        } );
     };
 
     // Always mark the tile's own submap.
     mark( smp );
 
-    // rebuild_outside_cache checks a 3×3 tile neighbourhood, so a tile on a
+    // The bubble outside rebuild checks a 3×3 tile neighbourhood, so a tile on a
     // submap boundary can affect tiles in the adjacent submap.
     const bool on_left   = ( l.x() == 0 );
     const bool on_right  = ( l.x() == SEEX - 1 );
@@ -699,7 +670,7 @@ void map::set_floor_cache_dirty( const int zlev )
             .floor = true,
         } );
     }
-    // outside_cache and sheltered_cache at z-1 depend on floor_cache at z.
+    // The bubble outside and sheltered caches at z-1 depend on floor_cache at z.
     set_outside_cache_dirty( zlev - 1 );
     // This also means the absorption and sound wall caches are marked dirty there as well.
     set_absorption_cache_dirty( zlev - 1 );
@@ -720,7 +691,7 @@ void map::set_floor_cache_dirty( const tripoint_bub_ms &p )
         .zlev = abs_sm.z(),
         .floor = true,
     } );
-    // outside_cache and sheltered_cache at z-1 depend on floor_cache at z.
+    // The bubble outside and sheltered caches at z-1 depend on floor_cache at z.
     // The 3×3 neighbourhood means adjacent submaps at z-1 may also be affected.
     set_outside_cache_dirty( p + tripoint_rel_ms::below() );
     // Setting the floor cache for a submap dirty should also automatically set the absorption cache and sound_wall caches dirty.
@@ -1160,13 +1131,6 @@ void map::on_vehicle_moved( const tripoint_bub_sm &sm_min, const tripoint_bub_sm
     for_clamped_submaps( outside_min, outside_max, [&]( const point_bub_sm & p ) {
         const auto idx = static_cast<size_t>( ch.bidx( p.x(), p.y() ) );
         ch.outside_cache_dirty.set( idx );
-        const auto abs_sm = map_local_to_abs( *this, tripoint_bub_sm( p, smz ) );
-        get_mapbuffer().mark_submap_caches_dirty( {
-            .begin = abs_sm.xy(),
-            .end = abs_sm.xy() + point_rel_sm( 1, 1 ),
-            .zlev = abs_sm.z(),
-            .outside = true,
-        } );
     } );
 
     // Vehicles can extend through the floor; mark the level above as well.
@@ -3117,36 +3081,28 @@ bool map::is_outside( const tripoint_abs_ms &p ) const
 
 bool map::is_outside( const tripoint_bub_ms &p ) const
 {
-    point_sm_ms l;
-    submap *sm = get_submap_at( tripoint_bub_ms( p ), l );
-    if( !sm ) {
+    if( !inbounds( p ) ) {
         return true;
     }
-    if( sm->outside_dirty ) {
-        const int smx = divide_round_to_minus_infinity( p.x(), SEEX );
-        const int smy = divide_round_to_minus_infinity( p.y(), SEEY );
-        const level_cache *above = ( p.z() < OVERMAP_HEIGHT )
-                                   ? &get_cache_ref( p.z() + 1 )
-                                   : nullptr;
-        sm->rebuild_outside_cache( above, tripoint_bub_sm( smx, smy, p.z() ) );
-    }
-    return sm->outside_cache[l.x()][l.y()];
+    auto *const mutable_map = const_cast<map *>( this );
+    mutable_map->build_outside_cache( p.z() );
+    const auto &cache = get_cache_ref( p.z() );
+    const auto outside = cache.outside_cache[cache.idx( p.x(), p.y() )];
+    const auto vp = veh_at( p );
+    return outside && !( vp && vp->is_inside() );
 }
 
 bool map::is_sheltered( const tripoint_bub_ms &p ) const
 {
-    point_sm_ms l;
-    submap *sm = get_submap_at( p, l );
-    if( !sm ) {
+    if( !inbounds( p ) ) {
         return true; // outside loaded area — treat as sheltered
     }
-    if( sm->outside_dirty ) {
-        const level_cache *above = ( p.z() < OVERMAP_HEIGHT )
-                                   ? &get_cache_ref( p.z() + 1 )
-                                   : nullptr;
-        sm->rebuild_outside_cache( above, project_to<coords::sm>( p ) );
-    }
-    return sm->sheltered_cache[l.x()][l.y()];
+    auto *const mutable_map = const_cast<map *>( this );
+    mutable_map->build_outside_cache( p.z() );
+    const auto &cache = get_cache_ref( p.z() );
+    const auto sheltered = cache.sheltered_cache[cache.idx( p.x(), p.y() )];
+    const auto vp = veh_at( p );
+    return sheltered || ( vp && vp->is_inside() );
 }
 
 float map::get_transparency( const tripoint_bub_ms &p ) const
@@ -3157,6 +3113,7 @@ float map::get_transparency( const tripoint_bub_ms &p ) const
         return LIGHT_TRANSPARENCY_SOLID;
     }
     if( sm->transparency_dirty ) {
+        const_cast<map *>( this )->build_outside_cache( p.z() );
         sm->rebuild_transparency_cache( *this, project_to<coords::sm>( p ) );
     }
     return sm->transparency_cache[l.x()][l.y()];
@@ -7738,7 +7695,6 @@ void map::shift( const point_rel_sm &sp )
         };
         auto const mark_outside = [&]( const tripoint_bub_sm & smp ) {
             gc.outside_cache_dirty.set( static_cast<size_t>( gc.bidx( smp.x(), smp.y() ) ) );
-            mark_submap_dirty( smp, { .outside = true } );
         };
         auto const mark_transparency = [&]( const tripoint_bub_sm & smp ) {
             gc.transparency_cache_dirty.set( static_cast<size_t>( gc.bidx( smp.x(), smp.y() ) ) );
@@ -7991,7 +7947,6 @@ void map::loadn( const tripoint_bub_sm &grid, const bool update_vehicles,
                 .zlev = grid_abs_sub.z(),
                 .transparency = true,
                 .floor = true,
-                .outside = true,
                 .absorption = true,
                 .pathfinding = true,
             } );
@@ -8106,15 +8061,25 @@ void map::spawn_monsters_submap_group( const tripoint_bub_sm &gp, mongroup &grou
     for( const auto sm_ms : submap_tiles() ) {
         const auto fp = project_combine( gp, sm_ms );
         // If there is already a creature at this location, skip it
-        if( ( g->critter_at( fp ) == nullptr ) &&
+        if( g->critter_at( fp ) != nullptr ||
             // Skip impassable terrain
-            ( ignore_terrain_checks || allow_on_terrain( fp ) ) &&
+            ( !ignore_terrain_checks && !allow_on_terrain( fp ) ) ||
             // monster must spawn outside the viewing range of the player
-            ( ignore_sight || !sees( g->u.bub_pos(), fp, s_range ) ) &&
-            // monster must spawn outside.
-            ( ignore_inside_checks || is_outside( fp ) ) &&
-            // hordes must not appear inside player-owned vehicles.
-            ( !horde_should_avoid_vehicle_tile( *this, fp, group ) ) ) {
+            ( !ignore_sight && sees( g->u.bub_pos(), fp, s_range ) ) ) {
+            continue;
+        }
+
+        const bool outside = ignore_inside_checks || is_outside( fp );
+        const auto vehicle_at_tile = group.horde ? veh_at( fp ) : optional_vpart_position();
+        const bool vehicle_owned = vehicle_at_tile &&
+                                    vehicle_at_tile->vehicle().is_owned_by( get_avatar() );
+        const bool vehicle_tile_passable = !vehicle_at_tile || allow_on_terrain( fp );
+        const bool spawnable_vehicle_tile = vehicle_at_tile && vehicle_tile_passable;
+
+        // Hordes may use a passable roofed tile on an unowned vehicle, but owned
+        // vehicles and impassable vehicle parts remain excluded.
+        if( vehicle_tile_passable && !vehicle_owned &&
+            ( outside || spawnable_vehicle_tile ) ) {
             locations.push_back( fp );
         }
     }
@@ -8415,14 +8380,6 @@ void map::build_outside_cache( const int zlev )
         // Base case: open sky at the top — every tile is outside, nothing above.
         std::fill( ch.outside_cache.begin(), ch.outside_cache.end(), true );
         std::fill( ch.sheltered_cache.begin(), ch.sheltered_cache.end(), false );
-        for( const auto p : flat_bubble_submaps() ) {
-            const auto sm_pos = tripoint_bub_sm( p, zlev );
-            auto *sm = get_mapbuffer().lookup_submap_in_memory( map_local_to_abs( *this, sm_pos ) );
-            if( sm ) {
-                std::ranges::fill( std::span( &sm->outside_cache[0][0], SEEX * SEEY ), true );
-                sm->outside_dirty = false;
-            }
-        }
         ch.outside_cache_dirty.reset();
         return;
     }
@@ -8437,9 +8394,8 @@ void map::build_outside_cache( const int zlev )
     const level_cache *above = inbounds_z( above_z ) ? &get_cache_ref( above_z ) : nullptr;
     const bool rebuild_all = ch.outside_cache_dirty.all();
 
-    // Delegate to per-submap rebuild, then copy into the flat render cache.
-    // Each smx column writes to unique flat positions; rebuild_outside_cache reads
-    // only from the immutable above cache, so columns are safe to process concurrently.
+    // Build the flat reality-bubble caches directly.  Each smx column writes to
+    // a unique flat-cache region and reads only from the immutable above cache.
     const auto process_smx = [&]( int smx ) {
         for( int smy = 0; smy < my_MAPSIZE; ++smy ) {
             if( !rebuild_all && !ch.outside_cache_dirty.test(
@@ -8452,12 +8408,30 @@ void map::build_outside_cache( const int zlev )
             if( cur_submap == nullptr ) {
                 continue;
             }
-            cur_submap->rebuild_outside_cache( above, sm_pos );
-
             for( const auto sm_ms : submap_tiles() ) {
                 const auto ms_pos = project_combine( sm_pos, sm_ms );
-                ch.outside_cache[static_cast<size_t>( ch.idx( ms_pos.x(), ms_pos.y() ) )] =
-                    cur_submap->outside_cache[sm_ms.x()][sm_ms.y()];
+                auto outside = false;
+                auto sheltered = false;
+                if( above != nullptr ) {
+                    for( const auto dx : std::views::iota( -1, 2 ) ) {
+                        for( const auto dy : std::views::iota( -1, 2 ) ) {
+                            const auto above_pos = point_bub_ms( ms_pos.x() + dx, ms_pos.y() + dy );
+                            if( !above->inbounds( above_pos ) ) {
+                                continue;
+                            }
+                            const auto above_idx = above->idx( above_pos.x(), above_pos.y() );
+                            outside = outside || ( above->outside_cache[above_idx] &&
+                                                   !above->floor_cache[above_idx] );
+                            sheltered = sheltered || above->floor_cache[above_idx] ||
+                                         above->sheltered_cache[above_idx];
+                        }
+                    }
+                } else {
+                    outside = true;
+                }
+                const auto cache_idx = static_cast<size_t>( ch.idx( ms_pos.x(), ms_pos.y() ) );
+                ch.outside_cache[cache_idx] = outside;
+                ch.sheltered_cache[cache_idx] = sheltered;
             }
         }
     };
@@ -8827,7 +8801,7 @@ void map::build_map_cache( const int zlev, bool skip_lightmap )
 
     {
         ZoneScopedN( "Phase1_outside_sheltered" );
-        // outside_cache and sheltered_cache both depend on floor[z+1] and their own z+1,
+        // Bubble outside_cache and sheltered_cache both depend on floor[z+1] and their own z+1,
         // so they must be computed top-down.  They use intra-z parallel_for, so they
         // cannot run inside a parallel-over-z block.
         for( int z = OVERMAP_HEIGHT; z >= -OVERMAP_DEPTH; --z ) {

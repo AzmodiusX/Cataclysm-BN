@@ -80,15 +80,14 @@ weather_manager &get_weather()
 
 static bool is_player_outside()
 {
-    if( g->get_levz() < 0 ) {
-        return false;
-    }
     const tripoint_bub_ms &pos = get_player_character().bub_pos();
-    if( !get_map().is_outside( pos ) ) {
-        return false;
-    }
-    const optional_vpart_position vp = get_map().veh_at( pos );
-    return !vp || !vp->is_inside();
+    return get_map().is_outside( pos );
+}
+
+static bool is_player_sheltered()
+{
+    const tripoint_bub_ms &pos = get_player_character().bub_pos();
+    return get_map().is_sheltered( pos );
 }
 
 void glare( const weather_type_id &w )
@@ -1171,8 +1170,8 @@ void weather_manager::update_weather()
     }
 
     water_temperature = weather_gen.get_water_temperature(
-                            tripoint_abs_ms( g->u.abs_pos() ),
-                            calendar::turn, calendar::config, g->get_seed() ) ;
+                            g->u.abs_pos(), calendar::turn,
+                            calendar::config, g->get_seed() ) ;
 
     // Only call on_weather_changed if old_weather was a valid weather type (not initial state)
     if( weather_id != old_weather && old_weather != weather_type_id::NULL_ID() ) {
@@ -1185,7 +1184,8 @@ void weather_manager::update_weather()
             params["winddirection"] = winddirection; // 360 degrees
             params["humidity"] = w.humidity;
             params["pressure"] = w.pressure;
-            params["is_sheltered"] = !is_player_outside();
+            params["is_sheltered"] = !is_player_sheltered();
+            params["is_outside"] = !is_player_outside();
         } );
     }
 
@@ -1199,7 +1199,8 @@ void weather_manager::update_weather()
             params["winddirection"] = winddirection;
             params["humidity"] = w.humidity;
             params["pressure"] = w.pressure;
-            params["is_sheltered"] = !is_player_outside();
+            params["is_sheltered"] = !is_player_sheltered();
+            params["is_outside"] = !is_player_outside();
         } );
     }
 }
@@ -1306,19 +1307,19 @@ void weather_manager::clear_temp_cache()
 namespace weather
 {
 
-bool is_sheltered( const map &m, const tripoint_bub_ms &p )
+bool is_sheltered( mapbuffer &m, const tripoint_abs_ms &p )
 {
-    const optional_vpart_position vp = m.veh_at( p );
-
-    return ( !m.is_outside( p ) ||
-             p.z() < 0 ||
-             ( vp && vp->is_inside() ) );
+    return m.is_sheltered( p );
 }
 
-bool is_in_sunlight( const map &m, const tripoint_bub_ms &p, const weather_type_id &weather )
+bool is_outside( mapbuffer &m, const tripoint_abs_ms &p )
 {
-    // TODO: Remove that game reference and include light in weather data
-    return m.is_outside( p ) && g->light_level( p.z() ) >= 40 && !is_night( calendar::turn ) &&
+    return m.is_outside( p );
+}
+
+bool is_in_sunlight( mapbuffer &m, const tripoint_abs_ms &p, const weather_type_id &weather )
+{
+    return !m.is_sheltered( p ) && g->light_level( p.z() ) >= 40 && !is_night( calendar::turn ) &&
            weather->sun_intensity >= sun_intensity_type::light;
 }
 

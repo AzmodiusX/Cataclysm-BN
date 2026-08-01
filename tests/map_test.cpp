@@ -140,6 +140,50 @@ TEST_CASE("map_i_at_returns_empty_for_missing_bubble_tile", "[map][item][regress
     CHECK( get_map().i_at( missing_tile ).empty() );
 }
 
+TEST_CASE("weather_shelter_blocks_precipitation_under_overhang", "[map][weather][regression]") {
+    clear_all_state();
+    g->place_player( test_origin );
+
+    auto &map = get_map();
+    auto &buffer = map.get_mapbuffer();
+    const auto covered = test_origin;
+    const auto exposed = covered + tripoint_rel_ms::east() * 2;
+
+    REQUIRE( buffer.set_ter( covered + tripoint_rel_ms::above(), ter_id( "t_floor" ) ) );
+    map.build_map_cache( covered.z(), true );
+
+    CHECK( weather::is_sheltered( buffer, covered ) );
+    CHECK_FALSE( weather::is_sheltered( buffer, exposed ) );
+}
+
+TEST_CASE("outside_predicates_apply_vehicle_shelter", "[map][weather][vehicle][regression]") {
+    clear_all_state();
+    g->place_player( test_origin );
+
+    auto &buffer = g->u.get_mapbuffer();
+    REQUIRE( buffer.is_outside( test_origin ) );
+
+    auto *const vehicle = buffer.add_vehicle( vproto_id( "car" ), test_origin, 0_degrees, 0, 0 );
+    REQUIRE( vehicle != nullptr );
+
+    auto inside_pos = std::optional<tripoint_abs_ms>();
+    for( const auto &part : vehicle->get_all_parts() ) {
+        if( part.part().removed ) {
+            continue;
+        }
+        const auto part_pos = vehicle->abs_part_location( part.part() );
+        const auto vp = buffer.veh_at( part_pos );
+        if( vp && vp->is_inside() ) {
+            inside_pos = part_pos;
+            break;
+        }
+    }
+
+    REQUIRE( inside_pos.has_value() );
+    CHECK_FALSE( buffer.is_outside( *inside_pos ) );
+    CHECK( buffer.is_sheltered( *inside_pos ) );
+}
+
 TEST_CASE("mapbuffer_item_placement_rejects_sealed_tiles", "[mapbuffer][item][regression]") {
     clear_all_state();
     g->place_player(test_origin);

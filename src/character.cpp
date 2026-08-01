@@ -6089,7 +6089,7 @@ Hurricane : 100 mph (920 hPa)
 HURRICANE : 185 mph (880 hPa) [Ref: Hurricane Wilma]
 */
 
-void Character::update_bodytemp( const map &m, const weather_manager &weather )
+void Character::update_bodytemp( const weather_manager &weather )
 {
     if( has_trait( trait_DEBUG_NOTEMP ) ) {
         for( auto &pr : get_body() ) {
@@ -6098,6 +6098,7 @@ void Character::update_bodytemp( const map &m, const weather_manager &weather )
         }
         return;
     }
+    auto &here = get_mapbuffer();
     /* Cache calls to g->get_temperature( player position ), used in several places in function */
     const auto player_local_temp = weather.get_temperature( abs_pos() );
     // NOTE : visit weather.h for some details on the numbers used
@@ -6105,12 +6106,12 @@ void Character::update_bodytemp( const map &m, const weather_manager &weather )
     int Ctemperature = units::to_millidegree_celsius( player_local_temp ) / 10;
     const w_point &weather_point = get_weather().get_precise();
     int vehwindspeed = 0;
-    const optional_vpart_position vp = m.veh_at( bub_pos() );
+    const optional_vpart_position vp = here.veh_at( abs_pos() );
     if( vp ) {
         vehwindspeed = std::lround( cmps_to_mps( std::abs( vp->vehicle().velocity ) ) * 2.23694 );
     }
     const oter_id &cur_om_ter = get_overmapbuffer( get_dimension() ).ter( abs_omt_pos() );
-    bool sheltered = weather::is_sheltered( m, bub_pos() );
+    bool sheltered = weather::is_sheltered( here, abs_pos() );
     double total_windpower = get_local_windpower( weather.windspeed + vehwindspeed, cur_om_ter,
                              abs_pos(),
                              weather.winddirection, sheltered );
@@ -6124,7 +6125,7 @@ void Character::update_bodytemp( const map &m, const weather_manager &weather )
     /**
      * Calculations that affect all body parts equally go here, not in the loop
      */
-    const int sunlight_warmth = weather::is_in_sunlight( m, bub_pos(), weather.weather_id )
+    const int sunlight_warmth = weather::is_in_sunlight( here, abs_pos(), weather.weather_id )
                                 ? ( weather.weather_id->sun_intensity == sun_intensity_type::high ? 1000 : 500 )
                                 : 0;
     const int best_fire = get_mapbuffer().get_heat_radiation( abs_pos(), true );
@@ -6147,7 +6148,7 @@ void Character::update_bodytemp( const map &m, const weather_manager &weather )
     const int h_radiation = get_mapbuffer().get_heat_radiation( abs_pos(), false );
 
     // If you're standing in water, air temperature is replaced by water temperature. No wind.
-    const ter_id ter_at_pos = m.ter( bub_pos() );
+    const ter_id ter_at_pos = *here.ter( abs_pos(), { mapbuffer_lookup_mode::resident_only } );
     const bool submerged = !in_vehicle && ter_at_pos->has_flag( TFLAG_DEEP_WATER );
     const bool submerged_low = !in_vehicle && ( submerged || ter_at_pos->has_flag( TFLAG_SWIMMABLE ) );
 

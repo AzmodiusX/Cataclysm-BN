@@ -138,7 +138,7 @@ static std::vector<int> converge_temperature(
         history.emplace(current_iter_temperature);
         last_n_history.emplace_front(current_iter_temperature);
         while (last_n_history.size() > n_history) { last_n_history.pop_back(); }
-        p.update_bodytemp(get_map(), get_weather());
+        p.update_bodytemp(get_weather());
     }
 
     std::vector<int> result;
@@ -490,7 +490,7 @@ static void hypothermia_check(
 
     int actual_time;
     for (actual_time = 0; actual_time < upper_bound * 2; actual_time++) {
-        p.update_bodytemp(get_map(), get_weather());
+        p.update_bodytemp(get_weather());
         if (get_temp_cur(p, body_part_head) <= expected_temperature) { break; }
     }
 

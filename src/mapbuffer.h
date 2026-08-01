@@ -179,7 +179,6 @@ struct mapbuffer_mark_submap_caches_dirty_options {
     int zlev = 0;
     bool transparency = false;
     bool floor = false;
-    bool outside = false;
     bool absorption = false;
     bool pathfinding = false;
 };
@@ -1337,7 +1336,7 @@ class mapbuffer
         auto is_transparent( const tripoint_abs_ms &p,
         mapbuffer_lookup_options options = {} ) -> bool;
 
-        /// True if @p p is outside (checks submap outside cache).
+        /// True if @p p has sky access and is not inside a vehicle.
         auto is_outside( const tripoint_abs_ms &p,
         mapbuffer_lookup_options options = {} ) -> bool;
 

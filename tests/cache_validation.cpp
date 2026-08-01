@@ -8,10 +8,9 @@
 namespace test_cache_validation {
 
 auto rebuild_defensively(map& here, const int zlev) -> void {
-    // Mark every dependency dirty, including the absolute submap flags used
-    // by mapbuffer queries.  The normal mutation path is deliberately not
-    // bypassed; this is the broad comparison oracle for tests that have
-    // already performed a mutation.
+    // Mark every bubble-cache dependency dirty.  The normal mutation path is
+    // deliberately not bypassed; this is the broad comparison oracle for
+    // tests that have already performed a mutation.
     const auto begin = here.get_abs_sub();
     const auto end = begin + point_rel_sm(here.getmapsize(), here.getmapsize());
     for (const int z : std::views::iota(-OVERMAP_DEPTH, OVERMAP_HEIGHT + 1)) {
@@ -21,7 +20,6 @@ auto rebuild_defensively(map& here, const int zlev) -> void {
             .zlev = z,
             .transparency = true,
             .floor = true,
-            .outside = true,
             .absorption = true,
             .pathfinding = true,
         });

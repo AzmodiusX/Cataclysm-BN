@@ -201,6 +201,16 @@ auto lookup_tile( mapbuffer &buffer, const tripoint_abs_ms &p,
     };
 }
 
+auto ensure_roof_above_cache( mapbuffer &buffer, submap &sm,
+                              const mapbuffer_lookup_options options ) -> void
+{
+    if( !sm.roof_above_dirty ) {
+        return;
+    }
+    auto *const above = buffer.get_submap( sm.position() + tripoint_above, options );
+    sm.rebuild_roof_above_cache( above );
+}
+
 auto uniform_terrain_for_omt( const dimension_id &dimension_id,
                               const tripoint_abs_omt &omt_addr ) -> std::optional<ter_id>
 {
@@ -433,10 +443,7 @@ auto fill_funnels( const actualize_tile_options &options ) -> void
         return;
     }
 
-    auto is_outside = options.sm.outside_cache[options.local.x()][options.local.y()];
-    if( options.active_bubble_pos && g != nullptr ) {
-        is_outside = g->m.is_outside( *options.active_bubble_pos );
-    }
+    const auto is_outside = options.buffer.is_outside( options.abs_pos, options.lookup );
     if( !is_outside ) {
         return;
     }
@@ -841,13 +848,17 @@ auto can_replace_with_vertical_transition( const submap &sm, const point_sm_ms &
            current_terrain.has_flag( "ROOF" );
 }
 
-auto mark_post_pass_changed( submap &sm ) -> void
+auto mark_post_pass_changed( mapbuffer &buffer, submap &sm ) -> void
 {
     sm.transparency_dirty = true;
     sm.floor_dirty = true;
-    sm.outside_dirty = true;
+    sm.roof_above_dirty = true;
     sm.absorption_dirty = true;
     sm.pf_dirty = true;
+
+    if( auto *below = buffer.lookup_submap_in_memory( sm.position() + tripoint_below ) ) {
+        below->roof_above_dirty = true;
+    }
 }
 
 } // namespace
@@ -2744,7 +2755,6 @@ auto mapbuffer::mark_submap_caches_dirty(
         }
         sm->transparency_dirty = sm->transparency_dirty || options.transparency;
         sm->floor_dirty = sm->floor_dirty || options.floor;
-        sm->outside_dirty = sm->outside_dirty || options.outside;
         sm->absorption_dirty = sm->absorption_dirty || options.absorption;
         sm->pf_dirty = sm->pf_dirty || options.pathfinding;
     }
@@ -4122,8 +4132,11 @@ auto mapbuffer::is_sheltered( const tripoint_abs_ms &p,
     if( !sm ) {
         return true; // outside loaded area — treat as sheltered
     }
+    ensure_roof_above_cache( *this, *sm, options );
     const auto split = project_remain<coords::sm>( p );
-    return sm->sheltered_cache[split.remainder.x()][split.remainder.y()];
+    const auto has_roof = sm->roof_above_cache[split.remainder.x()][split.remainder.y()];
+    const auto vp = veh_at( p, options );
+    return has_roof || ( vp && vp->is_inside() );
 }
 
 // ----- Collapse / suspension helpers -----
@@ -4556,7 +4569,7 @@ auto mapbuffer::set_ter( const tripoint_abs_ms &p, const ter_id terrain,
 
     tile->sm->set_ter( tile->local, terrain );
     invalidate_active_terrain_set_caches( p, old_id, terrain );
-    mark_post_pass_changed( *tile->sm );
+    mark_post_pass_changed( *this, *tile->sm );
     return true;
 }
 
@@ -4585,7 +4598,7 @@ auto mapbuffer::set_furn( const tripoint_abs_ms &p,
 
     tile->sm->set_furn( tile->local, new_id );
     sync_furniture_change_side_tables( p, *tile->sm, tile->local, old_id, new_id, options.active );
-    mark_post_pass_changed( *tile->sm );
+    mark_post_pass_changed( *this, *tile->sm );
     invalidate_active_furniture_set_caches( p, old_id, new_id );
     map_mutation_hooks::on_furniture_changed( {
         .dim_id = dimension_id_,
@@ -7380,8 +7393,11 @@ auto mapbuffer::is_outside( const tripoint_abs_ms &p,
     if( !sm ) {
         return false;
     }
+    ensure_roof_above_cache( *this, *sm, options );
     const auto split = project_remain<coords::sm>( p );
-    return sm->outside_cache[split.remainder.x()][split.remainder.y()];
+    const auto has_roof = sm->roof_above_cache[split.remainder.x()][split.remainder.y()];
+    const auto vp = veh_at( p, options );
+    return !has_roof && !( vp && vp->is_inside() );
 }
 
 auto mapbuffer::combined_movecost( const tripoint_abs_ms &from, const tripoint_abs_ms &to,
@@ -9706,7 +9722,7 @@ auto mapbuffer::run_omt_pillar_post_pass( const point_abs_omt &omt_pos ) -> void
             return;
         }
         target_sm->set_ter( request.local, request.desired );
-        mark_post_pass_changed( *target_sm );
+        mark_post_pass_changed( *this, *target_sm );
     };
 
     for( const auto zlev : std::views::iota( -OVERMAP_DEPTH, OVERMAP_HEIGHT + 1 ) ) {
@@ -9764,7 +9780,7 @@ auto mapbuffer::run_omt_pillar_post_pass( const point_abs_omt &omt_pos ) -> void
             }
 
             if( changed ) {
-                mark_post_pass_changed( *sub_here );
+                mark_post_pass_changed( *this, *sub_here );
             }
         }
     }

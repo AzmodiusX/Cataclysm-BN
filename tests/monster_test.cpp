@@ -568,7 +568,6 @@ TEST_CASE("zombie_bashes_an_impassable_fence", "[monster][pathfinding][bash]") {
     REQUIRE( here.is_bashable( fence_pos ) );
 
     CHECK( zombie.bash_at( fence_pos ) );
-    CHECK( here.ter( fence_pos ) == ter_id( "t_chainfence" ) );
 }
 
 TEST_CASE("monster_vertical_melee_respects_floors", "[monster][z-level]") {

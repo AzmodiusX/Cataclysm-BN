@@ -2372,7 +2372,7 @@ bool game::do_turn()
 
     {
         ZoneScopedN( "do_turn_bodytemp_wetness" );
-        u.update_bodytemp( m, weather );
+        u.update_bodytemp( weather );
         character_funcs::update_body_wetness( u, get_weather().get_precise() );
         u.apply_wetness_morale( weather.temperature );
     }
@@ -2784,7 +2784,7 @@ auto game::execute_activity_fixed_window_skip( const time_duration &duration ) -
         if( get_levz() >= 0 && !u.is_underwater() ) {
             handle_weather_effects( weather.weather_id );
         }
-        u.update_bodytemp( m, weather );
+        u.update_bodytemp( weather );
         character_funcs::update_body_wetness( u, get_weather().get_precise() );
         u.apply_wetness_morale( weather.temperature );
         u.volume = 0;
@@ -7493,12 +7493,12 @@ bool game::is_empty( const tripoint_bub_ms &p )
 
 bool game::is_in_sunlight( const tripoint_bub_ms &p )
 {
-    return weather::is_in_sunlight( m, p, get_weather().weather_id );
+    return weather::is_in_sunlight( m.get_mapbuffer(), bub_to_abs( p ), get_weather().weather_id );
 }
 
 bool game::is_sheltered( const tripoint_bub_ms &p )
 {
-    return weather::is_sheltered( m, p );
+    return weather::is_sheltered( m.get_mapbuffer(), bub_to_abs( p ) );
 }
 
 bool game::revive_corpse( const tripoint_bub_ms &p, item &it )
