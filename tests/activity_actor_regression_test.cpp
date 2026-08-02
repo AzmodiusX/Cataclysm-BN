@@ -1,7 +1,7 @@
+#include "action_time_scale.h"
 #include "activity_actor.h"
 #include "activity_actor_definitions.h"
 #include "activity_handlers.h"
-#include "action_time_scale.h"
 #include "avatar.h"
 #include "cata_utility.h"
 #include "catch/catch.hpp"
@@ -72,27 +72,47 @@ public:
 };
 
 const auto migrated_actor_ids = std::array{
-    activity_id("ACT_BLEED"),        activity_id("ACT_BUTCHER"),
-    activity_id("ACT_BUTCHER_FULL"), activity_id("ACT_CLEAR_RUBBLE"),
-    activity_id("ACT_CRAFT"),        activity_id("ACT_DISMEMBER"),
-    activity_id("ACT_DISSECT"),      activity_id("ACT_DROP"),
-    activity_id("ACT_FIELD_DRESS"),  activity_id("ACT_FETCH_REQUIRED"),
-    activity_id("ACT_FILL_LIQUID"),  activity_id("ACT_FIRSTAID"),
-    activity_id("ACT_GUNMOD_ADD"),   activity_id("ACT_HAND_CRANK"),
-    activity_id("ACT_HOTWIRE_CAR"),  activity_id("ACT_LONGSALVAGE"),
-    activity_id("ACT_MAKE_ZLAVE"),   activity_id("ACT_MILK"),
-    activity_id("ACT_MOVE_LOOT"),    activity_id("ACT_MOVE_ITEMS"),
-    activity_id("ACT_OPERATION"),    activity_id("ACT_PLAY_WITH_PET"),
-    activity_id("ACT_PULP"),         activity_id("ACT_QUARTER"),
-    activity_id("ACT_READ"),         activity_id("ACT_REPAIR_ITEM"),
-    activity_id("ACT_SHEAR"),        activity_id("ACT_SKIN"),
-    activity_id("ACT_SOCIALIZE"),    activity_id("ACT_START_ENGINES"),
-    activity_id("ACT_START_FIRE"),   activity_id("ACT_STASH"),
-    activity_id("ACT_STUDY_SPELL"),  activity_id("ACT_TRAIN_SKILL"),
+    activity_id("ACT_BLEED"),
+    activity_id("ACT_BUTCHER"),
+    activity_id("ACT_BUTCHER_FULL"),
+    activity_id("ACT_CLEAR_RUBBLE"),
+    activity_id("ACT_CRAFT"),
+    activity_id("ACT_DISMEMBER"),
+    activity_id("ACT_DISSECT"),
+    activity_id("ACT_DROP"),
+    activity_id("ACT_FIELD_DRESS"),
+    activity_id("ACT_FETCH_REQUIRED"),
+    activity_id("ACT_FILL_LIQUID"),
+    activity_id("ACT_FIRSTAID"),
+    activity_id("ACT_GUNMOD_ADD"),
+    activity_id("ACT_HAND_CRANK"),
+    activity_id("ACT_HOTWIRE_CAR"),
+    activity_id("ACT_LONGSALVAGE"),
+    activity_id("ACT_MAKE_ZLAVE"),
+    activity_id("ACT_MILK"),
+    activity_id("ACT_MOVE_LOOT"),
+    activity_id("ACT_MOVE_ITEMS"),
+    activity_id("ACT_OPERATION"),
+    activity_id("ACT_PLAY_WITH_PET"),
+    activity_id("ACT_PULP"),
+    activity_id("ACT_QUARTER"),
+    activity_id("ACT_READ"),
+    activity_id("ACT_REPAIR_ITEM"),
+    activity_id("ACT_SHEAR"),
+    activity_id("ACT_SKIN"),
+    activity_id("ACT_SOCIALIZE"),
+    activity_id("ACT_START_ENGINES"),
+    activity_id("ACT_START_FIRE"),
+    activity_id("ACT_STASH"),
+    activity_id("ACT_STUDY_SPELL"),
+    activity_id("ACT_TRAIN_SKILL"),
     activity_id("ACT_TRAIN"),
-    activity_id("ACT_TRAIN_PET"),    activity_id("ACT_TREE_COMMUNION"),
-    activity_id("ACT_VEHICLE"),      activity_id("ACT_WAIT_NPC"),
-    activity_id("ACT_WAIT_STAMINA"), activity_id("ACT_WEAR")};
+    activity_id("ACT_TRAIN_PET"),
+    activity_id("ACT_TREE_COMMUNION"),
+    activity_id("ACT_VEHICLE"),
+    activity_id("ACT_WAIT_NPC"),
+    activity_id("ACT_WAIT_STAMINA"),
+    activity_id("ACT_WEAR")};
 
 auto deserialize_legacy_actor(const activity_id& id, const std::string& json)
     -> std::unique_ptr<activity_actor> {
@@ -277,37 +297,36 @@ TEST_CASE(
     clear_map();
     clear_avatar();
     set_time(calendar::turn_zero + 1_minutes);
-    avatar &dummy = get_avatar();
-    item &training_tool = dummy.i_add( item::spawn( "fake_training_exercise_machine" ) );
-    const skill_id training_skill( "swimming" );
-    dummy.set_skill_level( training_skill, 0 );
-    const int old_exercise = dummy.get_skill_level_object( training_skill ).exercise( true );
+    avatar& dummy = get_avatar();
+    item& training_tool = dummy.i_add(item::spawn("fake_training_exercise_machine"));
+    const skill_id training_skill("swimming");
+    dummy.set_skill_level(training_skill, 0);
+    const int old_exercise = dummy.get_skill_level_object(training_skill).exercise(true);
 
-    dummy.assign_activity( std::make_unique<player_activity>(
-                               std::make_unique<train_skill_activity_actor>(
-                                   train_skill_activity_actor_options{
-                                       .training_skill = training_skill.str(),
-                                       .training_skill_xp = 1,
-                                       .training_skill_xp_chance = 101,
-                                       .training_skill_max_level = 5,
-                                       .training_skill_fatigue = 1,
-                                       .training_skill_interval = 1,
-                                       .moves_total = 1000,
-                                       .tool = safe_reference<item>( &training_tool ),
-                                   } ) ) );
-    REQUIRE( dummy.activity );
-    REQUIRE( dummy.activity->has_actor() );
-    CHECK( dynamic_cast<repair_actor *>( dummy.activity->get_actor() ) == nullptr );
-    CHECK( dynamic_cast<train_skill_activity_actor *>( dummy.activity->get_actor() ) != nullptr );
+    dummy.assign_activity(std::make_unique<player_activity>(
+        std::make_unique<train_skill_activity_actor>(train_skill_activity_actor_options{
+            .training_skill = training_skill.str(),
+            .training_skill_xp = 1,
+            .training_skill_xp_chance = 101,
+            .training_skill_max_level = 5,
+            .training_skill_fatigue = 1,
+            .training_skill_interval = 1,
+            .moves_total = 1000,
+            .tool = safe_reference<item>(&training_tool),
+        })));
+    REQUIRE(dummy.activity);
+    REQUIRE(dummy.activity->has_actor());
+    CHECK(dynamic_cast<repair_actor*>(dummy.activity->get_actor()) == nullptr);
+    CHECK(dynamic_cast<train_skill_activity_actor*>(dummy.activity->get_actor()) != nullptr);
 
     {
-        action_time_scale::scoped_calendar_turns_this_tick one_minute( 10 );
+        action_time_scale::scoped_calendar_turns_this_tick one_minute(10);
         dummy.moves = dummy.get_speed();
-        dummy.activity->do_turn( dummy );
+        dummy.activity->do_turn(dummy);
     }
 
-    CHECK( dummy.activity );
-    CHECK( dummy.get_skill_level_object( training_skill ).exercise( true ) > old_exercise );
+    CHECK(dummy.activity);
+    CHECK(dummy.get_skill_level_object(training_skill).exercise(true) > old_exercise);
 }
 
 TEST_CASE(
@@ -494,17 +513,16 @@ TEST_CASE(
     clear_map();
     clear_avatar();
     avatar& dummy = get_avatar();
-    dummy.setID( character_id( 1 ), true );
+    dummy.setID(character_id(1), true);
     detached_ptr<item> det = item::spawn("manual_mechanics");
-    auto &book = dummy.i_add(std::move(det));
-    dummy.i_add( item::spawn( "atomic_lamp" ) );
+    auto& book = dummy.i_add(std::move(det));
+    dummy.i_add(item::spawn("atomic_lamp"));
     dummy.do_read(&book);
 
     auto actor = std::make_unique<read_activity_actor>(
-                      safe_reference<item>( &book ), std::vector<read_activity_actor::npc_learner>(),
-                      false, 1 );
+        safe_reference<item>(&book), std::vector<read_activity_actor::npc_learner>(), false, 1);
     actor->continuous_reader_id = dummy.getID().get_value();
-    dummy.assign_activity( std::make_unique<player_activity>( std::move( actor ) ) );
+    dummy.assign_activity(std::make_unique<player_activity>(std::move(actor)));
     REQUIRE(dummy.activity);
 
     const auto progress = dummy.activity->get_progress_message(dummy);

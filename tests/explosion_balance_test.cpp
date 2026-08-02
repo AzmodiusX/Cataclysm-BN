@@ -289,7 +289,7 @@ TEST_CASE("explosion_does_not_recreate_roof_when_bashing_downward", "[explosion]
     clear_all_state();
     get_avatar().setpos(test_origin);
 
-    auto &here = get_avatar().get_mapbuffer();
+    auto& here = get_avatar().get_mapbuffer();
     const auto lower_floor = test_origin + tripoint_rel_ms::below();
     const auto upper_roof = test_origin;
     const auto basement = lower_floor + tripoint_rel_ms::below();
@@ -298,7 +298,7 @@ TEST_CASE("explosion_does_not_recreate_roof_when_bashing_downward", "[explosion]
     REQUIRE(here.set_ter(lower_floor, ter_id("t_rock_floor")));
     REQUIRE(here.set_ter(basement, ter_id("t_rock_floor")));
 
-    const auto result = get_map().bash( abs_to_bub( upper_roof ), 3000, true, false, true );
+    const auto result = get_map().bash(abs_to_bub(upper_roof), 3000, true, false, true);
 
     CHECK(result.success);
     CHECK(here.ter(upper_roof) == ter_id("t_open_air"));

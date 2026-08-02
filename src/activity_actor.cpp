@@ -3279,7 +3279,7 @@ auto train_skill_activity_actor::get_tool( Character &who ) const -> item *
 
     const auto &item_types = furniture->obj().crafting_pseudo_item_types();
     const bool is_valid_tool = std::ranges::any_of( item_types,
-    [this]( const itype &item_type ) {
+    [this]( const itype & item_type ) {
         return item_type.get_id() == pseudo_tool_type;
     } );
     if( !is_valid_tool ) {
@@ -3418,7 +3418,7 @@ auto train_skill_activity_actor::deserialize( JsonIn &jsin ) -> std::unique_ptr<
 }
 
 auto train_skill_activity_actor::legacy_deserialize( const JsonObject &data )
-    -> std::unique_ptr<activity_actor>
+- > std::unique_ptr<activity_actor>
 {
     auto str_values = data.get_string_array( "str_values" );
     auto values = data.get_int_array( "values" );

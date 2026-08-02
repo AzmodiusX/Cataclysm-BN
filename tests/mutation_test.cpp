@@ -1,7 +1,7 @@
+#include "avatar.h"
 #include "bodypart.h"
 #include "calendar.h"
 #include "catch/catch.hpp"
-#include "avatar.h"
 #include "game.h"
 #include "item.h"
 #include "map_helpers.h"

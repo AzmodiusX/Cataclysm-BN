@@ -8072,7 +8072,7 @@ void map::spawn_monsters_submap_group( const tripoint_bub_sm &gp, mongroup &grou
         const bool outside = ignore_inside_checks || is_outside( fp );
         const auto vehicle_at_tile = group.horde ? veh_at( fp ) : optional_vpart_position();
         const bool vehicle_owned = vehicle_at_tile &&
-                                    vehicle_at_tile->vehicle().is_owned_by( get_avatar() );
+                                   vehicle_at_tile->vehicle().is_owned_by( get_avatar() );
         const bool vehicle_tile_passable = !vehicle_at_tile || allow_on_terrain( fp );
         const bool spawnable_vehicle_tile = vehicle_at_tile && vehicle_tile_passable;
 
@@ -8423,7 +8423,7 @@ void map::build_outside_cache( const int zlev )
                             outside = outside || ( above->outside_cache[above_idx] &&
                                                    !above->floor_cache[above_idx] );
                             sheltered = sheltered || above->floor_cache[above_idx] ||
-                                         above->sheltered_cache[above_idx];
+                                        above->sheltered_cache[above_idx];
                         }
                     }
                 } else {

@@ -600,7 +600,7 @@ bool map::build_transparency_cache( const int zlev )
                     .offset_x = sm_offset.x(),
                     .offset_y = sm_offset.y(),
                     .outside_cache = map_cache.outside_cache.data() +
-                                     map_cache.idx( sm_offset.x(), sm_offset.y() ),
+                    map_cache.idx( sm_offset.x(), sm_offset.y() ),
                     .outside_cache_y = map_cache.cache_y,
                 } );
             }
@@ -875,7 +875,7 @@ auto map::build_transparency_caches( const int minz, const int maxz ) -> std::ve
                         .offset_x = sm_offset.x(),
                         .offset_y = sm_offset.y(),
                         .outside_cache = map_cache.outside_cache.data() +
-                                         map_cache.idx( sm_offset.x(), sm_offset.y() ),
+                        map_cache.idx( sm_offset.x(), sm_offset.y() ),
                         .outside_cache_y = map_cache.cache_y,
                         .output_offset = resident_output.output_offset,
                     } );

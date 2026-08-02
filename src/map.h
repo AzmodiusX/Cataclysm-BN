@@ -348,14 +348,14 @@ struct level_cache {
     // Source tiles touched in light_source_buffer.
     std::vector<point_bub_ms>        light_source_points;
 
-        // Reality-bubble cache: true when the tile has sky access via the 3×3
-        // overhang rule.  This is not the final outside/sheltered answer;
-        // predicate functions layer vehicle state on top.
-        std::vector<char>               outside_cache;
+    // Reality-bubble cache: true when the tile has sky access via the 3×3
+    // overhang rule.  This is not the final outside/sheltered answer;
+    // predicate functions layer vehicle state on top.
+    std::vector<char>               outside_cache;
 
-        // Reality-bubble cache: true when at least one tile within 3×3 above
-        // provides overhead coverage.  This is not the final predicate answer.
-        std::vector<char>               sheltered_cache;
+    // Reality-bubble cache: true when at least one tile within 3×3 above
+    // provides overhead coverage.  This is not the final predicate answer.
+    std::vector<char>               sheltered_cache;
 
     // true when vehicle below has "ROOF" or "OPAQUE" part, furniture below has "SUN_ROOF_ABOVE"
     //      or terrain doesn't have "NO_FLOOR" flag
