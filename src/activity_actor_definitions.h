@@ -13,10 +13,12 @@
 #include "item_handling_util.h"
 #include "location_ptr.h"
 #include "locations.h"
+#include "mapdata.h"
 #include "memory_fast.h"
 #include "pickup_token.h"
 #include "point.h"
 #include "requirements.h"
+#include "safe_reference.h"
 #include "type_id.h"
 #include "units_energy.h"
 
@@ -871,6 +873,39 @@ class vehicle_work_actor : public activity_actor
 
         int get_part_index() const { return part_index; }
         const tripoint_abs_ms &get_part_pos() const { return part_pos; }
+};
+
+class enchant_activity_actor : public activity_actor
+{
+    private:
+        safe_reference<item> target;
+        furn_str_id furn;
+        std::string enchanter_id;
+        int moves_total;
+
+    public:
+        enchant_activity_actor() = default;
+        enchant_activity_actor(
+            item &target,
+            furn_str_id furn,
+            std::string enchanter_id,
+            int moves
+        ) : target( &target ),
+            furn( furn ),
+            enchanter_id( enchanter_id ),
+            moves_total( moves ) {}
+        ~enchant_activity_actor() = default;
+
+        activity_id get_type() const override {
+            return activity_id( "ACT_ENCHANT" );
+        }
+
+        void start( player_activity &, Character & ) override;
+        void do_turn( player_activity &, Character & ) override;
+        void finish( player_activity &, Character & ) override;
+
+        void serialize( JsonOut &jsout ) const override;
+        static std::unique_ptr<activity_actor> deserialize( JsonIn &jsin );
 };
 
 // Repeat type for repair activity
