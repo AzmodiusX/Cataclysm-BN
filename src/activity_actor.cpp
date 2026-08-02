@@ -3418,7 +3418,7 @@ auto train_skill_activity_actor::deserialize( JsonIn &jsin ) -> std::unique_ptr<
 }
 
 auto train_skill_activity_actor::legacy_deserialize( const JsonObject &data )
-- > std::unique_ptr<activity_actor>
+-> std::unique_ptr<activity_actor> // *NOPAD*
 {
     auto str_values = data.get_string_array( "str_values" );
     auto values = data.get_int_array( "values" );
