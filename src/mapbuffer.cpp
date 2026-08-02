@@ -8095,7 +8095,8 @@ bash_results mapbuffer::bash_ter_success( const tripoint_abs_ms &p, const bash_p
         sounds::sound( se );
     }
 
-    if( follow_below || ter( p, options ) == t_open_air ) {
+    if( !params.bashing_from_above &&
+        ( follow_below || ter( p, options ) == t_open_air ) ) {
         const tripoint_abs_ms below( p.xy(), p.z() - 1 );
         // We may need multiple bashes in some weird cases
         // Example:

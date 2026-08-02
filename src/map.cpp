@@ -3848,7 +3848,7 @@ bash_results map::bash_ter_success( const tripoint_bub_ms &p, const bash_params 
         sounds::sound( se );
     }
 
-    if( follow_below || ter( p ) == t_open_air ) {
+    if( !params.bashing_from_above && ( follow_below || ter( p ) == t_open_air ) ) {
         const tripoint_bub_ms below( p.xy(), p.z() - 1 );
         // We may need multiple bashes in some weird cases
         // Example:
