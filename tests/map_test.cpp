@@ -1,5 +1,6 @@
 #include "avatar.h"
 #include "avatar_action.h"
+#include "action.h"
 #include "cata_utility.h"
 #include "catch/catch.hpp"
 #include "computer.h"
@@ -21,7 +22,9 @@
 #include "monster.h"
 #include "npc.h"
 #include "options_helpers.h"
+#include "pathfinding.h"
 #include "state_helpers.h"
+#include "simulated_island_helpers.h"
 #include "submap.h"
 #include "submap_load_manager.h"
 #include "type_id.h"
@@ -217,6 +220,31 @@ TEST_CASE("mapbuffer_item_placement_rejects_sealed_tiles", "[mapbuffer][item][re
         if (tile.abs_pos() != window_pos) { overflow_items += tile.items().size(); }
     }
     CHECK(overflow_items > 0);
+}
+
+TEST_CASE("autotravel_drops_pathfinder_source_tile", "[map][pathfinding][travel][regression]") {
+    clear_all_state();
+    auto& you = get_avatar();
+    you.setpos(test_origin);
+    build_test_map(ter_id("t_floor"));
+    ensure_simulated_islands_for(you.abs_pos());
+
+    auto& buffer = you.get_mapbuffer();
+    const auto destination = you.abs_pos() + tripoint_rel_ms(3, 0, 0);
+    const auto pathfinding = you.get_pathfinding_pair();
+    const auto route = Pathfinding::route(
+        buffer, you.abs_pos(), destination, pathfinding.first, pathfinding.second);
+
+    REQUIRE(route.size() >= 3);
+    REQUIRE(route.front() == you.abs_pos());
+
+    you.set_destination(route);
+
+    REQUIRE_FALSE(you.get_auto_move_route().empty());
+    CHECK(you.get_auto_move_route().front() == route[1]);
+    CHECK(you.get_next_auto_move_direction() != ACTION_NULL);
+    REQUIRE_FALSE(you.get_auto_move_route().empty());
+    CHECK(you.get_auto_move_route().front() == route[2]);
 }
 
 TEST_CASE("moving_between_adjacent_pit_traps") {

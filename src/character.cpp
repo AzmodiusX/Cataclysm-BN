@@ -11926,8 +11926,15 @@ void Character::set_destination( const std::vector<tripoint_abs_ms> &route,
                                  std::unique_ptr<player_activity> new_destination_activity )
 {
     auto_move_route = route;
+    if( !auto_move_route.empty() && auto_move_route.front() == abs_pos() ) {
+        auto_move_route.erase( auto_move_route.begin() );
+    }
     set_destination_activity( std::move( new_destination_activity ) );
-    destination_point.emplace( route.back() );
+    if( route.empty() ) {
+        destination_point.reset();
+    } else {
+        destination_point.emplace( route.back() );
+    }
 }
 
 std::unique_ptr<player_activity> Character::clear_destination()

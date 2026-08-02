@@ -104,6 +104,31 @@ TEST_CASE("Avatar drags manually grabbed monster while moving", "[player][melee]
     CHECK(g->critter_at<monster>(avatar_start) == &zed);
 }
 
+TEST_CASE("leading_horse_displacement_uses_vacated_player_tile", "[player][movement][leash]") {
+    clear_all_state();
+    avatar& dummy = g->u;
+    clear_character(dummy);
+
+    auto& here = dummy.get_mapbuffer();
+    const auto player_start = tripoint_abs_ms{ 0, 0, 2 };
+    const auto horse_start = player_start + tripoint_east;
+    dummy.setpos( player_start );
+    REQUIRE( here.set_ter( player_start, ter_id( "t_floor" ) ) );
+    REQUIRE( here.set_ter( horse_start, ter_id( "t_railing" ) ) );
+
+    auto &horse = spawn_test_monster( "mon_horse", abs_to_bub( horse_start ) );
+    horse.friendly = -1;
+    horse.add_effect( efftype_id( "led_by_leash" ), 1_days );
+
+    REQUIRE( g->critter_at<monster>( horse_start ) == &horse );
+    REQUIRE( g->walk_move( horse_start, false ) );
+
+    CHECK( dummy.abs_pos() == horse_start );
+    CHECK( horse.abs_pos() == player_start );
+    CHECK( g->critter_at<monster>( horse_start ) == nullptr );
+    CHECK( g->critter_at<monster>( player_start ) == &horse );
+}
+
 TEST_CASE("Manually grabbed monster cannot walk away", "[player][melee][grab]") {
     clear_all_state();
     avatar& dummy = g->u;

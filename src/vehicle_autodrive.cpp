@@ -1101,6 +1101,11 @@ std::optional<navigation_step> vehicle::autodrive_controller::compute_next_step(
             new_path = compute_path( data.max_speed_tps );
         }
         if( !new_path ) {
+            debugmsg( "Autodrive path failure: vehicle=%s pos=%s current_omt=%s next_omt=%s "
+                      "next_next_omt=%s max_speed=%d min_speed=%d valid_goal_positions=%zu",
+                      driven_veh.name, veh_pos.to_string(), data.current_omt.to_string(),
+                      data.next_omt.to_string(), data.next_next_omt.to_string(), data.max_speed_tps,
+                      MIN_SPEED_TPS, data.goal_zone.size() );
             return std::nullopt;
         }
         data.path.swap( *new_path );

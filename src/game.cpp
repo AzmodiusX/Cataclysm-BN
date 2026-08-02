@@ -13068,7 +13068,7 @@ void game::apply_movement_effects( const tripoint_abs_ms &previous )
                     add_msg( _( "There is no room to push the %s out of the way." ), critter.name() );
                 }
             } else {
-                const bool moved = critter.move_to( u.abs_pos(), false, true );
+                const bool moved = critter.move_to( previous, false, true );
                 if( moved ) {
                     add_msg( _( "You displace the %s." ), critter.name() );
                 } else {
