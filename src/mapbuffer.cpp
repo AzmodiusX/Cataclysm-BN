@@ -3255,32 +3255,8 @@ auto mapbuffer::obstructed_by_vehicle_rotation( const tripoint_abs_ms &from,
         }
     }
 
-    // Fast path: active reality bubble — use the level_cache
-    if( const auto local_from = active_reality_bubble_local( from ) ) {
-        const auto local_to = abs_to_map_local( get_map(), to );
-        map &here = get_map();
-        const level_cache &lc = here.get_cache_ref( local_from->z() );
-        const auto &cache = lc.vehicle_obstructed_cache;
-        const auto delta = local_to.xy() - local_from->xy();
-
-        if( delta == point_rel_ms::north_west() ) {
-            return cache[lc.idx( local_from->x(), local_from->y() )].nw;
-        }
-        if( delta == point_rel_ms::north_east() ) {
-            return cache[lc.idx( local_from->x(), local_from->y() )].ne;
-        }
-        if( delta == point_rel_ms::south_west() ) {
-            return cache[lc.idx( local_to.x(), local_to.y() )].ne;
-        }
-        if( delta == point_rel_ms::south_east() ) {
-            return cache[lc.idx( local_to.x(), local_to.y() )].nw;
-        }
-
-        return false;
-    }
-
-    // Slow path: out of bubble — check loaded vehicle parts directly
-    // Use const_cast since veh_at() is non-const but the operation is read-only.
+    // Authoritative fallback: check loaded vehicle parts directly.  This also
+    // serves as a diagnostic oracle for the derived in-bubble cache.
     const auto check_vehicle_block = [this]( const tripoint_abs_ms & part_tile,
     const tripoint_abs_ms & neighbor ) -> bool {
         const auto vp = const_cast<mapbuffer &>( *this ).veh_at( part_tile );
@@ -3293,25 +3269,59 @@ auto mapbuffer::obstructed_by_vehicle_rotation( const tripoint_abs_ms &from,
         return !v->allowed_move( neighbor_mount, vp->mount() );
     };
 
-    const auto delta = to - from;
+    const auto direct_obstruction = [&]() {
+        const auto delta = to - from;
 
-    if( delta == tripoint_rel_ms::north_west() ) {
-        return check_vehicle_block( from, to );
-    }
-    if( delta == tripoint_rel_ms::north_east() ) {
-        return check_vehicle_block( from, to );
+        if( delta == tripoint_rel_ms::north_west() ||
+            delta == tripoint_rel_ms::north_east() ) {
+            return check_vehicle_block( from, to );
+        }
+
+        // For SW and SE, check the destination tile as the cache does.
+        const auto neg_delta = from - to;
+        if( neg_delta == tripoint_rel_ms::north_west() ||
+            neg_delta == tripoint_rel_ms::north_east() ) {
+            return check_vehicle_block( to, from );
+        }
+
+        return false;
+    };
+
+    // The cache is valid only when both endpoints are represented by the
+    // current reality-bubble frame.  A teleport can leave one endpoint inside
+    // the old frame while the other is outside it.
+    const auto local_from = active_reality_bubble_local( from );
+    const auto local_to = active_reality_bubble_local( to );
+    if( !local_from || !local_to || local_from->z() != local_to->z() ) {
+        return direct_obstruction();
     }
 
-    // For SW and SE, we check the TO tile (as the cache does)
-    const auto neg_delta = from - to;
-    if( neg_delta == tripoint_rel_ms::north_west() ) {
-        return check_vehicle_block( to, from );
-    }
-    if( neg_delta == tripoint_rel_ms::north_east() ) {
-        return check_vehicle_block( to, from );
+    map &here = get_map();
+    const level_cache &lc = here.get_cache_ref( local_from->z() );
+    const auto &cache = lc.vehicle_obstructed_cache;
+    const auto delta = local_to->xy() - local_from->xy();
+    auto cached_obstruction = false;
+    if( delta == point_rel_ms::north_west() ) {
+        cached_obstruction = cache[lc.idx( local_from->x(), local_from->y() )].nw;
+    } else if( delta == point_rel_ms::north_east() ) {
+        cached_obstruction = cache[lc.idx( local_from->x(), local_from->y() )].ne;
+    } else if( delta == point_rel_ms::south_west() ) {
+        cached_obstruction = cache[lc.idx( local_to->x(), local_to->y() )].ne;
+    } else if( delta == point_rel_ms::south_east() ) {
+        cached_obstruction = cache[lc.idx( local_to->x(), local_to->y() )].nw;
+    } else {
+        return false;
     }
 
-    return false;
+    const auto direct_result = direct_obstruction();
+    if( cached_obstruction != direct_result ) {
+        debugmsg( "Vehicle rotation cache mismatch: from=%s to=%s local_from=%s local_to=%s "
+                  "cached=%d direct=%d map_sub=%s",
+                  from.to_string(), to.to_string(), local_from->to_string(), local_to->to_string(),
+                  static_cast<int>( cached_obstruction ), static_cast<int>( direct_result ),
+                  here.get_abs_sub().to_string() );
+    }
+    return cached_obstruction;
 }
 
 auto mapbuffer::vehicle_wheel_traction( const vehicle &veh,
