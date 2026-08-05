@@ -3298,6 +3298,9 @@ auto mapbuffer::obstructed_by_vehicle_rotation( const tripoint_abs_ms &from,
 
     map &here = get_map();
     const level_cache &lc = here.get_cache_ref( local_from->z() );
+    if( !lc.veh_in_active_range || lc.vehicle_obstruction_cache_dirty ) {
+        return direct_obstruction();
+    }
     const auto &cache = lc.vehicle_obstructed_cache;
     const auto delta = local_to->xy() - local_from->xy();
     auto cached_obstruction = false;
@@ -3313,14 +3316,6 @@ auto mapbuffer::obstructed_by_vehicle_rotation( const tripoint_abs_ms &from,
         return false;
     }
 
-    const auto direct_result = direct_obstruction();
-    if( cached_obstruction != direct_result ) {
-        debugmsg( "Vehicle rotation cache mismatch: from=%s to=%s local_from=%s local_to=%s "
-                  "cached=%d direct=%d map_sub=%s",
-                  from.to_string(), to.to_string(), local_from->to_string(), local_to->to_string(),
-                  static_cast<int>( cached_obstruction ), static_cast<int>( direct_result ),
-                  here.get_abs_sub().to_string() );
-    }
     return cached_obstruction;
 }
 

@@ -889,6 +889,7 @@ void map::add_vehicle_to_cache( vehicle *veh )
             ch.veh_cached_parts.at( p ).first == veh ) {
             ch.veh_cached_parts[p] = std::make_pair( veh,  static_cast<int>( vpr.part_index() ) );
         }
+        ch.vehicle_obstruction_cache_dirty = true;
         if( inbounds( p ) ) {
             ch.veh_exists_at[ch.idx( p.x(), p.y() )] = true;
         }
@@ -911,6 +912,7 @@ void map::clear_vehicle_point_from_cache( vehicle *veh, const tripoint_bub_ms &p
             ch.veh_exists_at[ch.idx( pt.x(), pt.y() )] = false;
         }
         ch.veh_cached_parts.erase( it );
+        ch.vehicle_obstruction_cache_dirty = true;
         // The rope-ladder cache stores the whole hanging column (see add_vehicle_to_cache),
         // so a bare erase( pt ) would leave the rope tiles below the part. When pt is one of
         // this vehicle's rope tiles (a column top), drop every tile this vehicle owns in that
@@ -944,6 +946,7 @@ void map::clear_vehicle_cache( )
             ch.veh_cached_parts.erase( part );
         }
         ch.veh_in_active_range = false;
+        ch.vehicle_obstruction_cache_dirty = true;
     }
     cached_veh_rope.clear();
 }
@@ -1085,6 +1088,7 @@ void map::on_vehicle_moved( const tripoint_bub_sm &sm_min, const tripoint_bub_sm
     // cache effects.  Keep that cleanup path active even if this movement is a
     // removal of the last vehicle on the level.
     ch.veh_in_active_range = true;
+    ch.vehicle_obstruction_cache_dirty = true;
     invalidate_lightmap_caches();
     set_seen_cache_dirty( smz );
     mark_visibility_cache_dirty( smz );
@@ -8070,10 +8074,12 @@ void map::spawn_monsters_submap_group( const tripoint_bub_sm &gp, mongroup &grou
         }
 
         const bool outside = ignore_inside_checks || is_outside( fp );
-        const auto vehicle_at_tile = group.horde ? veh_at( fp ) : optional_vpart_position();
+        const auto abs_fp = map_local_to_abs( *this, fp );
+        const auto vehicle_at_tile = group.horde ? get_mapbuffer().veh_at( abs_fp ) :
+                                      optional_vpart_position();
         const bool vehicle_owned = vehicle_at_tile &&
                                    vehicle_at_tile->vehicle().is_owned_by( get_avatar() );
-        const bool vehicle_tile_passable = !vehicle_at_tile || allow_on_terrain( fp );
+        const bool vehicle_tile_passable = !vehicle_at_tile || get_mapbuffer().passable( abs_fp );
         const bool spawnable_vehicle_tile = vehicle_at_tile && vehicle_tile_passable;
 
         // Hordes may use a passable roofed tile on an unowned vehicle, but owned
@@ -8769,6 +8775,13 @@ void map::build_map_cache( const int zlev, bool skip_lightmap )
             return c != '\0';
         } );
     };
+    auto level_has_vehicle_obscuration = []( const level_cache & ch ) {
+        const auto has_block = []( const diagonal_blocks & blocks ) {
+            return blocks.nw || blocks.ne;
+        };
+        return std::ranges::any_of( ch.vehicle_obscured_cache, has_block ) ||
+               std::ranges::any_of( ch.vehicle_obstructed_cache, has_block );
+    };
 
     // Refresh the shared weather-transparency lookup table once, serially,
     // before the parallel block.  build_transparency_cache() reads the
@@ -8829,14 +8842,17 @@ void map::build_map_cache( const int zlev, bool skip_lightmap )
             parallel_for( -OVERMAP_DEPTH, OVERMAP_HEIGHT + 1, [&]( int z ) {
                 level_cache &ch = get_cache( z );
                 const bool vehicle_floor_was_dirty = level_has_vehicle_floor( ch );
+                const bool vehicle_obscuration_was_active =
+                    ch.veh_in_active_range || level_has_vehicle_obscuration( ch );
                 // vehicle_floor_cache is written by vehicles one level below (via
                 // vehicle_caching_internal_above), so it must be cleared unconditionally —
                 // not gated on veh_in_active_range — to prevent stale entries after shifts.
                 std::fill( ch.vehicle_floor_cache.begin(), ch.vehicle_floor_cache.end(), '\0' );
-                if( ch.veh_in_active_range ) {
-                    const diagonal_blocks fill = {false, false};
-                    std::fill( ch.vehicle_obscured_cache.begin(), ch.vehicle_obscured_cache.end(), fill );
-                    std::fill( ch.vehicle_obstructed_cache.begin(), ch.vehicle_obstructed_cache.end(), fill );
+                const diagonal_blocks fill = {false, false};
+                std::fill( ch.vehicle_obscured_cache.begin(), ch.vehicle_obscured_cache.end(), fill );
+                std::fill( ch.vehicle_obstructed_cache.begin(), ch.vehicle_obstructed_cache.end(), fill );
+                ch.vehicle_obstruction_cache_dirty = true;
+                if( vehicle_obscuration_was_active ) {
                     std::lock_guard<std::mutex> lock( dirty_mutex );
                     add_gpu_dirty_level( gpu_vehicle_obscured_dirty_levels, z );
                 }
@@ -8857,15 +8873,18 @@ void map::build_map_cache( const int zlev, bool skip_lightmap )
             for( int z = -OVERMAP_DEPTH; z <= OVERMAP_HEIGHT; ++z ) {
                 level_cache &ch = get_cache( z );
                 const bool vehicle_floor_was_dirty = level_has_vehicle_floor( ch );
+                const bool vehicle_obscuration_was_active =
+                    ch.veh_in_active_range || level_has_vehicle_obscuration( ch );
 
                 // vehicle_floor_cache is written by vehicles one level below (via
                 // vehicle_caching_internal_above), so it must be cleared unconditionally —
                 // not gated on veh_in_active_range — to prevent stale entries after shifts.
                 std::fill( ch.vehicle_floor_cache.begin(), ch.vehicle_floor_cache.end(), '\0' );
-                if( ch.veh_in_active_range ) {
-                    const diagonal_blocks fill = {false, false};
-                    std::fill( ch.vehicle_obscured_cache.begin(), ch.vehicle_obscured_cache.end(), fill );
-                    std::fill( ch.vehicle_obstructed_cache.begin(), ch.vehicle_obstructed_cache.end(), fill );
+                const diagonal_blocks fill = {false, false};
+                std::fill( ch.vehicle_obscured_cache.begin(), ch.vehicle_obscured_cache.end(), fill );
+                std::fill( ch.vehicle_obstructed_cache.begin(), ch.vehicle_obstructed_cache.end(), fill );
+                ch.vehicle_obstruction_cache_dirty = true;
+                if( vehicle_obscuration_was_active ) {
                     add_gpu_dirty_level( gpu_vehicle_obscured_dirty_levels, z );
                 }
 
@@ -8919,6 +8938,10 @@ void map::build_map_cache( const int zlev, bool skip_lightmap )
                 do_vehicle_caching( z );
             }
         }
+        std::ranges::for_each( std::views::iota( -OVERMAP_DEPTH, OVERMAP_HEIGHT + 1 ),
+        [this]( const int z ) {
+            get_cache( z ).vehicle_obstruction_cache_dirty = false;
+        } );
         std::ranges::for_each( std::views::iota( -OVERMAP_DEPTH, OVERMAP_HEIGHT + 1 ), [&]( const int z ) {
             if( level_has_vehicle_floor( get_cache_ref( z ) ) ) {
                 add_gpu_dirty_level( gpu_vehicle_floor_dirty_levels, z );

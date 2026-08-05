@@ -401,6 +401,7 @@ struct level_cache {
     bool                            map_memory_seen_cache_dirty_all = true;
 
     bool veh_in_active_range = false;
+    bool vehicle_obstruction_cache_dirty = true;
     std::vector<bool>               veh_exists_at;
     std::map<tripoint_bub_ms, std::pair<vehicle *, int>> veh_cached_parts;
     std::set<vehicle *> vehicle_list;
