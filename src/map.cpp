@@ -8076,7 +8076,7 @@ void map::spawn_monsters_submap_group( const tripoint_bub_sm &gp, mongroup &grou
         const bool outside = ignore_inside_checks || is_outside( fp );
         const auto abs_fp = map_local_to_abs( *this, fp );
         const auto vehicle_at_tile = group.horde ? get_mapbuffer().veh_at( abs_fp ) :
-                                      optional_vpart_position();
+                                     optional_vpart_position();
         const bool vehicle_owned = vehicle_at_tile &&
                                    vehicle_at_tile->vehicle().is_owned_by( get_avatar() );
         const bool vehicle_tile_passable = !vehicle_at_tile || get_mapbuffer().passable( abs_fp );

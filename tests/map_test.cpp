@@ -1082,22 +1082,22 @@ TEST_CASE( "omt_pillar_post_pass_links_generated_stairs" )
 
 TEST_CASE("bash_through_roof_can_destroy_multiple_times") {
     clear_all_state();
-    auto &you = get_avatar();
-    you.setpos( test_origin );
+    auto& you = get_avatar();
+    you.setpos(test_origin);
     map& here = get_map();
 
     static const ter_str_id t_fragile_roof("t_fragile_roof");
     static const ter_str_id t_strong_roof("t_strong_roof");
     static const ter_str_id t_rock_floor_no_roof("t_rock_floor_no_roof");
     static const ter_str_id t_open_air("t_open_air");
-    auto &buffer = here.get_mapbuffer();
-    const auto abs_p = test_origin + tripoint_rel_ms( 5, 5, 1 );
-    const auto p = abs_to_bub( abs_p );
+    auto& buffer = here.get_mapbuffer();
+    const auto abs_p = test_origin + tripoint_rel_ms(5, 5, 1);
+    const auto p = abs_to_bub(abs_p);
     WHEN(
         "A wall has a matching roof above it, but the roof turns to a stronger roof on successful bash") {
         static const ter_str_id t_fragile_wall("t_fragile_wall");
-        REQUIRE( buffer.set_ter( abs_p + tripoint_rel_ms::below(), t_fragile_wall ) );
-        REQUIRE( buffer.set_ter( abs_p, t_fragile_roof ) );
+        REQUIRE(buffer.set_ter(abs_p + tripoint_rel_ms::below(), t_fragile_wall));
+        REQUIRE(buffer.set_ter(abs_p, t_fragile_roof));
         AND_WHEN("The roof is bashed with only enough strength to destroy the weaker roof type") {
             here.bash(p, 10, false, false, true);
             THEN("The roof turns to the stronger type and the wall doesn't change") {
@@ -1118,8 +1118,8 @@ TEST_CASE("bash_through_roof_can_destroy_multiple_times") {
     WHEN(
         "A passable floor has a matching roof above it, but both the roof and the floor turn into stronger variants on destroy") {
         static const ter_str_id t_fragile_floor("t_fragile_floor");
-        REQUIRE( buffer.set_ter( abs_p + tripoint_rel_ms::below(), t_fragile_floor ) );
-        REQUIRE( buffer.set_ter( abs_p, t_fragile_roof ) );
+        REQUIRE(buffer.set_ter(abs_p + tripoint_rel_ms::below(), t_fragile_floor));
+        REQUIRE(buffer.set_ter(abs_p, t_fragile_roof));
         AND_WHEN("The roof is bashed with only enough strength to destroy the weaker roof type") {
             here.bash(p, 10, false, false, true);
             THEN("The roof turns to the stronger type and the floor doesn't change") {
