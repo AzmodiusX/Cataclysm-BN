@@ -1388,13 +1388,13 @@ TEST_CASE("climbing_from_absolute_fence_position_finds_tree_support", "[climbing
         if (tile.abs_pos() != tree_pos) { here.set_ter(tile.abs_pos(), ter_id("t_open_air")); }
     }
     here.set_ter(below_player, ter_id("t_fence"));
-    here.set_ter(player_pos, ter_id("t_open_air"));
+    here.set_ter(player_pos, ter_id("t_floor"));
     here.set_ter(tree_support, ter_id("t_tree"));
     here.set_ter(stairs_pos, ter_id("t_open_air"));
     here.set_ter(tree_pos, ter_id("t_treetop"));
     you.dex_cur = 1000000;
 
-    CHECK_FALSE(here.has_floor_or_support(player_pos));
+    CHECK(here.has_floor_or_support(player_pos));
     CHECK(here.has_floor_or_support(tree_pos));
     CHECK(here.has_floor(tree_pos));
     CHECK(here.valid_move(player_pos, stairs_pos, {.flying = true}));

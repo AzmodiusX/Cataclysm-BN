@@ -14292,7 +14292,7 @@ void game::vertical_move( int movez, bool force, bool peeking )
         !u.is_underwater() && !can_fly ) {
 
         // Climbing
-        if( here.has_floor_or_support( avatar_tile.abs_pos() ) ) {
+        if( here.has_floor( stairs.abs_pos() ) ) {
             add_msg( m_info, _( "You can't climb here - there's a ceiling above your head." ) );
             // Don't prompt the player if they're already standing on stairs, they might've just hit the wrong key
             if( !m.has_flag( "GOES_DOWN", u.bub_pos() ) ) {
