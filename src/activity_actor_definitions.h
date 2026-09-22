@@ -8,12 +8,13 @@
 
 #include "character_id.h"
 #include "coordinates.h"
+#include "craft_command.h"
 #include "crafting.h"
 #include "enums.h"
 #include "item_handling_util.h"
 #include "location_ptr.h"
 #include "locations.h"
-#include "mapdata.h"
+#include "map/mapdata.h"
 #include "memory_fast.h"
 #include "pickup_token.h"
 #include "point.h"
@@ -21,6 +22,8 @@
 #include "safe_reference.h"
 #include "type_id.h"
 #include "units_energy.h"
+
+#include <optional>
 
 class Creature;
 class vehicle;

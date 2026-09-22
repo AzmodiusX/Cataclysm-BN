@@ -6,6 +6,11 @@
   },
   {
     "type": "construction_group",
+    "id": "place_nanofab_portable",
+    "name": "Place Portable Nanofab"
+  },
+  {
+    "type": "construction_group",
     "id": "add_mattress_to_bed_frame",
     "name": "Add Mattress to Bed Frame"
   },
@@ -733,6 +738,11 @@
     "type": "construction_group",
     "id": "build_warehouse_shelf",
     "name": "Build Warehouse Shelf"
+  },
+  {
+    "type": "construction_group",
+    "id": "build_utility_shelf",
+    "name": "Build Utility Shelf"
   },
   {
     "type": "construction_group",

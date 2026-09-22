@@ -1,5 +1,20 @@
 #include "pathfinding.h"
 
+#include "coordinates.h"
+#include "game.h"
+#include "game_constants.h"
+#include "map/map.h"
+#include "map/mapbuffer.h"
+#include "map/mapbuffer_registry.h"
+#include "map/submap.h"
+#include "map/map_iterator.h"
+#include "point.h"
+#include "trap.h"
+#include "vehicle/veh_type.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vpart_position.h"
+
 #include <algorithm>
 #include <memory>
 #include <mutex>
@@ -11,17 +26,17 @@
 #include "coordinates.h"
 #include "game.h"
 #include "game_constants.h"
-#include "map.h"
-#include "mapbuffer.h"
-#include "mapbuffer_registry.h"
-#include "map_iterator.h"
+#include "map/map.h"
+#include "map/mapbuffer.h"
+#include "map/mapbuffer_registry.h"
+#include "map/map_iterator.h"
 #include "point.h"
-#include "submap.h"
+#include "map/submap.h"
 #include "trap.h"
-#include "veh_type.h"
-#include "vehicle.h"
-#include "vehicle_part.h"
-#include "vpart_position.h"
+#include "vehicle/veh_type.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vpart_position.h"
 
 // Static member definitions
 std::recursive_mutex Pathfinding::d_maps_mutex;

@@ -14,7 +14,7 @@
 #include "enums.h"
 #include "generic_factory.h"
 #include "json.h"
-#include "map.h"
+#include "map/map.h"
 #include "mutation.h"
 #include "point.h"
 #include "rng.h"
@@ -35,7 +35,7 @@ generic_factory<enchantment> enchant_factory("enchantment");
 
 IMPLEMENT_STRING_AND_INT_IDS(enchantment, enchant_factory);
 
-std::vector<std::string> enchantment::get_effect_string(bool is_item) const {
+auto enchantment::get_effect_string(bool is_item) const -> std::vector<std::string> {
     std::string cond_string;
     if (conditions.empty()) { cond_string = _("At all times"); }
     for (const enchantment_condition_id cond_id : conditions) {
@@ -133,7 +133,7 @@ void enchantment::load_enchantment(const JsonObject& jo, const std::string& src)
 
 void enchantment::reset() { enchant_factory.reset(); }
 
-bool enchantment::is_active(const Character& guy, const item& parent) const {
+auto enchantment::is_active(const Character& guy, const item& parent) const -> bool {
 
     bool is_active = parent.is_active();
     bool active = true;
@@ -163,7 +163,7 @@ bool enchantment::is_active(const Character& guy, const item& parent) const {
     return active;
 }
 
-bool enchantment::is_active(const item& parent) const {
+auto enchantment::is_active(const item& parent) const -> bool {
 
     bool is_active = parent.is_active();
     bool active = true;
@@ -199,7 +199,7 @@ bool enchantment::is_active(const item& parent) const {
     return active;
 }
 
-bool enchantment::is_active(const Character& guy, const bool is_active) const {
+auto enchantment::is_active(const Character& guy, const bool is_active) const -> bool {
     bool active = true;
     for (const enchantment_condition_id cond_id : conditions) {
         if (!active) { break; }
@@ -380,9 +380,11 @@ void enchantment::serialize(JsonOut& jsout) const {
     jsout.end_object();
 }
 
-bool enchantment::stacks_with(const enchantment& rhs) const { return conditions == rhs.conditions; }
+auto enchantment::stacks_with(const enchantment& rhs) const -> bool {
+    return conditions == rhs.conditions;
+}
 
-bool enchantment::add(const enchantment& rhs) {
+auto enchantment::add(const enchantment& rhs) -> bool {
     if (!stacks_with(rhs)) { return false; }
     force_add(rhs);
     // Because it is no longer a default enchantment
@@ -446,7 +448,7 @@ void enchantment::force_add(const enchantment& rhs) {
     }
 }
 
-bool enchantment::has_flag(const enchantment_flag_id flag) const {
+auto enchantment::has_flag(const enchantment_flag_id flag) const -> bool {
     if (!flag.is_valid()) { debugmsg("Tried to get invalid enchantment flag \"%s\".", flag); }
     if (flags.contains(flag)) {
         if (flags.at(flag) <= 0) {
@@ -458,13 +460,13 @@ bool enchantment::has_flag(const enchantment_flag_id flag) const {
     return false;
 }
 
-bool enchantment::has_value(const enchantment_value_id value) const {
+auto enchantment::has_value(const enchantment_value_id value) const -> bool {
     if (!value.is_valid()) { debugmsg("Tried to get invalid enchantment value \"%s\".", value); }
     return values_add.contains(value) || values_multiply.contains(value)
         || values_max.contains(value);
 }
 
-int enchantment::get_value_add(const enchantment_value_id value) const {
+auto enchantment::get_value_add(const enchantment_value_id value) const -> int {
     if (!value.is_valid()) { debugmsg("Tried to get invalid enchantment value \"%s\".", value); }
     int result = 0;
     if (values_add.contains(value)) { result += values_add.at(value); }
@@ -476,7 +478,7 @@ int enchantment::get_value_add(const enchantment_value_id value) const {
     return result;
 }
 
-double enchantment::get_value_multiply(const enchantment_value_id value) const {
+auto enchantment::get_value_multiply(const enchantment_value_id value) const -> double {
     if (!value.is_valid()) { debugmsg("Tried to get invalid enchantment value \"%s\".", value); }
     double result = 0;
     if (values_multiply.contains(value)) { result += values_multiply.at(value); }
@@ -489,7 +491,7 @@ double enchantment::get_value_multiply(const enchantment_value_id value) const {
     return result;
 }
 
-int enchantment::get_value_max(const enchantment_value_id value) const {
+auto enchantment::get_value_max(const enchantment_value_id value) const -> int {
     if (!value.is_valid()) { debugmsg("Tried to get invalid enchantment value \"%s\".", value); }
     int result = 0;
     if (values_max.contains(value)) { result = values_max.at(value); }
@@ -502,7 +504,7 @@ int enchantment::get_value_max(const enchantment_value_id value) const {
     return result;
 }
 
-double enchantment::calc_bonus(enchantment_value_id value, double base, bool round) const {
+auto enchantment::calc_bonus(enchantment_value_id value, double base, bool round) const -> double {
     double add = value->can_add ? get_value_add(value) : 0.0;
     double mul = value->can_mult ? get_value_multiply(value) : 0.0;
     double max = value->can_max ? get_value_max(value) : 0.0;
@@ -514,7 +516,7 @@ double enchantment::calc_bonus(enchantment_value_id value, double base, bool rou
     return ret;
 }
 
-int enchantment::mult_bonus(enchantment_value_id value_type, int base_value) const {
+auto enchantment::mult_bonus(enchantment_value_id value_type, int base_value) const -> int {
     return get_value_multiply(value_type) * base_value;
 }
 
@@ -578,15 +580,16 @@ void enchantment::cast_enchantment_spell(
     }
 }
 
-enchantment_vision_id enchantment::mon_passes_special_vision(
-    const Creature& mon, const int dist, const bool same_zlevel, const bool sees_position) const {
+auto enchantment::mon_passes_special_vision(
+    const Creature& mon, const int dist, const bool same_zlevel, const bool sees_position) const
+    -> enchantment_vision_id {
     for (const enchantment_vision_id& vision : special_visions) {
         if (vision->mon_passes(mon, dist, same_zlevel, sees_position)) { return vision; }
     }
     return enchantment_vision_id::NULL_ID();
 }
 
-bool enchantment::operator==(const enchantment& rhs) const {
+auto enchantment::operator==(const enchantment& rhs) const -> bool {
     return id == rhs.id && mutations == rhs.mutations && emitter == rhs.emitter
         && ench_effects == rhs.ench_effects && values_multiply == rhs.values_multiply
         && values_add == rhs.values_add && values_max == rhs.values_max
@@ -596,13 +599,14 @@ bool enchantment::operator==(const enchantment& rhs) const {
 
 namespace {
 
-template <float mutation_branch::* First> bool is_set_value(const trait_id& mut, float val) {
+template <float mutation_branch::* First>
+auto is_set_value(const trait_id& mut, float val) -> bool {
     return (*mut).*First == val;
 }
 
 template <float mutation_branch::* First, float mutation_branch::*... Rest,
           std::enable_if_t<(sizeof...(Rest) > 0), bool> NonEmpty = false>
-bool is_set_value(const trait_id& mut, float val) {
+auto is_set_value(const trait_id& mut, float val) -> bool {
     return (*mut).*First == val && is_set_value<Rest...>(mut, val);
 }
 
@@ -676,8 +680,9 @@ void enchantment::finalize_all() {
     }
 }
 
-bool nested_enchant_check(
-    const enchantment& ench, const enchantment_id& to_match, std::set<trait_id> mut_to_match) {
+auto nested_enchant_check(
+    const enchantment& ench, const enchantment_id& to_match, std::set<trait_id> mut_to_match)
+    -> bool {
     // Populate mutations given first
     for (const trait_id& mut_id : ench.get_mutations()) {
         if (mut_to_match.contains(mut_id)) { return false; }

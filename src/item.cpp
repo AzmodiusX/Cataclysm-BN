@@ -1,26 +1,5 @@
 #include "item.h"
 
-#include <algorithm>
-#include <numeric>
-#include <array>
-#include <cassert>
-#include <cctype>
-#include <cmath>
-#include <cstdlib>
-#include <iomanip>
-#include <iterator>
-#include <limits>
-#include <locale>
-#include <memory>
-#include <optional>
-#include <ranges>
-#include <set>
-#include <sstream>
-#include <string>
-#include <tuple>
-#include <unordered_set>
-#include <vector>
-
 #include "action_time_scale.h"
 #include "activity_actor_definitions.h"
 #include "active_tile_data_def.h"
@@ -31,15 +10,16 @@
 #include "bodypart.h"
 #include "cached_item_options.h"
 #include "calendar.h"
-#include "catalua_icallback_actor.h"
 #include "cata_utility.h"
 #include "catacharset.h"
+#include "catalua_icallback_actor.h"
 #include "character.h"
 #include "character_encumbrance.h"
 #include "character_functions.h"
 #include "character_id.h"
 #include "character_martial_arts.h"
 #include "character_stat.h"
+#include "cloning_utils.h"
 #include "clothing_mod.h"
 #include "clzones.h"
 #include "color.h"
@@ -54,7 +34,6 @@
 #include "explosion.h"
 #include "faction.h"
 #include "fault.h"
-#include "field_type.h"
 #include "fire.h"
 #include "flag.h"
 #include "game.h"
@@ -74,8 +53,9 @@
 #include "line.h"
 #include "locations.h"
 #include "magic/magic.h"
-#include "map.h"
-#include "mapbuffer.h"
+#include "map/field_type.h"
+#include "map/map.h"
+#include "map/mapbuffer.h"
 #include "martialarts.h"
 #include "material.h"
 #include "melee.h"
@@ -93,8 +73,8 @@
 #include "player_activity.h"
 #include "pldata.h"
 #include "point.h"
-#include "projectile.h"
 #include "profile.h"
+#include "projectile.h"
 #include "ranged.h"
 #include "recipe.h"
 #include "recipe_dictionary.h"
@@ -104,7 +84,6 @@
 #include "rng.h"
 #include "rot.h"
 #include "scores_ui.h"
-#include "cloning_utils.h"
 #include "skill.h"
 #include "sol/sol.hpp"
 #include "stomach.h"
@@ -115,17 +94,38 @@
 #include "translations.h"
 #include "type_id.h"
 #include "units.h"
-#include "utils/string_to_int.h"
 #include "units_energy.h"
 #include "units_utility.h"
+#include "utils/string_to_int.h"
 #include "value_ptr.h"
-#include "vehicle.h"
-#include "vehicle_part.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vpart_position.h"
+#include "vehicle/wheel_dimensions.h"
 #include "vitamin.h"
-#include "vpart_position.h"
-#include "weather.h"
-#include "weather_gen.h"
-#include "wheel_dimensions.h"
+#include "weather/weather.h"
+#include "weather/weather_gen.h"
+
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cctype>
+#include <cmath>
+#include <cstdlib>
+#include <iomanip>
+#include <iterator>
+#include <limits>
+#include <locale>
+#include <memory>
+#include <numeric>
+#include <optional>
+#include <ranges>
+#include <set>
+#include <sstream>
+#include <string>
+#include <tuple>
+#include <unordered_set>
+#include <vector>
 
 static const std::string GUN_MODE_VAR_NAME( "item::mode" );
 static const std::string CLOTHING_MOD_VAR_PREFIX( "clothing_mod_" );
@@ -8124,11 +8124,16 @@ double item::bonus_from_enchantments( double base, enchantment_value_id value,
 
 const std::vector<relic_recharge> &item::get_relic_recharge_scheme() const
 {
-    if( is_relic( true ) ) {
-        return relic_data->get_recharge_scheme();
-    } else {
-        return type->relic_data->get_recharge_scheme();
+    std::vector<relic_recharge> recharge_schemes;
+    if( type->relic_data ) {
+        recharge_schemes = type->relic_data->get_recharge_scheme();
     }
+    if( is_relic( true ) ) {
+        std::vector<relic_recharge> dynamic_recharge_schemes = relic_data->get_recharge_scheme();
+        recharge_schemes.insert( recharge_schemes.end(), dynamic_recharge_schemes.begin(),
+                                 dynamic_recharge_schemes.end() );
+    }
+    return recharge_schemes;
 }
 
 bool item::can_contain( const item &it ) const

@@ -1,25 +1,27 @@
 #include "locations.h"
 
 #include "character.h"
+#include "debug.h"
 #include "detached_ptr.h"
+#include "game.h"
 #include "item.h"
 #include "itype.h"
 #include "iuse_actor.h"
 #include "location_ptr.h"
-#include "map.h"
-#include "mapbuffer.h"
+#include "map/map.h"
+#include "map/mapbuffer.h"
+#include "map/submap.h"
 #include "monster.h"
 #include "npc.h"
 #include "player.h"
 #include "rot.h"
-#include "submap.h"
-#include "vehicle.h"
-#include "vehicle_part.h"
-#include "vpart_position.h"
-#include "vpart_range.h"
-#include "veh_type.h"
-#include "weather.h"
-#include "game.h"
+#include "vehicle/veh_type.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vpart_position.h"
+#include "vehicle/vpart_range.h"
+#include "weather/weather.h"
+
 namespace
 {
 
@@ -493,7 +495,11 @@ void monster_battery_item_location::attach( detached_ptr<item> &&obj )
 
 bool vehicle_item_location::is_loaded( const item * ) const
 {
-    if( !veh->is_loaded() ) {
+    if( !veh || !veh->is_loaded() ) {
+        return false;
+    }
+    const vehicle_part *const part = veh->find_part_hack( hack_id );
+    if( !part ) {
         return false;
     }
     auto &here = veh->get_mapbuffer();
@@ -503,12 +509,18 @@ bool vehicle_item_location::is_loaded( const item * ) const
 
 tripoint_bub_ms vehicle_item_location::bub_pos( const item * ) const
 {
-    return veh->mount_to_bubble( veh->get_part_hack( hack_id ).mount );
+    if( const vehicle_part *const part = veh->find_part_hack( hack_id ) ) {
+        return veh->mount_to_bubble( part->mount );
+    }
+    return veh->bub_ms_location();
 }
 
 tripoint_abs_ms vehicle_item_location::abs_pos( const item * ) const
 {
-    return veh->mount_to_abs( veh->get_part_hack( hack_id ).mount );
+    if( const vehicle_part *const part = veh->find_part_hack( hack_id ) ) {
+        return veh->mount_to_abs( part->mount );
+    }
+    return veh->abs_ms_location();
 }
 
 dimension_id vehicle_item_location::get_dimension( const item * ) const
@@ -523,10 +535,13 @@ item_location_type vehicle_item_location::where() const
 
 detached_ptr<item> vehicle_item_location::detach( item *it )
 {
-    const auto part_index = veh->get_part_id_hack( hack_id );
-    const auto temperature = storage_temperature();
-    detached_ptr<item> ret = part_index >= 0 ? veh->remove_item( part_index, it ) :
-                             veh->get_part_hack( hack_id ).remove_item( *it );
+    const int part_index = veh->get_part_id_hack( hack_id );
+    if( part_index < 0 ) {
+        debugmsg( "vehicle_item_location::detach: no part for hack_id %d", hack_id );
+        return detached_ptr<item>();
+    }
+    const auto temperature = rot::temp::for_part( *veh, part_index );
+    detached_ptr<item> ret = veh->remove_item( part_index, it );
     if( ret ) {
         // Item was just removed from the vehicle and has no location;
         // compute position from the vehicle part directly.
@@ -546,18 +561,17 @@ detached_ptr<item> vehicle_item_location::detach( item *it )
 
 void vehicle_item_location::attach( detached_ptr<item> &&obj )
 {
-    const auto part_index = veh->get_part_id_hack( hack_id );
+    const int part_index = veh->get_part_id_hack( hack_id );
     if( part_index >= 0 ) {
         obj = veh->add_item( part_index, std::move( obj ) );
-    } else {
-        veh->get_part_hack( hack_id ).add_item( std::move( obj ) );
-        veh->invalidate_mass();
+        return;
     }
+    debugmsg( "vehicle_item_location::attach: no part for hack_id %d", hack_id );
 }
 
 auto vehicle_item_location::storage_temperature() const -> temperature_flag
 {
-    const auto part_index = veh->get_part_id_hack( hack_id );
+    const int part_index = veh->get_part_id_hack( hack_id );
     return part_index >= 0 ? rot::temp::for_part( *veh,
             part_index ) : temperature_flag::TEMP_NORMAL;
 }
@@ -567,13 +581,20 @@ int vehicle_item_location::obtain_cost( const Character &ch, int qty, const item
     const item *obj = cost_split_helper( it, qty );
     int mv = dynamic_cast<const player *>( &ch )->item_handling_cost( *obj, true,
              VEHICLE_HANDLING_PENALTY );
-    mv += 100 * rl_dist( ch.abs_pos(), veh->mount_to_abs( veh->get_part_hack( hack_id ).mount ) );
+    const vehicle_part *const part = veh->find_part_hack( hack_id );
+    const tripoint_abs_ms part_pos = part ? veh->mount_to_abs( part->mount ) :
+                                     veh->abs_ms_location();
+    mv += 100 * rl_dist( ch.abs_pos(), part_pos );
     return mv;
 }
 
 std::string vehicle_item_location::describe( const Character *ch, const item * ) const
 {
-    vpart_position part_pos( *veh, veh->get_part_id_hack( hack_id ) );
+    const int part_index = veh->get_part_id_hack( hack_id );
+    if( part_index < 0 ) {
+        return "Error: missing vehicle part";
+    }
+    vpart_position part_pos( *veh, part_index );
     std::string res;
     if( auto label = part_pos.get_label() ) {
         res = colorize( *label, c_light_blue ) + " ";

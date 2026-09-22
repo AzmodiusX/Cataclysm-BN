@@ -1,15 +1,8 @@
 #pragma once
 
-#include <map>
-#include <optional>
-#include <set>
-#include <array>
-#include <string>
-#include <variant>
-#include <vector>
-
 #include "behavior.h"
 #include "calendar.h"
+#include "catalua_type_operators.h"
 #include "color.h"
 #include "cursesdef.h"
 #include "damage.h"
@@ -20,7 +13,14 @@
 #include "translations.h"
 #include "type_id.h"
 #include "units.h"
-#include "catalua_type_operators.h"
+
+#include <array>
+#include <map>
+#include <optional>
+#include <set>
+#include <string>
+#include <variant>
+#include <vector>
 
 class lua_monster_callback_actor;
 class Creature;

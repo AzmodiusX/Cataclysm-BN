@@ -1,5 +1,12 @@
 #pragma once
 
+#include "calendar.h"
+#include "coordinates.h"
+#include "map/submap_load_manager.h"
+#include "memory_fast.h"
+#include "point.h"
+#include "type_id.h"
+
 #include <array>
 #include <cstdint>
 #include <map>
@@ -10,9 +17,8 @@
 #include "calendar.h"
 #include "coordinates.h"
 #include "memory_fast.h"
-#include "submap_load_manager.h"
+#include "map/submap_load_manager.h"
 #include "type_id.h"
-
 class Character;
 class map;
 class mapbuffer;

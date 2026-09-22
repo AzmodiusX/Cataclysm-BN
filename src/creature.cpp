@@ -1,19 +1,9 @@
 #include "creature.h"
 
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstdint>
-#include <cstdlib>
-#include <map>
-#include <memory>
-#include <optional>
-
 #include "action_time_scale.h"
 #include "anatomy.h"
 #include "avatar.h"
 #include "calendar.h"
-#include "catalua.h"
 #include "catalua_hooks.h"
 #include "catalua_sol.h"
 #include "character.h"
@@ -26,42 +16,51 @@
 #include "enums.h"
 #include "event.h"
 #include "event_bus.h"
-#include "field.h"
 #include "flag.h"
 #include "game.h"
 #include "game_constants.h"
 #include "int_id.h"
 #include "item.h"
 #include "json.h"
-#include "lightmap.h"
 #include "line.h"
 #include "locations.h"
-#include "map.h"
-#include "mapbuffer.h"
-#include "mapbuffer_registry.h"
-#include "map_iterator.h"
-#include "mapdata.h"
+#include "map/field.h"
+#include "map/lightmap.h"
+#include "map/map.h"
+#include "map/mapbuffer.h"
+#include "map/mapbuffer_registry.h"
+#include "map/mapdata.h"
+#include "map/submap_load_manager.h"
+#include "map/map_iterator.h"
 #include "messages.h"
 #include "monster.h"
 #include "mtype.h"
 #include "npc.h"
 #include "output.h"
+#include "overmapbuffer_registry.h"
 #include "player.h"
 #include "point.h"
+#include "profile.h"
 #include "projectile.h"
 #include "ranged.h"
 #include "rng.h"
 #include "string_id.h"
 #include "string_utils.h"
-#include "submap_load_manager.h"
-#include "utils/string_to_int.h"
 #include "translations.h"
+#include "utils/string_to_int.h"
 #include "value_ptr.h"
-#include "vehicle.h"
-#include "vehicle_part.h"
-#include "vpart_position.h"
-#include "overmapbuffer_registry.h"
-#include "profile.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vpart_position.h"
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <cstdlib>
+#include <map>
+#include <memory>
+#include <optional>
 
 auto Creature::get_dimension() const -> const dimension_id &
 {
@@ -458,7 +457,7 @@ bool Creature::sees( const Creature &critter ) const
     return sees( critter.abs_pos(), critter.is_avatar() ) && visible( ch );
 }
 
-bool Creature::sees( const tripoint_abs_ms &t, bool /*is_avatar*/, int range_mod ) const
+bool Creature::sees( const tripoint_abs_ms &t, bool /*is_avatar*/, int range_limit ) const
 {
     auto &here = get_mapbuffer();
     const bool in_bubble = get_dimension() == here.get_dimension_id() &&
@@ -494,12 +493,12 @@ bool Creature::sees( const tripoint_abs_ms &t, bool /*is_avatar*/, int range_mod
     const auto is_lit = ambient > natural_light;
     if( wanted_range <= range_min ||
         ( wanted_range <= range_max && is_lit ) ) {
-        auto range = is_lit ? g_max_view_distance : range_min;
+        int range = is_lit ? g_max_view_distance : range_min;
         if( has_effect( effect_no_sight ) ) {
             range = 1;
         }
-        if( range_mod > 0 ) {
-            range = std::min( range, range_mod );
+        if( range_limit > 0 ) {
+            range = std::min( range, range_limit );
         }
         return in_bubble ? get_map().sees( bub_pos(), abs_to_bub( t ), range ) :
                here.sees( abs_pos(), t, range );
@@ -1251,7 +1250,6 @@ void Creature::deal_projectile_attack( Creature *source, item *source_weapon,
     attack.hit_critter = this;
     attack.missed_by = goodhit;
     if( sourceplayer || sourcenpc ) {
-        std::unique_lock lock( cata::lua_lock );
         cata::run_hooks( "on_creature_attacked_by_character", [ &, this]( auto & params ) {
             params["char"] = source;
             params["target"] = this;
@@ -1361,7 +1359,11 @@ void Creature::deal_damage_handle_type( const damage_unit &du, bodypart_id bp, i
             // Cause bleed if high damage goes through armor and enemy is made of flesh
             if( adjusted_damage > 15 ) {
                 if( !is_immune_effect( effect_bleed ) ) {
-                    add_effect( effect_bleed, 1_minutes * rng( 1, adjusted_damage ), bp.id() );
+                    if( is_monster() ) {
+                        add_effect( effect_bleed, 4_seconds * rng( 1, adjusted_damage ), bp.id() );
+                    } else {
+                        add_effect( effect_bleed, 1_minutes * rng( 1, adjusted_damage ), bp.id() );
+                    }
                 }
             }
             break;
@@ -1371,7 +1373,11 @@ void Creature::deal_damage_handle_type( const damage_unit &du, bodypart_id bp, i
             // Cause bleed if high damage goes through armor and enemy is made of flesh
             if( adjusted_damage > 15 ) {
                 if( !is_immune_effect( effect_bleed ) ) {
-                    add_effect( effect_bleed, 1_minutes * rng( 1, adjusted_damage ), bp.id() );
+                    if( is_monster() ) {
+                        add_effect( effect_bleed, 4_seconds * rng( 1, adjusted_damage ), bp.id() );
+                    } else {
+                        add_effect( effect_bleed, 1_minutes * rng( 1, adjusted_damage ), bp.id() );
+                    }
                 }
             }
             break;
@@ -1393,7 +1399,6 @@ void Creature::deal_damage_handle_type( const damage_unit &du, bodypart_id bp, i
 
 void Creature::on_dodge( Creature *source, int difficulty )
 {
-    std::unique_lock lock( cata::lua_lock );
     cata::run_hooks( "on_creature_dodged", [ &, this]( auto & params ) {
         params["char"] = this;
         params["source"] = source;
@@ -1606,13 +1611,11 @@ bool Creature::remove_effect( const efftype_id &eff_id, const bodypart_str_id &b
 
     if( type.has_flag( flag_EFFECT_LUA_ON_REMOVED ) ) {
         if( ch != nullptr ) {
-            std::unique_lock lock( cata::lua_lock );
             cata::run_hooks( "on_character_effect_removed", [ & ]( auto & params ) {
                 params["character"] = ch;
                 params["effect"] = get_effect( eff_id );
             } );
         } else {
-            std::unique_lock lock( cata::lua_lock );
             cata::run_hooks( "on_mon_effect_removed", [ &, this ]( auto & params ) {
                 params["mon"] = this;
                 params["effect"] = get_effect( eff_id );

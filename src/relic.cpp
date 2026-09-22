@@ -1,26 +1,26 @@
 #include "relic.h"
 
-#include <algorithm>
-#include <cmath>
-
 #include "action_time_scale.h"
 #include "calendar.h"
 #include "cata_unreachable.h"
-#include "creature.h"
 #include "character.h"
+#include "creature.h"
 #include "enchantments/enchantment.h"
-#include "field.h"
 #include "game.h"
 #include "json.h"
 #include "magic/magic.h"
-#include "map.h"
-#include "map_iterator.h"
+#include "map/field.h"
+#include "map/map.h"
+#include "map/map_iterator.h"
 #include "messages.h"
 #include "rng.h"
 #include "translations.h"
 #include "trap.h"
 #include "type_id.h"
-#include "weather.h"
+#include "weather/weather.h"
+
+#include <algorithm>
+#include <cmath>
 
 static const efftype_id effect_sleep( "sleep" );
 

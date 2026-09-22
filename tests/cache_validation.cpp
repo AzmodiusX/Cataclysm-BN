@@ -1,7 +1,7 @@
 #include "cache_validation.h"
 
 #include "game_constants.h"
-#include "mapbuffer.h"
+#include "map/mapbuffer.h"
 
 #include <ranges>
 

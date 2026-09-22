@@ -1,27 +1,9 @@
 // Monster movement code; essentially, the AI
 
-#include "monster.h" // IWYU pragma: associated
-
-#include <algorithm>
-#include <array>
-#include <cfloat>
-#include <cmath>
-#include <cstdlib>
-#include <iterator>
-#include <list>
-#include <limits>
-#include <memory>
-#include <optional>
-#include <ostream>
-#include <ranges>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
-
 #include "avatar.h"
 #include "behavior.h"
-#include "calendar.h"
 #include "bionics.h"
+#include "calendar.h"
 #include "cata_utility.h"
 #include "catalua.h"
 #include "catalua_coord.h"
@@ -31,21 +13,22 @@
 #include "creature_tracker.h"
 #include "debug.h"
 #include "effect.h"
-#include "field.h"
-#include "field_type.h"
 #include "game.h"
 #include "game_constants.h"
-#include "int_id.h"
 #include "init.h"
+#include "int_id.h"
 #include "line.h"
 #include "make_static.h"
-#include "map.h"
+#include "map/field.h"
+#include "map/field_type.h"
+#include "map/map.h"
+#include "map/mapdata.h"
 #include "map/utils/map_functions.h"
-#include "map_iterator.h"
-#include "mapdata.h"
+#include "map/map_iterator.h"
 #include "mattack_common.h"
 #include "messages.h"
 #include "monfaction.h"
+#include "monster.h" // IWYU pragma: associated
 #include "monster_hallucination.h"
 #include "monster_oracle.h"
 #include "mtype.h"
@@ -55,6 +38,7 @@
 #include "pimpl.h"
 #include "player.h"
 #include "point.h"
+#include "profile.h"
 #include "rng.h"
 #include "scent_map.h"
 #include "sounds.h"
@@ -64,10 +48,25 @@
 #include "translations.h"
 #include "trap.h"
 #include "type_id.h"
-#include "vehicle.h"
-#include "vehicle_part.h"
-#include "vpart_position.h"
-#include "profile.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vpart_position.h"
+
+#include <algorithm>
+#include <array>
+#include <cfloat>
+#include <cmath>
+#include <cstdlib>
+#include <iterator>
+#include <limits>
+#include <list>
+#include <memory>
+#include <optional>
+#include <ostream>
+#include <ranges>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
 
 static const efftype_id effect_ai_waiting( "ai_waiting" );
 static const efftype_id effect_bouldering( "bouldering" );
@@ -127,8 +126,7 @@ auto run_lua_monster_ai( monster &mon ) -> bool
         return false;
     }
 
-    std::unique_lock lock( cata::lua_lock );
-    auto *lua_state = cata::get_active_lua_state();
+    auto *lua_state = DynamicDataLoader::get_instance().lua.get();
     if( lua_state == nullptr ) {
         return false;
     }
@@ -1368,7 +1366,15 @@ monster_action_t monster::decide_action() const
                     continue;
                 }
                 const auto estimate = here.bash_rating( bash_estimate( candidate ), candidate );
-                if( estimate <= 0 ) {
+                bool enemy_above = false;
+                const auto *critter_above = g->critter_at( candidate + tripoint_above, hallucination );
+                if( candidate.z() < OVERMAP_HEIGHT && critter_above != nullptr ) {
+                    const auto att = attitude_to( *critter_above );
+                    if( att == Attitude::A_HOSTILE && sees( candidate + tripoint_above ) ) {
+                        enemy_above = true;
+                    }
+                }
+                if( estimate <= 0 && !enemy_above ) {
                     continue;
                 }
                 if( estimate < 5 ) {

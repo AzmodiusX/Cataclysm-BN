@@ -1,29 +1,4 @@
-#include "om_direction.h" // IWYU pragma: associated
-#include "cube_direction.h" // IWYU pragma: associated
-#include "enum_conversions.h"
-#include "omdata.h" // IWYU pragma: associated
-#include "overmap_special.h" // IWYU pragma: associated
 #include "overmap.h" // IWYU pragma: associated
-
-#include <algorithm>
-#include <cassert>
-#include <cmath>
-#include <coordinates.h>
-#include <cstddef>
-#include <cstring>
-#include <exception>
-#include <memory>
-#include <numeric>
-#include <optional>
-#include <ostream>
-#include <point.h>
-#include <ranges>
-#include <set>
-#include <submap.h>
-#include <tuple>
-#include <unordered_set>
-#include <vector>
-#include <vehicle.h>
 
 #include "all_enum_values.h"
 #include "assign.h"
@@ -33,22 +8,25 @@
 #include "catalua_impl.h"
 #include "catalua_sol.h"
 #include "character_id.h"
+#include "cube_direction.h" // IWYU pragma: associated
 #include "debug.h"
-#include "init.h"
 #include "distribution.h"
+#include "enum_conversions.h"
 #include "flood_fill.h"
+#include "fluid_grid.h"
 #include "fstream_utils.h"
 #include "game.h"
 #include "generic_factory.h"
+#include "init.h"
 #include "json.h"
 #include "line.h"
-#include "map.h"
-#include "map_iterator.h"
-#include "mapbuffer.h"
-#include "mapbuffer_registry.h"
-#include "mapgen.h"
-#include "mapgen_constructor.h"
-#include "mapgen_functions.h"
+#include "map/map.h"
+#include "map/mapbuffer.h"
+#include "map/mapbuffer_registry.h"
+#include "map/map_iterator.h"
+#include "mapgen/mapgen.h"
+#include "mapgen/mapgen_constructor.h"
+#include "mapgen/mapgen_functions.h"
 #include "math_defines.h"
 #include "messages.h"
 #include "mongroup.h"
@@ -56,16 +34,18 @@
 #include "mtype.h"
 #include "name.h"
 #include "npc.h"
+#include "om_direction.h" // IWYU pragma: associated
+#include "omdata.h"       // IWYU pragma: associated
 #include "options.h"
 #include "output.h"
 #include "overmap_connection.h"
-#include "overmap_location.h"
 #include "overmap_label.h"
+#include "overmap_location.h"
 #include "overmap_noise.h"
+#include "overmap_special.h" // IWYU pragma: associated
 #include "overmap_types.h"
 #include "overmapbuffer.h"
 #include "overmapbuffer_registry.h"
-#include "fluid_grid.h"
 #include "regional_settings.h"
 #include "rng.h"
 #include "rotatable_symbols.h"
@@ -80,6 +60,26 @@
 #include "weighted_list.h"
 #include "world.h"
 #include "world_type.h"
+
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <coordinates.h>
+#include <cstddef>
+#include <cstring>
+#include <exception>
+#include <map/submap.h>
+#include <memory>
+#include <numeric>
+#include <optional>
+#include <ostream>
+#include <point.h>
+#include <ranges>
+#include <set>
+#include <tuple>
+#include <unordered_set>
+#include <vector>
+#include <vehicle/vehicle.h>
 
 static const efftype_id effect_pet( "pet" );
 
@@ -3846,8 +3846,7 @@ void overmap::move_hordes()
         if( ( mg.abs_pos.xy() == mg.target.xy() ) || mg.interest <= 15 ) {
             auto used_hook_target = false;
 
-            std::unique_lock lock( cata::lua_lock );
-            if( auto *state = cata::get_active_lua_state() ) {
+            if( auto *state = DynamicDataLoader::get_instance().lua.get() ) {
                 auto &lua = state->lua;
                 auto game = lua.globals()["game"];
                 auto behaviours_obj = game["horde_behaviours"].get<sol::object>();

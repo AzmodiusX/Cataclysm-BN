@@ -1,22 +1,22 @@
 #include "catalua_mapgen.h"
+
 #include "catalua.h"
 #include "catalua_impl.h"
-#include "init.h"
-#include "player.h"
 #include "game.h"
-#include "mapgendata.h"
-#include "mapgen_constructor.h"
+#include "init.h"
+#include "mapgen/mapgen_constructor.h"
+#include "mapgen/mapgendata.h"
+#include "player.h"
 #include "profile.h"
-#include "thread_pool.h"
 #include "sol/sol.hpp"
+#include "thread_pool.h"
 
 #include <cassert>
 
 mapgen_function_lua::mapgen_function_lua( const std::string &func,
         int weight ) : mapgen_function( weight )
 {
-    std::unique_lock lock( cata::lua_lock );
-    sol::state &lua = cata::get_active_lua_state()->lua;
+    sol::state &lua = DynamicDataLoader::get_instance().lua->lua;
     sol::object ref = lua.globals()["game"]["mapgen_functions"][func];
     if( ref.get_type() == sol::type::function ) {
         auto luafunc = ref.as<sol::function>();

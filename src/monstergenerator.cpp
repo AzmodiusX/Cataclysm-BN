@@ -1,13 +1,4 @@
-#include "mattack_common.h" // IWYU pragma: associated
 #include "monstergenerator.h" // IWYU pragma: associated
-
-#include <algorithm>
-#include <cmath>
-#include <cstdlib>
-#include <optional>
-#include <set>
-#include <utility>
-#include <vector>
 
 #include "assign.h"
 #include "bodypart.h"
@@ -23,6 +14,7 @@
 #include "item_group.h"
 #include "json.h"
 #include "mattack_actors.h"
+#include "mattack_common.h" // IWYU pragma: associated
 #include "monattack.h"
 #include "mondeath.h"
 #include "mondefense.h"
@@ -34,6 +26,14 @@
 #include "string_id.h"
 #include "translations.h"
 #include "units.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <optional>
+#include <set>
+#include <utility>
+#include <vector>
 
 namespace io
 {

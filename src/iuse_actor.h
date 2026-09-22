@@ -910,6 +910,7 @@ class bandolier_actor : public iuse_actor
         std::unique_ptr<iuse_actor> clone() const override;
         void info( const item &, std::vector<iteminfo> & ) const override;
 
+        std::string check() const override;
         units::volume max_stored_volume() const;
 };
 
@@ -1321,7 +1322,7 @@ class multicooker_iuse : public iuse_actor
         int charges_to_start;
         float time_mult = 1.0f;
         float charges_per_minute;
-        std::set<itype_id> recipes;
+        std::set<recipe_id> recipes;
         std::set<std::string> subcategories;
         std::set<std::string> temporary_tools;
 

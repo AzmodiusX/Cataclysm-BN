@@ -5,7 +5,7 @@
 #include "cata_arena.h"
 #include "item.h"
 #include "locations.h"
-#include "mapbuffer_registry.h"
+#include "map/mapbuffer_registry.h"
 #include "game.h"
 
 template<typename T>

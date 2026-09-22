@@ -1,34 +1,18 @@
 #include "ranged.h"
 
-#include <algorithm>
-#include <numeric>
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <iterator>
-#include <map>
-#include <memory>
-#include <optional>
-#include <set>
-#include <string>
-#include <tuple>
-#include <utility>
-#include <vector>
-
 #include "activity_actor_definitions.h"
 #include "animation.h"
 #include "avatar.h"
 #include "ballistics.h"
 #include "bodypart.h"
+#include "cached_options.h"
 #include "calendar.h"
 #include "cata_utility.h"
 #include "catacharset.h"
-#include "catalua.h"
 #include "catalua_coord.h"
 #include "catalua_hooks.h"
 #include "catalua_icallback_actor.h"
 #include "catalua_sol.h"
-#include "cached_options.h"
 #include "character.h"
 #include "character_functions.h"
 #include "color.h"
@@ -53,7 +37,7 @@
 #include "itype.h"
 #include "line.h"
 #include "magic/magic.h"
-#include "map.h"
+#include "map/map.h"
 #include "material.h"
 #include "math_defines.h"
 #include "messages.h"
@@ -69,9 +53,9 @@
 #include "point.h"
 #include "projectile.h"
 #include "rng.h"
+#include "shape_impl.h"
 #include "skill.h"
 #include "sounds.h"
-#include "shape_impl.h"
 #include "string_formatter.h"
 #include "string_id.h"
 #include "translations.h"
@@ -82,10 +66,25 @@
 #include "units_angle.h"
 #include "units_utility.h"
 #include "value_ptr.h"
-#include "veh_type.h"
-#include "vehicle.h"
-#include "vehicle_part.h"
-#include "vpart_position.h"
+#include "vehicle/veh_type.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vpart_position.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <iterator>
+#include <map>
+#include <memory>
+#include <numeric>
+#include <optional>
+#include <set>
+#include <string>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 struct ammo_effect;
 
@@ -1583,7 +1582,6 @@ int ranged::fire_gun( Character &who, const tripoint_abs_ms &target, int max_sho
         }
     }
 
-    std::unique_lock lock( cata::lua_lock );
     cata::run_hooks( "on_shoot", [ & ]( auto & params ) {
         params["shooter"] = &who;
         params["target_pos"] = cata::detail::lua_coords::to_lua( target );
@@ -1994,7 +1992,6 @@ dealt_projectile_attack throw_item( Character &who, const tripoint_abs_ms &targe
     who.last_target_pos = std::nullopt;
     who.recoil = MAX_RECOIL;
 
-    std::unique_lock lock( cata::lua_lock );
     cata::run_hooks( "on_throw", [ & ]( auto & params ) {
         params["thrower"] = &who;
         params["target_pos"] = cata::detail::lua_coords::to_lua( abs_to_bub( target ) );

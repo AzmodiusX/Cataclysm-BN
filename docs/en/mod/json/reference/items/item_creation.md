@@ -1149,7 +1149,7 @@ All object defined use actions support the following two types.
     "charges_to_start": 50, // Static cost per item crafted
     "charges_per_minute": 1, // Cost per minute of craft time
     "time_mult": 1, //Multiplier for craft time, 2 is twice as long, 0.5 is half as long, 0 is instant
-    "recipes": [ "water_clean" ], //Any specific item itype in this list can be crafted
+    "recipes": [ "water_clean" ], //Any recipie ident (crafted item + its suffix, e.g water_clean_using_water_purifier) in this list can be crafted
     "subcategories": [ "CSC_FOOD_MEAT", "CSC_FOOD_VEGGI", "CSC_FOOD_PASTA" ], //Any item in these subcategories can be crafted
     "temporary_tools": [ "hotplate", "tongs", "toolset", "pot" ] //Temporary items spawned when crafting to allow for innate qualities
 },

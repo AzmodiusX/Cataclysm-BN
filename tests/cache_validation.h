@@ -1,7 +1,7 @@
 #pragma once
 
 #include "debug.h"
-#include "map.h"
+#include "map/map.h"
 
 namespace test_cache_validation {
 

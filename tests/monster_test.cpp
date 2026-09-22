@@ -1,15 +1,18 @@
+#include "../src/map/map.h"
+#include "../src/vehicle/vehicle_part.h"
+#include "../src/vehicle/vpart_position.h"
 #include "action_time_scale.h"
 #include "avatar.h"
 #include "cached_options.h"
 #include "catch/catch.hpp"
 #include "coordinates.h"
-#include "field_type.h"
+#include "map/field_type.h"
 #include "fungal_effects.h"
 #include "game.h"
 #include "game_constants.h"
 #include "item.h"
 #include "line.h"
-#include "map.h"
+#include "map/field_type.h"
 #include "map/utils/map_functions.h"
 #include "map_helpers.h"
 #include "monattack.h"
@@ -23,9 +26,7 @@
 #include "state_helpers.h"
 #include "test_statistics.h"
 #include "type_id.h"
-#include "vehicle.h"
-#include "vehicle_part.h"
-#include "vpart_position.h"
+#include "vehicle/vehicle.h"
 
 #include <algorithm>
 #include <cmath>
@@ -280,13 +281,14 @@ struct track {
     tripoint_bub_ms location;
 };
 
-static std::ostream& operator<<(std::ostream& os, track const& value) {
+static auto operator<<(std::ostream& os, track const& value) -> std::ostream& { // *NOPAD*
     os << value.participant << " l:" << value.location << " d:" << value.distance
        << " m:" << value.moves;
     return os;
 }
 
-static std::ostream& operator<<(std::ostream& os, const std::vector<track>& vec) {
+static auto operator<<(std::ostream& os, const std::vector<track>& vec)
+    -> std::ostream& { // *NOPAD*
     for (auto& track_instance : vec) { os << track_instance << " "; }
     return os;
 }
@@ -294,8 +296,8 @@ static std::ostream& operator<<(std::ostream& os, const std::vector<track>& vec)
 /**
  * Simulate a player running from the monster, checking if it can catch up.
  **/
-static int can_catch_player(
-    const std::string& monster_type, const tripoint_rel_ms& direction_of_flight) {
+static auto can_catch_player(
+    const std::string& monster_type, const tripoint_rel_ms& direction_of_flight) -> int {
     clear_map();
     REQUIRE(g->num_creatures() == 1); // the player
     player& test_player = get_avatar();
@@ -532,7 +534,7 @@ TEST_CASE("monster_speed_trig", "[speed][.][!mayfail]") {
     monster_check();
 }
 
-TEST_CASE("monster_move_through_vehicle_holes") {
+TEST_CASE("monster_move_through_vehicle_holes", "[.][monster]") {
     clear_all_state();
     move_player_out_of_the_way();
     tripoint_bub_ms origin(60, 60, 0);

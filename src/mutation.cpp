@@ -1,14 +1,5 @@
 #include "mutation.h"
 
-#include <algorithm>
-#include <cmath>
-#include <algorithm>
-#include <cstdlib>
-#include <iterator>
-#include <memory>
-#include <numeric>
-#include <unordered_set>
-
 #include "avatar_action.h"
 #include "activity_actor.h"
 #include "activity_actor_definitions.h"
@@ -23,16 +14,16 @@
 #include "enums.h"
 #include "event.h"
 #include "event_bus.h"
-#include "field_type.h"
 #include "game.h"
 #include "handle_liquid.h"
 #include "item.h"
 #include "item_contents.h"
 #include "itype.h"
 #include "make_static.h"
-#include "map.h"
-#include "map_iterator.h"
-#include "mapdata.h"
+#include "map/field_type.h"
+#include "map/map.h"
+#include "map/mapdata.h"
+#include "map/map_iterator.h"
 #include "math_defines.h"
 #include "memorial_logger.h"
 #include "monster.h"
@@ -46,6 +37,14 @@
 #include "translations.h"
 #include "units.h"
 #include "weighted_list.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <iterator>
+#include <memory>
+#include <numeric>
+#include <unordered_set>
 
 using TraitSet = std::set<trait_id>;
 
@@ -148,6 +147,14 @@ bool Character::has_trait_flag( const trait_flag_str_id &b ) const
     return std::ranges::any_of( cached_mutations,
     [&b]( const mutation_branch * mut ) -> bool {
         return mut->flags.contains( b );
+    } );
+}
+
+bool Character::has_trait_type( const std::string &mut_type ) const
+{
+    return std::ranges::any_of( cached_mutations,
+    [&mut_type]( const mutation_branch * mut ) -> bool {
+        return mut->types.contains( mut_type );
     } );
 }
 

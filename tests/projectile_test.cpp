@@ -1,3 +1,5 @@
+#include "../src/map/map.h"
+#include "../src/vehicle/vpart_position.h"
 #include "avatar.h"
 #include "ballistics.h"
 #include "catch/catch.hpp"
@@ -7,7 +9,6 @@
 #include "game.h"
 #include "game_constants.h"
 #include "item.h"
-#include "map.h"
 #include "map_helpers.h"
 #include "monster.h"
 #include "npc.h"
@@ -15,8 +16,7 @@
 #include "projectile.h"
 #include "state_helpers.h"
 #include "type_id.h"
-#include "vehicle.h"
-#include "vpart_position.h"
+#include "vehicle/vehicle.h"
 
 #include <algorithm>
 #include <memory>

@@ -1,34 +1,18 @@
 #include "init.h"
 
-#include <algorithm>
-#include <cassert>
-#include <cstddef>
-#include <exception>
-#include <fstream>
-#include <iterator>
-#include <memory>
-#include <set>
-#include <sstream> // for throwing errors
-#include <stdexcept>
-#include <string>
-#include <vector>
-#include <ranges>
-
 #include "achievement.h"
 #include "activity_type.h"
 #include "ammo.h"
 #include "ammo_effect.h"
 #include "anatomy.h"
-#include "ascii_art.h"
 #include "artifact.h"
+#include "ascii_art.h"
 #include "behavior.h"
 #include "bionics.h"
 #include "bodypart.h"
-#include "catalua.h"
 #include "cata_utility.h"
+#include "catalua.h"
 #include "catalua_impl.h"
-#include "lua_sidebar_widgets.h"
-#include "panels.h"
 #include "clothing_mod.h"
 #include "clzones.h"
 #include "construction.h"
@@ -43,19 +27,17 @@
 #include "disease.h"
 #include "effect.h"
 #include "enchantments/enchantment.h"
-#include "enchantments/enchantment_value.h"
-#include "enchantments/enchantment_flag.h"
 #include "enchantments/enchantment_condition.h"
+#include "enchantments/enchantment_flag.h"
+#include "enchantments/enchantment_value.h"
 #include "enchantments/enchantment_vision.h"
-#include "emit.h"
 #include "event_statistics.h"
 #include "faction.h"
 #include "fault.h"
-#include "field_type.h"
 #include "filesystem.h"
-#include "fstream_utils.h"
 #include "flag.h"
 #include "flag_trait.h"
+#include "fstream_utils.h"
 #include "gates.h"
 #include "harvest.h"
 #include "item_action.h"
@@ -65,15 +47,18 @@
 #include "language.h"
 #include "loading_ui.h"
 #include "lru_cache.h"
+#include "lua_sidebar_widgets.h"
 #include "magic/magic.h"
 #include "magic/magic_ter_furn_transform.h"
-#include "map_extras.h"
-#include "mapbuffer.h"
-#include "map_feature_descriptions.h"
-#include "mapdata.h"
-#include "mapgen.h"
-#include "mapgen_async.h"
-#include "mapgen_color_palette.h"
+#include "map/emit.h"
+#include "map/field_type.h"
+#include "map/map_feature_descriptions.h"
+#include "map/mapbuffer.h"
+#include "map/mapdata.h"
+#include "mapgen/map_extras.h"
+#include "mapgen/mapgen.h"
+#include "mapgen/mapgen_async.h"
+#include "mapgen/mapgen_color_palette.h"
 #include "martialarts.h"
 #include "material.h"
 #include "mission.h"
@@ -82,17 +67,18 @@
 #include "mongroup.h"
 #include "monstergenerator.h"
 #include "morale_types.h"
-#include "mutation_data.h"
 #include "mutation.h"
+#include "mutation_data.h"
 #include "npc.h"
 #include "npc_class.h"
 #include "omdata.h"
 #include "overlay_ordering.h"
 #include "overmap.h"
-#include "overmapbuffer.h"
 #include "overmap_connection.h"
 #include "overmap_location.h"
 #include "overmap_special.h"
+#include "overmapbuffer.h"
+#include "panels.h"
 #include "profession.h"
 #include "recipe_dictionary.h"
 #include "recipe_groups.h"
@@ -112,14 +98,28 @@
 #include "translations.h"
 #include "trap.h"
 #include "type_id.h"
-#include "veh_type.h"
-#include "vehicle_group.h"
-#include "vehicle_palette.h"
+#include "vehicle/veh_type.h"
+#include "vehicle/vehicle_group.h"
+#include "vehicle/vehicle_palette.h"
 #include "vitamin.h"
-#include "weather.h"
-#include "weather_type.h"
+#include "weather/weather.h"
+#include "weather/weather_type.h"
 #include "world_type.h"
 #include "worldfactory.h"
+
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <exception>
+#include <fstream>
+#include <iterator>
+#include <memory>
+#include <ranges>
+#include <set>
+#include <sstream> // for throwing errors
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #if defined(TILES)
 #  include "mod_tileset.h"
@@ -492,7 +492,7 @@ void DynamicDataLoader::initialize()
 }
 
 void DynamicDataLoader::load_data_from_path( const std::string &path, const std::string &src,
-        loading_ui &ui )
+        loading_ui &ui, const bool mod_interactions )
 {
     assert( !finalized && "Can't load additional data after finalization.  Must be unloaded first." );
     // We assume that each folder is consistent in itself,
@@ -502,7 +502,26 @@ void DynamicDataLoader::load_data_from_path( const std::string &path, const std:
     // But not the other way round.
 
     // get a list of all files in the directory
-    str_vec files = get_files_from_path( ".json", path, true, true );
+    str_vec files;
+    if( mod_interactions ) {
+        std::string general_mod_interact_path = path + "/mod_interactions";
+        if( dir_exist( general_mod_interact_path ) ) {
+            auto &mods = world_generator->active_world->info->active_mod_order;
+            for( mod_id mod_info_id : mods ) {
+                std::string mod_interact_path = general_mod_interact_path + "/" + mod_info_id.str();
+                if( dir_exist( mod_interact_path ) ) {
+                    str_vec mod_compat_files = get_files_from_path( ".json", mod_interact_path, true, true );
+                    files.insert( files.end(), mod_compat_files.begin(), mod_compat_files.end() );
+                }
+            }
+        }
+        if( files.empty() ) {
+            return;
+        }
+    } else {
+        files = get_files_from_path_exclude( ".json", "mod_interactions", path, true, true );
+    }
+
     if( files.empty() ) {
         std::ifstream tmp( path.c_str(), std::ios::in );
         if( tmp ) {
@@ -922,7 +941,16 @@ static void load_and_finalize_packs( loading_ui &ui, const std::string &msg,
     cata::reg_lua_icallback_actors( *loader.lua, *item_controller );
 
     for( const mod_id &mod : available ) {
-        loader.load_data_from_path( mod->path, mod.str(), ui );
+        loader.load_data_from_path( mod->path, mod.str(), ui, false );
+        ui.proceed();
+    }
+    ui.new_context( msg );
+    for( const mod_id &e : available ) {
+        ui.add_entry( e->name() );
+    }
+    ui.show();
+    for( const mod_id &mod : available ) {
+        loader.load_data_from_path( mod->path, mod.str(), ui, true );
         ui.proceed();
     }
 
@@ -1121,5 +1149,5 @@ void init::load_soundpack_files( const std::string &soundpack_path )
     // It's not a mod, so we avoid the regular mod loading routines.
     // clear_loaded_data() is not needed here, tileset gets loaded on game init before any mods
     loading_ui ui( false );
-    DynamicDataLoader::get_instance().load_data_from_path( soundpack_path, "sound_core", ui );
+    DynamicDataLoader::get_instance().load_data_from_path( soundpack_path, "sound_core", ui, false );
 }

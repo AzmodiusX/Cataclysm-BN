@@ -1,15 +1,15 @@
+#include "../src/map/map.h"
 #include "activity_time_cadence.h"
 #include "avatar.h"
 #include "calendar.h"
 #include "cata_utility.h"
 #include "catch/catch.hpp"
 #include "coordinates.h"
-#include "field_type.h"
 #include "game.h"
 #include "game_constants.h"
 #include "item.h"
 #include "itype.h"
-#include "map.h"
+#include "map/field_type.h"
 #include "map_helpers.h"
 #include "monster.h"
 #include "npc.h"
@@ -19,8 +19,8 @@
 #include "state_helpers.h"
 #include "timed_event.h"
 #include "units_temperature.h"
-#include "vehicle.h"
-#include "weather.h"
+#include "vehicle/vehicle.h"
+#include "weather/weather.h"
 
 #include <string>
 #include <utility>

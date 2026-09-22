@@ -46,9 +46,8 @@
 #include "event.h"
 #include "event_bus.h"
 #include "fault.h"
-#include "field_type.h"
-#include "fstream_utils.h"
 #include "flag.h"
+#include "fstream_utils.h"
 #include "game.h"
 #include "game_constants.h"
 #include "game_inventory.h"
@@ -65,11 +64,13 @@
 #include "iuse_actor.h"
 #include "line.h"
 #include "magic/magic.h"
-#include "material.h"
-#include "map.h"
-#include "map_iterator.h"
-#include "mapdata.h"
+#include "magic/spell_targeting.h"
+#include "map/field_type.h"
+#include "map/map.h"
+#include "map/mapdata.h"
+#include "map/map_iterator.h"
 #include "martialarts.h"
+#include "material.h"
 #include "messages.h"
 #include "mongroup.h"
 #include "monster.h"
@@ -89,19 +90,18 @@
 #include "rng.h"
 #include "skill.h"
 #include "sounds.h"
-#include "units.h"
-#include "magic/spell_targeting.h"
 #include "string_formatter.h"
 #include "string_id.h"
+#include "string_utils.h"
 #include "text_snippets.h"
 #include "translations.h"
 #include "type_id.h"
 #include "ui.h"
-#include "veh_interact.h"
-#include "vehicle.h"
-#include "vehicle_part.h"
-#include "vpart_position.h"
-#include "string_utils.h"
+#include "units.h"
+#include "vehicle/veh_interact.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vpart_position.h"
 
 enum creature_size : int;
 
@@ -149,6 +149,7 @@ static const activity_id ACT_MEND_ITEM( "ACT_MEND_ITEM" );
 static const activity_id ACT_MIND_SPLICER( "ACT_MIND_SPLICER" );
 static const activity_id ACT_MOVE_LOOT( "ACT_MOVE_LOOT" );
 static const activity_id ACT_MULTIPLE_BUTCHER( "ACT_MULTIPLE_BUTCHER" );
+static const activity_id ACT_MULTIPLE_DISSECT( "ACT_MULTIPLE_DISSECT" );
 static const activity_id ACT_MULTIPLE_CHOP_PLANKS( "ACT_MULTIPLE_CHOP_PLANKS" );
 static const activity_id ACT_MULTIPLE_CHOP_TREES( "ACT_MULTIPLE_CHOP_TREES" );
 static const activity_id ACT_MULTIPLE_CONSTRUCTION( "ACT_MULTIPLE_CONSTRUCTION" );
@@ -265,6 +266,7 @@ activity_handlers::do_turn_functions = {
     { ACT_MULTIPLE_CONSTRUCTION, multiple_construction_do_turn },
     { ACT_MULTIPLE_MINE, multiple_mine_do_turn },
     { ACT_MULTIPLE_BUTCHER, multiple_butcher_do_turn },
+    { ACT_MULTIPLE_DISSECT, multiple_butcher_do_turn },
     { ACT_MULTIPLE_FARM, multiple_farm_do_turn },
     // fetch_do_turn — moved into fetch_required_actor::do_turn()
     { ACT_EAT_MENU, eat_menu_do_turn },
@@ -421,24 +423,27 @@ void extract_or_wreck_cbms( std::vector<detached_ptr<item>> &cbms, int roll,
                         it->faults.erase( fault_bionic_nonsterile );
                     }
                 }
-                add_msg( m_good, _( "You discover: %s!" ), it->tname() );
+                who.add_msg_if_player( m_good, _( "You discover: %s!" ), it->tname() );
             } else {
                 it->convert( itype_burnt_out_bionic );
                 if( it->has_fault( fault_bionic_nonsterile ) ) {
                     it->faults.erase( fault_bionic_nonsterile );
                 }
-                add_msg( m_bad, _( "Your imprecise surgery damaged a bionic, producing a %s." ), it->tname() );
+                who.add_msg_player_or_npc( m_bad,
+                                           _( "Your imprecise surgery damaged a bionic, producing a burnt-out bionic." ),
+                                           _( "<npcname> damages a bionic during dissection." ) );
             }
         } else {
             if( !check_butcher_cbm( roll ) ) {
-                add_msg( m_bad, _( "Your imprecise surgery destroyed something." ) );
+                who.add_msg_player_or_npc( m_bad, _( "Your imprecise surgery destroyed something." ),
+                                           _( "<npcname> destroyed something during dissection." ) );
                 continue;
             } else {
                 // If we have non-bionic loot in a harvest's bionic_group it doesn't need to be marked non-sterile either.
                 if( it->has_fault( fault_bionic_nonsterile ) ) {
                     it->faults.erase( fault_bionic_nonsterile );
                 }
-                add_msg( m_good, _( "You discover: %s!" ), it->tname() );
+                who.add_msg_if_player( m_good, _( "You discover: %s!" ), it->tname() );
             }
         }
 
@@ -500,7 +505,10 @@ butchery_setup consider_butchery( const item &corpse_item, player &u, butcher_ty
     };
 
     const inventory &inv = u.crafting_inventory();
-    const int factor = inv.max_quality( action == DISSECT ? qual_CUT_FINE : qual_BUTCHER );
+    // Must check both u and inventory because crafting inventory lacks mutation butcher items
+    const int factor = std::max(
+                           u.max_quality( action == DISSECT ? qual_CUT_FINE : qual_BUTCHER ),
+                           inv.max_quality( action == DISSECT ? qual_CUT_FINE : qual_BUTCHER ) );
 
     const mtype &corpse = *corpse_item.get_mtype();
 
@@ -1007,7 +1015,8 @@ void butchery_drops_harvest( item *corpse_item, const mtype &mt, Character &who,
                 for( const fault_id &flt : entry.faults ) {
                     obj.faults.emplace( flt );
                 }
-                if( !who.backlog.empty() && who.backlog.front()->id() == ACT_MULTIPLE_BUTCHER ) {
+                if( !who.backlog.empty() && ( who.backlog.front()->id() == ACT_MULTIPLE_BUTCHER ||
+                                              who.backlog.front()->id() == ACT_MULTIPLE_DISSECT ) ) {
                     obj.set_var( "activity_var", who.name );
                 }
                 here.add_item_or_charges( who.bub_pos(), std::move( it ) );
@@ -1023,7 +1032,8 @@ void butchery_drops_harvest( item *corpse_item, const mtype &mt, Character &who,
                 for( const fault_id &flt : entry.faults ) {
                     obj.faults.emplace( flt );
                 }
-                if( !who.backlog.empty() && who.backlog.front()->id() == ACT_MULTIPLE_BUTCHER ) {
+                if( !who.backlog.empty() && ( who.backlog.front()->id() == ACT_MULTIPLE_BUTCHER ||
+                                              who.backlog.front()->id() == ACT_MULTIPLE_DISSECT ) ) {
                     obj.set_var( "activity_var", who.name );
                 }
                 for( int i = 0; i != roll; ++i ) {
@@ -1143,8 +1153,8 @@ void activity_handlers::forage_finish( player_activity *act, player *p )
 void activity_handlers::generic_game_do_turn( player_activity * /*act*/, player *p )
 {
     if( action_time_scale::once_every_this_tick( 1_minutes ) ) {
-        // So 30 points per play
-        p->add_morale( MORALE_GAME, 2, 60, 2_hours, 30_minutes, true );
+        // So 20 points per play
+        p->add_morale( MORALE_GAME, 2, 20, 3_hours, 30_minutes, true );
         return;
     }
 }

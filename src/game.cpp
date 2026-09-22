@@ -1,5 +1,188 @@
 #include "game.h"
 
+#include "achievement.h"
+#include "action.h"
+#include "action_time_scale.h"
+#include "active_tile_data_def.h"
+#include "activity_actor.h"
+#include "activity_actor_definitions.h"
+#include "activity_handlers.h"
+#include "activity_time_cadence.h"
+#include "activity_type.h"
+#include "armor_layers.h"
+#include "artifact.h"
+#include "auto_note.h"
+#include "auto_pickup.h"
+#include "avatar.h"
+#include "avatar_action.h"
+#include "avatar_functions.h"
+#include "batch_turns.h"
+#include "bionics.h"
+#include "bodypart.h"
+#include "cached_options.h"
+#include "calendar.h"
+#include "cata_cartesian_product.h"
+#include "cata_utility.h"
+#include "catacharset.h"
+#include "catalua_bindings_coords_common.h"
+#include "catalua_hooks.h"
+#include "catalua_sol.h"
+#include "character.h"
+#include "character_display.h"
+#include "character_functions.h"
+#include "character_martial_arts.h"
+#include "character_turn.h"
+#include "clzones.h"
+#include "color.h"
+#include "computer_session.h"
+#include "construction.h"
+#include "construction_group.h"
+#include "coordinates.h"
+#include "crafting.h"
+#include "creature_throw.h"
+#include "creature_tracker.h"
+#include "cursesport.h"
+#include "damage.h"
+#include "debug.h"
+#include "dependency_tree.h"
+#include "diary.h"
+#include "distraction_manager.h"
+#include "distribution_grid.h"
+#include "drop_token.h"
+#include "editmap.h"
+#include "enchantments/enchantment_vision.h"
+#include "enums.h"
+#include "event.h"
+#include "event_bus.h"
+#include "explosion_queue.h"
+#include "faction.h"
+#include "filesystem.h"
+#include "fire_spread_loader.h"
+#include "flag.h"
+#include "flag_trait.h"
+#include "fluid_grid.h"
+#include "fstream_utils.h"
+#include "game_constants.h"
+#include "game_inventory.h"
+#include "game_ui.h"
+#include "gamemode.h"
+#include "gates.h"
+#include "harvest.h"
+#include "help.h"
+#include "iexamine.h"
+#include "init.h"
+#include "input.h"
+#include "int_id.h"
+#include "inventory.h"
+#include "item.h"
+#include "item_category.h"
+#include "item_contents.h"
+#include "item_functions.h"
+#include "item_stack.h"
+#include "itype.h"
+#include "iuse.h"
+#include "iuse_actor.h"
+#include "json.h"
+#include "kill_tracker.h"
+#include "line.h"
+#include "live_view.h"
+#include "loading_ui.h"
+#include "location_vector.h"
+#include "locations.h"
+#include "magic/magic.h"
+#include "map/field.h"
+#include "map/field_type.h"
+#include "map/lightmap.h"
+#include "map/map.h"
+#include "map/map_selector.h"
+#include "map/mapbuffer.h"
+#include "map/mapbuffer_registry.h"
+#include "map/mapdata.h"
+#include "map/submap.h"
+#include "map/submap_fields.h"
+#include "map/utils/map_functions.h"
+#include "map/map_item_stack.h"
+#include "map/map_iterator.h"
+#include "mapsharing.h"
+#include "memorial_logger.h"
+#include "memory_fast.h"
+#include "messages.h"
+#include "mission.h"
+#include "mod_manager.h"
+#include "monattack.h"
+#include "monexamine.h"
+#include "monfaction.h"
+#include "monster.h"
+#include "monster_action.h"
+#include "monster_hallucination.h"
+#include "monster_plan.h"
+#include "monstergenerator.h"
+#include "morale_types.h"
+#include "mtype.h"
+#include "mutation.h"
+#include "npc.h"
+#include "npc_class.h"
+#include "omdata.h"
+#include "options.h"
+#include "output.h"
+#include "overmap.h"
+#include "overmap_ui.h"
+#include "overmapbuffer.h"
+#include "panels.h"
+#include "path_info.h"
+#include "pathfinding.h"
+#include "pickup.h"
+#include "player.h"
+#include "player_activity.h"
+#include "point_float.h"
+#include "popup.h"
+#include "profession.h"
+#include "profile.h"
+#include "ranged.h"
+#include "recipe.h"
+#include "recipe_dictionary.h"
+#include "ret_val.h"
+#include "rng.h"
+#include "rot.h"
+#include "safemode_ui.h"
+#include "salvage.h"
+#include "scenario.h"
+#include "scent_map.h"
+#include "scores_ui.h"
+#include "sdltiles.h"
+#include "sounds.h"
+#include "start_location.h"
+#include "stats_tracker.h"
+#include "string_formatter.h"
+#include "string_id.h"
+#include "string_input_popup.h"
+#include "thread_pool.h"
+#include "tileray.h"
+#include "timed_event.h"
+#include "translations.h"
+#include "trap.h"
+#include "travel/travel_destination.h"
+#include "type_id.h"
+#include "ui.h"
+#include "ui_manager.h"
+#include "uistate.h"
+#include "units.h"
+#include "units_utility.h"
+#include "utils/pit_trap_helpers.h"
+#include "value_ptr.h"
+#include "vehicle/veh_interact.h"
+#include "vehicle/veh_type.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_grab.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vpart_position.h"
+#include "vehicle/vpart_range.h"
+#include "wcwidth.h"
+#include "weather/weather.h"
+#include "world.h"
+#include "world_type.h"
+#include "worldfactory.h"
+
 #include <algorithm>
 #include <bitset>
 #include <cassert>
@@ -32,189 +215,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-
-#include "achievement.h"
-#include "action.h"
-#include "action_time_scale.h"
-#include "activity_time_cadence.h"
-#include "activity_actor.h"
-#include "activity_actor_definitions.h"
-#include "activity_handlers.h"
-#include "activity_type.h"
-#include "armor_layers.h"
-#include "artifact.h"
-#include "auto_note.h"
-#include "auto_pickup.h"
-#include "avatar.h"
-#include "avatar_action.h"
-#include "avatar_functions.h"
-#include "batch_turns.h"
-#include "bionics.h"
-#include "bodypart.h"
-#include "calendar.h"
-#include "catalua_bindings_coords_common.h"
-#include "cata_cartesian_product.h"
-#include "cata_utility.h"
-#include "catalua_hooks.h"
-#include "catalua_sol.h"
-#include "cached_options.h"
-#include "catacharset.h"
-#include "character.h"
-#include "character_display.h"
-#include "character_functions.h"
-#include "character_martial_arts.h"
-#include "character_turn.h"
-#include "clzones.h"
-#include "color.h"
-#include "computer_session.h"
-#include "construction.h"
-#include "construction_group.h"
-#include "coordinates.h"
-#include "crafting.h"
-#include "creature_throw.h"
-#include "creature_tracker.h"
-#include "monster_hallucination.h"
-#include "monster.h"
-#include "monster_action.h"
-#include "monster_plan.h"
-#include "thread_pool.h"
-#include "cursesport.h"
-#include "damage.h"
-#include "debug.h"
-#include "dependency_tree.h"
-#include "diary.h"
-#include "distraction_manager.h"
-#include "active_tile_data_def.h"
-#include "distribution_grid.h"
-#include "drop_token.h"
-#include "fluid_grid.h"
-#include "editmap.h"
-#include "enchantments/enchantment_vision.h"
-#include "enums.h"
-#include "event.h"
-#include "event_bus.h"
-#include "explosion_queue.h"
-#include "faction.h"
-#include "field.h"
-#include "field_type.h"
-#include "filesystem.h"
-#include "flag_trait.h"
-#include "flag.h"
-#include "fstream_utils.h"
-#include "game_constants.h"
-#include "game_inventory.h"
-#include "game_ui.h"
-#include "gamemode.h"
-#include "gates.h"
-#include "harvest.h"
-#include "help.h"
-#include "iexamine.h"
-#include "init.h"
-#include "input.h"
-#include "int_id.h"
-#include "inventory.h"
-#include "item.h"
-#include "item_category.h"
-#include "item_contents.h"
-#include "item_functions.h"
-#include "item_stack.h"
-#include "itype.h"
-#include "iuse.h"
-#include "iuse_actor.h"
-#include "json.h"
-#include "kill_tracker.h"
-#include "lightmap.h"
-#include "line.h"
-#include "live_view.h"
-#include "loading_ui.h"
-#include "locations.h"
-#include "npc.h"
-#include "magic/magic.h"
-#include "map.h"
-#include "map/utils/map_functions.h"
-#include "map_item_stack.h"
-#include "map_iterator.h"
-#include "map_selector.h"
-#include "mapbuffer.h"
-#include "mapbuffer_registry.h"
-#include "mapdata.h"
-#include "mapsharing.h"
-#include "memorial_logger.h"
-#include "memory_fast.h"
-#include "messages.h"
-#include "mission.h"
-#include "mod_manager.h"
-#include "monattack.h"
-#include "monexamine.h"
-#include "monfaction.h"
-#include "monstergenerator.h"
-#include "morale_types.h"
-#include "mtype.h"
-#include "mutation.h"
-#include "npc_class.h"
-#include "omdata.h"
-#include "options.h"
-#include "output.h"
-#include "overmap.h"
-#include "overmap_ui.h"
-#include "overmapbuffer.h"
-#include "panels.h"
-#include "path_info.h"
-#include "pathfinding.h"
-#include "pickup.h"
-#include "utils/pit_trap_helpers.h"
-#include "player.h"
-#include "player_activity.h"
-#include "point_float.h"
-#include "popup.h"
-#include "profession.h"
-#include "profile.h"
-#include "ranged.h"
-#include "recipe.h"
-#include "recipe_dictionary.h"
-#include "ret_val.h"
-#include "rng.h"
-#include "rot.h"
-#include "safemode_ui.h"
-#include "salvage.h"
-#include "scenario.h"
-#include "scent_map.h"
-#include "scores_ui.h"
-#include "sdltiles.h"
-#include "sounds.h"
-#include "start_location.h"
-#include "stats_tracker.h"
-#include "string_formatter.h"
-#include "string_id.h"
-#include "string_input_popup.h"
-#include "fire_spread_loader.h"
-#include "submap.h"
-#include "submap_fields.h"
-#include "type_id.h"
-#include "tileray.h"
-#include "timed_event.h"
-#include "translations.h"
-#include "travel/travel_destination.h"
-#include "trap.h"
-#include "ui.h"
-#include "ui_manager.h"
-#include "uistate.h"
-#include "units.h"
-#include "units_utility.h"
-#include "value_ptr.h"
-#include "veh_interact.h"
-#include "veh_type.h"
-#include "vehicle.h"
-#include "vehicle_grab.h"
-#include "vehicle_part.h"
-#include "vpart_position.h"
-#include "vpart_range.h"
-#include "wcwidth.h"
-#include "weather.h"
-#include "world_type.h"
-#include "worldfactory.h"
-#include "location_vector.h"
-#include "monfaction.h"
 class computer;
 
 #if defined(TILES)
@@ -317,6 +317,10 @@ auto fling_bash_damage( const Creature &c, const float flvel ) -> int
 
 static const activity_id ACT_OPERATION( "ACT_OPERATION" );
 static const activity_id ACT_AUTODRIVE( "ACT_AUTODRIVE" );
+static const activity_id ACT_CRAFT( "ACT_CRAFT" );
+static const activity_id ACT_VEHICLE_DECONSTRUCTION( "ACT_VEHICLE_DECONSTRUCTION" );
+static const activity_id ACT_VEHICLE_REPAIR( "ACT_VEHICLE_REPAIR" );
+
 
 static const skill_id skill_melee( "melee" );
 static const skill_id skill_dodge( "dodge" );
@@ -982,6 +986,12 @@ bool game::start_game()
                    _( "Try again?\n\nIt may require several attempts until the game finds a valid starting location." ) );
     };
 
+    //Reset character safe mode/pickup rules
+    get_auto_pickup().clear_character_rules();
+    get_safemode().clear_character_rules();
+    get_auto_notes_settings().clear();
+    get_auto_notes_settings().default_initialize();
+
     do {
         omtstart = start_loc.find_player_initial_location();
         if( omtstart == overmap::invalid_tripoint ) {
@@ -1055,12 +1065,6 @@ bool game::start_game()
     u.next_climate_control_check = calendar::before_time_starts; // Force recheck at startup
     u.last_climate_control_ret = false;
 
-    //Reset character safe mode/pickup rules
-    get_auto_pickup().clear_character_rules();
-    get_safemode().clear_character_rules();
-    get_auto_notes_settings().clear();
-    get_auto_notes_settings().default_initialize();
-
     //Put some NPCs in there!
     if( get_option<std::string>( "STARTING_NPC" ) == "always" ||
         ( get_option<std::string>( "STARTING_NPC" ) == "scenario" &&
@@ -1084,7 +1088,6 @@ bool game::start_game()
             tmp->mission = NPC_MISSION_NULL;
             tmp->set_attitude( NPCATT_FOLLOW );
             add_npc_follower( tmp->getID() );
-            std::unique_lock lock( cata::lua_lock );
             cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
                 params["creature"] = tmp.get();
             } );
@@ -1214,7 +1217,6 @@ bool game::start_game()
         }
     }
 
-    std::unique_lock lock( cata::lua_lock );
     cata::run_hooks( "on_game_started" );
     return true;
 }
@@ -1510,15 +1512,12 @@ void game::create_starting_npcs()
     //One random starting NPC mission
     tmp->add_new_mission( mission::reserve_random( ORIGIN_OPENER_NPC, tmp->abs_omt_pos(),
                           tmp->getID() ) );
-    {
-        std::unique_lock lock( cata::lua_lock );
-        cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
-            params["creature"] = tmp.get();
-        } );
-        cata::run_hooks( "on_npc_spawn", [&]( sol::table & params ) {
-            params["npc"] = tmp.get();
-        } );
-    }
+    cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
+        params["creature"] = tmp.get();
+    } );
+    cata::run_hooks( "on_npc_spawn", [&]( sol::table & params ) {
+        params["npc"] = tmp.get();
+    } );
 }
 
 static std::string generate_memorial_filename( const std::string &char_name )
@@ -1851,6 +1850,10 @@ bool game::cleanup_at_end()
 
     avatar &player_character = get_avatar();
     player_character = avatar();
+
+    // Unload active NPCs before cleaning up safe_reference records.
+    // Without this, cleanup_references() would find live mem_count entries.
+    unload_npcs();
 
     cleanup_references();
     cleanup_arenas();
@@ -2357,7 +2360,7 @@ bool game::do_turn()
 
     {
         ZoneScopedN( "do_turn_lua_every_x" );
-        cata::run_on_every_x_hooks();
+        cata::run_on_every_x_hooks( *DynamicDataLoader::get_instance().lua );
     }
 
     {
@@ -2674,13 +2677,25 @@ auto game::can_activity_fixed_window_skip( const time_duration &duration ) -> bo
             }
             return false;
         }
-        if( u.activity->id() == ACT_AUTODRIVE || !u.activity->rooted() ||
-            !u.activity->has_idle_bubble_effect() || u.activity->has_special_turns() ||
-            !u.activity->assistants().empty() ) {
-            if( log_activity_skip_state ) {
-                add_msg( "The activity does not support skip state, or you have assistants" );
-            }
+        const auto act_id = u.activity->id();
+        // It should be given autodrive does not
+        if( act_id == ACT_AUTODRIVE ) {
             return false;
+        }
+        // Craft has special turns but is safe.
+        if( act_id != ACT_CRAFT && act_id != ACT_VEHICLE_DECONSTRUCTION &&
+            act_id != ACT_VEHICLE_REPAIR ) {
+            if( !u.activity->has_idle_bubble_effect() || u.activity->has_special_turns() ) {
+                if( log_activity_skip_state ) {
+                    add_msg( "Activity cannot be time skipped" );
+                }
+                return false;
+            }
+            if( !u.activity->assistants().empty() ) {
+                if( log_activity_skip_state ) {
+                    add_msg( "Assistants prevent time skip" );
+                }
+            }
         }
     }
     if( u.in_vehicle && u.controlling_vehicle ) {
@@ -2860,7 +2875,7 @@ auto game::execute_activity_fixed_window_skip( const time_duration &duration ) -
         }
         {
             ZoneScopedN( "do_turn_lua_every_x" );
-            cata::run_on_every_x_hooks();
+            cata::run_on_every_x_hooks( *DynamicDataLoader::get_instance().lua );
         }
         explosion_handler::get_explosion_queue().execute();
         cleanup_dead();
@@ -2907,7 +2922,7 @@ auto game::run_activity_skip_batch_turns( const int skipped_turns ) -> void
     }
 
     {
-        u.update_body( action_time_scale::calendar_duration_this_tick() * skipped_turns );
+        u.update_body( time_duration::from_turns( skipped_turns ) );
     }
 
     {
@@ -4130,11 +4145,6 @@ bool game::load( const save_t &name )
     validate_npc_followers();
     validate_mounted_npcs();
     validate_linked_vehicles();
-    // Re-read the bubble-size option for the submap-loader request.
-    // Do NOT call m.resize() here — the grid is already filled by unserialize().
-    // setup() already called init_bubble_config() + m.resize().
-    init_bubble_config();
-    reality_bubble_radius_ = g_half_mapsize;
     // Old saves can have duplicate authority for in-bubble monsters: one copy in
     // active_monsters and another in overmap monster_map.  Purge the stale overmap
     // buckets before update_map() gets a chance to spawn newly-entered submaps.
@@ -4175,6 +4185,8 @@ bool game::load( const save_t &name )
     u.activity->init_all_moves( u );
 
     cata::load_world_lua_state( get_active_world(), "lua_state.json" );
+
+    cata::run_on_game_load_hooks( *DynamicDataLoader::get_instance().lua );
 
     // Build caches once so any immediate post-load draws don't use uninitialized lighting/visibility,
     // then re-invalidate so the first real in-game draw rebuilds everything again.
@@ -4331,6 +4343,7 @@ bool game::save( bool quitting )
 
     world->start_save_tx();
 
+    cata::run_on_game_save_hooks( *DynamicDataLoader::get_instance().lua );
     try {
         reset_save_ids( time( nullptr ), quitting );
         if( !save_factions_missions_npcs() ||
@@ -6581,13 +6594,11 @@ void game::monmove( const monster_activity_ai_mode mode, activity_monmove_cache 
             if( has_creature_do_turn_hooks || has_monster_do_turn_hooks ) {
                 ZoneScopedN( "monmove_turn_hooks" );
                 if( has_creature_do_turn_hooks ) {
-                    std::unique_lock lock( cata::lua_lock );
                     cata::run_hooks( "on_creature_do_turn", [&critter]( sol::table & params ) {
                         params["creature"] = static_cast<Creature *>( &critter );
                     } );
                 }
                 if( has_monster_do_turn_hooks ) {
-                    std::unique_lock lock( cata::lua_lock );
                     cata::run_hooks( "on_monster_do_turn", [&critter]( sol::table & params ) {
                         params["monster"] = &critter;
                     } );
@@ -6734,13 +6745,11 @@ void game::npcmove()
         if( has_creature_do_turn_hooks || has_npc_do_turn_hooks ) {
             ZoneScopedN( "npc_turn_hooks" );
             if( has_creature_do_turn_hooks ) {
-                std::unique_lock lock( cata::lua_lock );
                 cata::run_hooks( "on_creature_do_turn", [&guy]( sol::table & params ) {
                     params["creature"] = static_cast<Creature *>( &guy );
                 } );
             }
             if( has_npc_do_turn_hooks ) {
-                std::unique_lock lock( cata::lua_lock );
                 cata::run_hooks( "on_npc_do_turn", [&guy]( sol::table & params ) {
                     params["npc"] = &guy;
                 } );
@@ -7410,15 +7419,12 @@ monster *game::place_critter_around( const mtype_id &id, const tripoint_bub_ms &
         return nullptr;
     }
     const auto temp = make_shared_fast<monster>( id );
-    {
-        std::unique_lock lock( cata::lua_lock );
-        cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
-            params["creature"] = temp.get();
-        } );
-        cata::run_hooks( "on_monster_spawn", [&]( sol::table & params ) {
-            params["monster"] = temp.get();
-        } );
-    }
+    cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
+        params["creature"] = temp.get();
+    } );
+    cata::run_hooks( "on_monster_spawn", [&]( sol::table & params ) {
+        params["monster"] = temp.get();
+    } );
     return place_critter_around( temp, center, radius );
 }
 
@@ -7458,15 +7464,12 @@ monster *game::place_critter_within( const mtype_id &id,
         return nullptr;
     }
     const auto temp = make_shared_fast<monster>( id );
-    {
-        std::unique_lock lock( cata::lua_lock );
-        cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
-            params["creature"] = temp.get();
-        } );
-        cata::run_hooks( "on_monster_spawn", [&]( sol::table & params ) {
-            params["monster"] = temp.get();
-        } );
-    }
+    cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
+        params["creature"] = temp.get();
+    } );
+    cata::run_hooks( "on_monster_spawn", [&]( sol::table & params ) {
+        params["monster"] = temp.get();
+    } );
     return place_critter_within( temp, range );
 }
 
@@ -7529,15 +7532,12 @@ bool game::spawn_hallucination( const tripoint_bub_ms &p )
         tmp->randomize( NC_HALLU );
         const auto proj = project_remain<coords::sm>( bub_to_abs( p ) );
         tmp->spawn_at_precise( proj.quotient, proj.remainder_tripoint );
-        {
-            std::unique_lock lock( cata::lua_lock );
-            cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
-                params["creature"] = tmp.get();
-            } );
-            cata::run_hooks( "on_npc_spawn", [&]( sol::table & params ) {
-                params["npc"] = tmp.get();
-            } );
-        }
+        cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
+            params["creature"] = tmp.get();
+        } );
+        cata::run_hooks( "on_npc_spawn", [&]( sol::table & params ) {
+            params["npc"] = tmp.get();
+        } );
         if( !critter_at( p, true ) ) {
             get_overmapbuffer( current_dimension_id_ ).insert_npc( tmp );
             load_npcs();
@@ -7701,15 +7701,12 @@ bool game::revive_corpse( const tripoint_bub_ms &p, item &it )
         }
     }
 
-    {
-        std::unique_lock lock( cata::lua_lock );
-        cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
-            params["creature"] = &critter;
-        } );
-        cata::run_hooks( "on_monster_spawn", [&]( sol::table & params ) {
-            params["monster"] = &critter;
-        } );
-    }
+    cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
+        params["creature"] = &critter;
+    } );
+    cata::run_hooks( "on_monster_spawn", [&]( sol::table & params ) {
+        params["monster"] = &critter;
+    } );
     return place_critter_at( newmon_ptr, p );
 }
 
@@ -7779,15 +7776,12 @@ void game::save_cyborg( item *cyborg, const tripoint_bub_ms &couch_pos, Characte
         get_overmapbuffer( current_dimension_id_ ).insert_npc( tmp );
         tmp->hurtall( dmg_lvl * 10, nullptr );
         tmp->add_effect( effect_downed, rng( 1_turns, 4_turns ), bodypart_str_id::NULL_ID(), 0, true );
-        {
-            std::unique_lock lock( cata::lua_lock );
-            cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
-                params["creature"] = tmp.get();
-            } );
-            cata::run_hooks( "on_npc_spawn", [&]( sol::table & params ) {
-                params["npc"] = tmp.get();
-            } );
-        }
+        cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
+            params["creature"] = tmp.get();
+        } );
+        cata::run_hooks( "on_npc_spawn", [&]( sol::table & params ) {
+            params["npc"] = tmp.get();
+        } );
         load_npcs();
 
     } else {
@@ -8116,15 +8110,11 @@ void game::control_vehicle()
 bool game::npc_menu( npc &who, const bool &force )
 {
     if( !force ) {
-        std::unique_lock lock( cata::lua_lock );
         const auto allowed = cata::run_hooks( "on_try_npc_interaction",
         [&]( auto & params ) { params["npc"] = &who; }, { .exit_early = true } ).get_or( "allowed", true );
         if( !allowed ) { return false; }
     }
-    {
-        std::unique_lock lock( cata::lua_lock );
-        cata::run_hooks( "on_npc_interaction", [&]( auto & params ) { params["npc"] = &who; } );
-    }
+    cata::run_hooks( "on_npc_interaction", [&]( auto & params ) { params["npc"] = &who; } );
     enum choices : int {
         talk = 0,
         swap_pos,
@@ -8672,7 +8662,6 @@ void game::examine( const tripoint_bub_ms &examp )
                 add_msg( _( "There is a %s." ), mon->get_name() );
             }
 
-            std::unique_lock lock( cata::lua_lock );
             const auto allowed = cata::run_hooks( "on_try_monster_interaction", [&]( auto & params ) { params["monster"] = mon; },
             { .exit_early = true } ).get_or( "allowed", true );
             if( allowed ) {
@@ -11990,12 +11979,14 @@ static void butcher_submenu( const std::vector<item *> &corpses, int corpse = -1
     avatar &you = get_avatar();
     const inventory &inv = you.crafting_inventory();
 
-    const int factor = inv.max_quality( quality_id( "BUTCHER" ) );
+    const int factor = std::max( you.max_quality( quality_id( "BUTCHER" ) ),
+                                 inv.max_quality( quality_id( "BUTCHER" ) ) );
     const std::string msg_inv = factor > INT_MIN
                                 ? string_format( _( "Your best tool has <color_cyan>%d butchering</color>." ), factor )
                                 :  _( "You have no butchering tool." );
 
-    const int factor_diss = inv.max_quality( quality_id( "CUT_FINE" ) );
+    const int factor_diss = std::max( you.max_quality( quality_id( "CUT_FINE" ) ),
+                                      inv.max_quality( quality_id( "CUT_FINE" ) ) );
     const std::string msg_inv_diss = factor_diss > INT_MIN
                                      ? string_format( _( "Your best tool has <color_cyan>%d fine cutting</color>." ), factor_diss )
                                      :  _( "You have no fine cutting tool." );
@@ -12749,7 +12740,6 @@ bool game::walk_move( const tripoint_abs_ms &dest_loc, const bool via_ramp )
     u.set_underwater( false );
 
     {
-        std::unique_lock lock( cata::lua_lock );
         ZoneScopedN( "walk_move_try_move_hooks" );
         const auto hook_results = cata::run_hooks(
                                       "on_player_try_move",
@@ -12945,8 +12935,19 @@ bool game::walk_move( const tripoint_abs_ms &dest_loc, const bool via_ramp )
     }
     if( !u.has_artifact_with( AEP_STEALTH ) &&
         !u.has_enchantment_flag( enchantment_flag_id( "SILENT" ) ) ) {
-        int volume = u.is_stealthy() ? 30 : 50;
-        volume *= u.mutation_value( "noise_modifier" );
+        int volume = u.is_stealthy() ? 40 : 60;
+        // Used to be a multiplier on tile distance, this approximates that
+        double noisemod = u.mutation_value( "noise_modifier" );
+        if( noisemod < 1 ) {
+            // Just in case someone goes below 0...
+            if( noisemod == 0 ) {
+                volume = 0;
+            } else if( noisemod > 0 ) {
+                volume -= ( 3.0 / noisemod );
+            }
+        } else {
+            volume += ( ( noisemod - 1 ) * 6.0 );
+        }
         volume += u.bonus_from_enchantments( volume, enchantment_value_id( "NOISE" ) );
         if( volume > 0 ) {
             if( u.movement_mode_is( CMM_RUN ) ) {
@@ -13889,6 +13890,7 @@ void game::resize_reality_bubble_to( int new_size )
     // Compute the new top-left abs_sub so load_map centers on the player.
     const auto new_abs_sub = player_abs_sm.xy() +
                              point_rel_sm( -g_half_mapsize, -g_half_mapsize );
+    sounds::shift_sound_positions( project_to<coords::ms>( m.get_abs_sub() - new_abs_sub ) );
 
     // Reload the map around the player; this fills the submap cache, recreates load requests,
     // rebuilds distribution_grid_tracker and fluid_grid.
@@ -14603,13 +14605,25 @@ void game::vertical_move( int movez, bool force, bool peeking )
             }
         }
     } else {
-        u.moves -= move_cost;
         // Risk of failing, simple stuff like ladders are exempt
         if( climbing && movez == 1 && here.climb_difficulty( u.abs_pos() ) > 1 ) {
+            // Only check for and burn stamina on climbing that has a failure risk.
+            if( u.get_stamina() < move_cost * 3 ) {
+                add_msg( m_bad, _( "You are too exhausted to climb." ) );
+                return;
+            }
             if( g->slip_down() ) {
                 return;
             }
+            if( g->slip_down() ) {
+                move_cost = std::max( 100, rng( 1, move_cost ) );
+                u.moves -= move_cost;
+                u.mod_stamina( -move_cost * 3 );
+                return;
+            }
+            u.mod_stamina( -move_cost * 3 );
         }
+        u.moves -= move_cost;
     }
     for( const auto &np : npcs_to_bring ) {
         if( np->in_vehicle ) {
@@ -14793,6 +14807,10 @@ auto game::travel_to_dimension( const dimension_id &dim_id,
                                 const std::optional<tripoint_abs_sm> &load_pos,
                                 const std::function<void()> &pre_load_callback ) -> bool
 {
+    if( get_active_world()->info->world_save_format == save_format::V1 ) {
+        popup( "Dimensions are currently disfunctional in v1 saves. Please migrate this save to v2 or dont use the feature." );
+        return true;
+    }
     // Flush any items pending deferred deletion before switching dimensions.
     // Without this, zombie item pointers in cata_arena can persist across the
     // dimension transition and cause use-after-free crashes when the new
@@ -15773,15 +15791,12 @@ void game::perhaps_add_random_npc()
     tmp->add_new_mission( mission::reserve_random( ORIGIN_ANY_NPC, tmp->abs_omt_pos(),
                           tmp->getID() ) );
     dbg( DL::Debug ) << "Spawning a random NPC at " << spawn_point;
-    {
-        std::unique_lock lock( cata::lua_lock );
-        cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
-            params["creature"] = tmp.get();
-        } );
-        cata::run_hooks( "on_npc_spawn", [&]( sol::table & params ) {
-            params["npc"] = tmp.get();
-        } );
-    }
+    cata::run_hooks( "on_creature_spawn", [&]( sol::table & params ) {
+        params["creature"] = tmp.get();
+    } );
+    cata::run_hooks( "on_npc_spawn", [&]( sol::table & params ) {
+        params["npc"] = tmp.get();
+    } );
     // This will make the new NPC active- if its nearby to the player
     load_npcs();
 }

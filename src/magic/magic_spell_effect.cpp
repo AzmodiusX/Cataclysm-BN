@@ -12,8 +12,6 @@
 #include "debug.h"
 #include "enums.h"
 #include "explosion.h"
-#include "field.h"
-#include "field_type.h"
 #include "game.h"
 #include "handle_liquid.h"
 #include "item.h"
@@ -22,8 +20,15 @@
 #include "magic_spell_effect_helpers.h"
 #include "magic_teleporter_list.h"
 #include "magic_ter_furn_transform.h"
-#include "map.h"
-#include "map_iterator.h"
+#include "map/map.h"
+#include "magic/magic.h"
+#include "magic/magic_spell_effect_helpers.h"
+#include "magic/magic_teleporter_list.h"
+#include "magic/magic_ter_furn_transform.h"
+#include "map/field.h"
+#include "map/field_type.h"
+#include "map/map.h"
+#include "map/map_iterator.h"
 #include "messages.h"
 #include "monster.h"
 #include "mutation.h"
@@ -38,9 +43,9 @@
 #include "translations.h"
 #include "type_id.h"
 #include "units.h"
-#include "vehicle.h"
-#include "vehicle_part.h"
-#include "vpart_position.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vpart_position.h"
 
 #include <algorithm>
 #include <array>
@@ -74,7 +79,7 @@ struct line_iterable {
           delta(delta),
           index(0) {}
 
-    point get() const { return cur_origin + delta_line[index]; }
+    auto get() const -> point { return cur_origin + delta_line[index]; }
     // Move forward along point set, wrap around and move origin forward if necessary
     void next() {
         index = (index + 1) % delta_line.size();
@@ -91,12 +96,12 @@ struct line_iterable {
     }
 };
 // Orientation of point C relative to line AB
-static int side_of(point a, point b, point c) {
+static auto side_of(point a, point b, point c) -> int {
     int cross = ((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
     return (cross > 0) - (cross < 0);
 }
 // Tests if point c is between or on lines (a0, a0 + d) and (a1, a1 + d)
-static bool between_or_on(point a0, point a1, point d, point c) {
+static auto between_or_on(point a0, point a1, point d, point c) -> bool {
     return side_of(a0, a0 + d, c) != 1 && side_of(a1, a1 + d, c) != -1;
 }
 // Builds line until obstructed or outside of region bound by near and far lines. Stores result in
@@ -107,8 +112,10 @@ static void build_line(
     std::set<tripoint_abs_ms>& result) {
     auto last_point = source;
     while (between_or_on(point_zero, delta, delta_perp, line.get())) {
-        if (!test(source + line.get(), last_point)) { break; }
+        // Ordered intentionally so that the first point to fail the test is still included
+        // in the affected area (i.e. it hits the wall)
         result.emplace(source + line.get());
+        if (!test(source + line.get(), last_point)) { break; }
         last_point = source + line.get();
         line.next();
     }
@@ -160,7 +167,9 @@ static bool in_spell_aoe(
     for (const tripoint_abs_ms& pt : trajectory) {
         if ((!here.passable(pt) && !here.has_flag("THIN_OBSTACLE", pt))
             || here.obstructed_by_vehicle_rotation(pt, last_point)) {
-            return false;
+            // We desire the spell to *hit* the wall, not stop short of it.
+            // If the obstruction is the end of the line, then we still consider it in the AOE
+            return pt == end;
         }
         last_point = pt;
     }
@@ -205,6 +214,9 @@ static std::set<tripoint_abs_ms> spell_effect_cone_range_override(
                     && (here.passable(tp) || here.has_flag("THIN_OBSTACLE", tp)))) {
                 targets.emplace(tp);
             } else {
+                // We want it to hit the wall, not stop short, so we still include this point
+                // but not any further
+                targets.emplace(tp);
                 break;
             }
             last_point = tp;
@@ -510,25 +522,31 @@ void spell_effect::projectile_attack(
 
 void spell_effect::target_attack(
     const spell& sp, Creature& caster, const tripoint_abs_ms& epicenter) {
-    damage_targets(
-        sp, caster,
-        spell_effect_area(
-            sp, epicenter, spell_effect_blast, caster, sp.has_flag(spell_flag::IGNORE_WALLS)));
+    const auto targets = spell_effect_area(
+        sp, epicenter, spell_effect_blast, caster, sp.has_flag(spell_flag::IGNORE_WALLS));
+    damage_targets( sp, caster, targets );
+    if( sp.has_flag( spell_flag::DAMAGE_TERRAIN ) ) {
+        bash_area( sp, caster, targets );
+    }
     if (sp.has_flag(spell_flag::SWAP_POS)) { swap_pos(caster, epicenter); }
 }
 
 void spell_effect::cone_attack(const spell& sp, Creature& caster, const tripoint_abs_ms& target) {
-    damage_targets(
-        sp, caster,
-        spell_effect_area(
-            sp, target, spell_effect_cone, caster, sp.has_flag(spell_flag::IGNORE_WALLS)));
+    const auto affected = spell_effect_area(
+        sp, target, spell_effect_cone, caster, sp.has_flag(spell_flag::IGNORE_WALLS));
+    damage_targets( sp, caster, affected );
+    if( sp.has_flag( spell_flag::DAMAGE_TERRAIN ) ) {
+        bash_area( sp, caster, affected );
+    }
 }
 
 void spell_effect::line_attack(const spell& sp, Creature& caster, const tripoint_abs_ms& target) {
-    damage_targets(
-        sp, caster,
-        spell_effect_area(
-            sp, target, spell_effect_line, caster, sp.has_flag(spell_flag::IGNORE_WALLS)));
+    const auto affected = spell_effect_area(
+        sp, target, spell_effect_line, caster, sp.has_flag(spell_flag::IGNORE_WALLS));
+    damage_targets( sp, caster, affected );
+    if( sp.has_flag( spell_flag::DAMAGE_TERRAIN ) ) {
+        bash_area( sp, caster, affected );
+    }
 }
 
 area_expander::area_expander(): frontier(area_node_comparator(area)) {}
@@ -885,7 +903,7 @@ void spell_effect::timed_event(const spell& sp, Creature& caster, const tripoint
     g->timed_events.add(spell_event, calendar::turn + sp.duration_turns());
 }
 
-static bool is_summon_friendly(const spell& sp) {
+static auto is_summon_friendly(const spell& sp) -> bool {
     const bool hostile = sp.has_flag(spell_flag::HOSTILE_SUMMON);
     bool friendly = !hostile;
     if (sp.has_flag(spell_flag::HOSTILE_50)) { friendly = friendly && rng(0, 1000) < 500; }
@@ -1141,6 +1159,17 @@ void spell_effect::bash(const spell& sp, Creature& caster, const tripoint_abs_ms
         get_map()
             .get_mapbuffer()
             .bash(potential_target, sp.damage(), sp.has_flag(spell_flag::SILENT));
+    }
+}
+
+void spell_effect::bash_area(
+    const spell& sp, Creature& caster, const std::set<tripoint_abs_ms> area) {
+    for (const tripoint_abs_ms& potential_target : area) {
+        if (!sp.is_valid_target(caster, potential_target)) { continue; }
+        // the bash already makes noise, so no need for spell::make_sound()
+        get_map().get_mapbuffer().bash(
+            potential_target, sp.terrain_damage(sp.damage()),
+            sp.has_flag(spell_flag::SILENT));
     }
 }
 

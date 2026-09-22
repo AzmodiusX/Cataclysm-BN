@@ -4,8 +4,8 @@
 
 #    include "coordinates.h"
 #    include "game.h"
-#    include "map.h"
-#    include "mapbuffer.h"
+#    include "map/map.h"
+#    include "map/mapbuffer.h"
 #    include "options.h"
 
 #    include <unordered_set>

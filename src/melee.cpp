@@ -1,31 +1,16 @@
 #include "melee.h"
 
-#include <algorithm>
-#include <numeric>
-#include <array>
-#include <climits>
-#include <cmath>
-#include <cstdlib>
-#include <limits>
-#include <map>
-#include <optional>
-#include <set>
-#include <string>
-#include <utility>
-#include <vector>
-
-#include "avatar_action.h"
 #include "avatar.h"
+#include "avatar_action.h"
 #include "avatar_functions.h"
-#include "bodypart.h"
 #include "bionics.h"
+#include "bodypart.h"
 #include "cached_options.h"
 #include "calendar.h"
-#include "catalua.h"
+#include "cata_utility.h"
 #include "catalua_hooks.h"
 #include "catalua_icallback_actor.h"
 #include "catalua_sol.h"
-#include "cata_utility.h"
 #include "character.h"
 #include "character_functions.h"
 #include "character_martial_arts.h"
@@ -45,9 +30,9 @@
 #include "iuse.h"
 #include "iuse_actor.h"
 #include "line.h"
-#include "map.h"
-#include "map_iterator.h"
-#include "mapdata.h"
+#include "map/map.h"
+#include "map/mapdata.h"
+#include "map/map_iterator.h"
 #include "martialarts.h"
 #include "messages.h"
 #include "monattack.h"
@@ -64,18 +49,32 @@
 #include "ranged.h"
 #include "rng.h"
 #include "skill.h"
-#include "ui.h"
-#include "ui_manager.h"
 #include "sounds.h"
 #include "string_formatter.h"
 #include "string_id.h"
 #include "string_utils.h"
 #include "translations.h"
 #include "type_id.h"
+#include "ui.h"
+#include "ui_manager.h"
 #include "units.h"
-#include "vehicle.h"
-#include "vehicle_part.h"
-#include "vpart_position.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vpart_position.h"
+
+#include <algorithm>
+#include <array>
+#include <climits>
+#include <cmath>
+#include <cstdlib>
+#include <limits>
+#include <map>
+#include <numeric>
+#include <optional>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
 
 static const bionic_id bio_cqb( "bio_cqb" );
 static const bionic_id bio_memory( "bio_memory" );
@@ -1780,7 +1779,6 @@ void Character::melee_attack( Creature &t, bool allow_special, const matec_id *f
         t.as_character()->on_hit( this, bodypart_str_id::NULL_ID().id(), &dp );
     }
 
-    std::unique_lock lock( cata::lua_lock );
     cata::run_hooks( "on_creature_melee_attacked", [ &, this]( auto & params ) {
         params["char"] = this;
         params["target"] = &t;
@@ -2796,7 +2794,6 @@ void Character::perform_technique( const ma_technique &technique, Creature &t, d
         }
     }
 
-    std::unique_lock lock( cata::lua_lock );
     cata::run_hooks( "on_creature_performed_technique", [ &, this]( auto & params ) {
         params["char"] = this;
         params["technique"] = &technique;
@@ -3095,7 +3092,6 @@ bool Character::block_hit( Creature *source, bodypart_id &bp_hit, damage_instanc
                                   static_cast<int>( damage_blocked ) );
     }
 
-    std::unique_lock lock( cata::lua_lock );
     cata::run_hooks( "on_creature_blocked", [ &, this]( auto & params ) {
         params["char"] = this;
         params["source"] = source;

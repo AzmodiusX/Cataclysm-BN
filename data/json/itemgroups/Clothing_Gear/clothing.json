@@ -23,7 +23,10 @@
     "entries": [
       {
         "distribution": [
-          { "distribution": [ { "item": "sunglasses", "prob": 80 }, { "item": "fancy_sunglasses", "prob": 20 } ], "prob": 25 },
+          {
+            "distribution": [ { "item": "sunglasses", "prob": 60 }, { "item": "aviators", "prob": 20 }, { "item": "fancy_sunglasses", "prob": 20 } ],
+            "prob": 25
+          },
           {
             "collection": [
               {
@@ -405,7 +408,7 @@
           { "distribution": [ { "item": "briefs" }, { "item": "boxer_briefs" }, { "item": "boxer_shorts" } ] }
         ]
       },
-      { "distribution": [ { "item": "fancy_sunglasses", "prob": 95 }, { "item": "glasses_bal", "prob": 5 } ] },
+      { "distribution": [ { "item": "aviators", "prob": 95 }, { "item": "glasses_bal", "prob": 5 } ] },
       { "group": "clothing_watch", "prob": 85 },
       { "item": "army_powered_earmuffs", "prob": 25 },
       { "item": "goggles_ir", "prob": 10 }
@@ -1501,6 +1504,7 @@
       [ "thigh_high_boots", 20 ],
       [ "boots", 70 ],
       [ "flip_flops", 35 ],
+      [ "crocs", 35 ],
       [ "lowtops", 45 ],
       [ "dress_shoes", 50 ],
       [ "dance_shoes", 5 ],
@@ -1765,6 +1769,7 @@
       [ "thigh_high_boots", 40 ],
       [ "boots", 100 ],
       [ "flip_flops", 50 ],
+      [ "crocs", 50 ],
       [ "lowtops", 100 ],
       [ "dress_shoes", 50 ],
       [ "dance_shoes", 20 ],
@@ -2040,6 +2045,7 @@
       [ "goggles_swim", 90 ],
       [ "wetsuit_hood", 30 ],
       [ "fancy_sunglasses", 1 ],
+      [ "aviators", 1 ],
       [ "rebreather", 1 ],
       [ "fitover_sunglasses", 5 ],
       [ "sunglasses", 10 ]
@@ -2058,7 +2064,7 @@
   {
     "type": "item_group",
     "id": "swimmer_shoes",
-    "items": [ [ "flip_flops", 80 ], [ "swim_fins", 20 ] ]
+    "items": [ [ "flip_flops", 40 ], [ "crocs", 40 ], [ "swim_fins", 20 ] ]
   },
   {
     "type": "item_group",
@@ -3516,6 +3522,7 @@
       { "item": "bastsandals", "prob": 20 },
       { "item": "straw_sandals", "prob": 20 },
       { "item": "flip_flops", "prob": 40 },
+      { "item": "crocs", "prob": 40 },
       { "item": "leathersandals", "prob": 35 }
     ]
   },

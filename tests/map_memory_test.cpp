@@ -1,12 +1,13 @@
+#include "../src/map/map.h"
 #include "cata_dynamic_bitset.h"
 #include "catch/catch.hpp"
 #include "coordinates.h"
 #include "game_constants.h"
 #include "json.h"
 #include "lru_cache.h"
-#include "map.h"
+#include "map/map.h"
 #include "map_helpers.h"
-#include "map_memory.h"
+#include "map/map_memory.h"
 #include "string_formatter.h"
 
 #include <cstdio>

@@ -1,20 +1,4 @@
-#include "creature.h"
-#include "dialogue.h" // IWYU pragma: associated
-
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstddef>
-#include <iterator>
-#include <list>
-#include <map>
-#include <memory>
-#include <ostream>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
-#include <vector>
+#include "npctalk.h"
 
 #include "activity_actor_definitions.h"
 #include "activity_type.h"
@@ -22,10 +6,9 @@
 #include "avatar.h"
 #include "bodypart.h"
 #include "calendar.h"
-#include "catalua.h"
+#include "cata_utility.h"
 #include "catalua_hooks.h"
 #include "catalua_sol.h"
-#include "cata_utility.h"
 #include "character.h"
 #include "character_effects.h"
 #include "character_functions.h"
@@ -33,10 +16,12 @@
 #include "clzones.h"
 #include "color.h"
 #include "condition.h"
+#include "creature.h"
 #include "debug.h"
+#include "dialogue.h" // IWYU pragma: associated
 #include "enums.h"
-#include "flag.h"
 #include "faction.h"
+#include "flag.h"
 #include "game.h"
 #include "game_constants.h"
 #include "game_inventory.h"
@@ -48,19 +33,18 @@
 #include "itype.h"
 #include "json.h"
 #include "line.h"
-#include "make_static.h"
 #include "magic/magic.h"
-#include "map.h"
-#include "mapgen_functions.h"
+#include "make_static.h"
+#include "map/map.h"
+#include "mapgen/mapgen_functions.h"
 #include "martialarts.h"
-#include "messages.h"
 #include "message_types.h"
+#include "messages.h"
 #include "mission.h"
 #include "monster.h"
 #include "mtype.h"
 #include "npc.h"
 #include "npc_class.h"
-#include "npctalk.h"
 #include "npctrade.h"
 #include "options.h"
 #include "output.h"
@@ -85,11 +69,26 @@
 #include "units.h"
 #include "units_utility.h"
 #include "value_ptr.h"
-#include "veh_type.h"
-#include "vehicle.h"
-#include "vehicle_part.h"
-#include "vpart_position.h"
-#include "vpart_range.h"
+#include "vehicle/veh_type.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vpart_position.h"
+#include "vehicle/vpart_range.h"
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <iterator>
+#include <list>
+#include <map>
+#include <memory>
+#include <ostream>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 static const activity_id ACT_AIM( "ACT_AIM" );
 static const activity_id ACT_SOCIALIZE( "ACT_SOCIALIZE" );
@@ -911,7 +910,8 @@ void npc::handle_sound( const short heard_vol, sound_event sound )
     // Is the sound source a monster, and is said monster an ally of the hearing NPC?
 
     // Grab the attitude of our monster or set it to null if it the source is not a monster.
-    const monster_attitude mon_att = ( source_monster ) ? ( critter->as_monster()->attitude(
+    const monster *mon = critter->as_monster();
+    const monster_attitude mon_att = ( source_monster && mon ) ? ( mon->attitude(
                                          this->as_character() ) ) : MATT_NULL;
 
     // NPCs should generally ignore low priority sounds from non-hostile monsters such as dogs
@@ -1208,18 +1208,15 @@ void npc::talk_to_u( bool radio_contact, bool enforce_first_topic )
 
     decide_needs();
 
-    {
-        std::unique_lock lock( cata::lua_lock );
-        const auto hook_results = cata::run_hooks( "on_dialogue_start", [ &, this]( auto & params ) {
-            params["npc"] = this;
-            params["next_topic"] = d.topic_stack.back().id;
-        } );
-        for( const auto &result : hook_results ) {
-            if( !result.second.is<sol::table>() ) { continue; };
-            auto new_topic = result.second.as<sol::table>().get<std::string>( "result" );
-            if( !new_topic.empty() && new_topic != d.topic_stack.back().id ) {
-                d.add_topic( new_topic );
-            }
+    const auto hook_results = cata::run_hooks( "on_dialogue_start", [ &, this]( auto & params ) {
+        params["npc"] = this;
+        params["next_topic"] = d.topic_stack.back().id;
+    } );
+    for( const auto &result : hook_results ) {
+        if( !result.second.is<sol::table>() ) { continue; };
+        auto new_topic = result.second.as<sol::table>().get<std::string>( "result" );
+        if( !new_topic.empty() && new_topic != d.topic_stack.back().id ) {
+            d.add_topic( new_topic );
         }
     }
     if( enforce_first_topic ) { d.add_topic( chatbin.first_topic ); }
@@ -1243,20 +1240,17 @@ void npc::talk_to_u( bool radio_contact, bool enforce_first_topic )
         }
         talk_topic next = d.opt( d_win, name, d.topic_stack.back() );
 
+        const auto hook_results = cata::run_hooks( "on_dialogue_option", [ &, this]( auto & params ) {
+            params["npc"] = this;
+            params["next_topic"] = next.id;
+        } );
         auto final_result = d.topic_stack.back().id;
-        {
-            std::unique_lock lock( cata::lua_lock );
-            const auto hook_results = cata::run_hooks( "on_dialogue_option", [ &, this]( auto & params ) {
-                params["npc"] = this;
-                params["next_topic"] = next.id;
-            } );
-            for( const auto &result : hook_results ) {
-                if( !result.second.is<sol::table>() ) { continue; };
-                final_result = result.second.as<sol::table>().get_or<std::string>( "result", final_result );
-                // Allow higher priority topics to veto, but still trigger subsequent calls?
-                // auto allowed = result.second.as<sol::table>().get<sol::object>( "allowed" );
-                // if ( allowed.is<bool>() && !allowed.as<bool>() ) { break; };
-            }
+        for( const auto &result : hook_results ) {
+            if( !result.second.is<sol::table>() ) { continue; };
+            final_result = result.second.as<sol::table>().get_or<std::string>( "result", final_result );
+            // Allow higher priority topics to veto, but still trigger subsequent calls?
+            // auto allowed = result.second.as<sol::table>().get<sol::object>( "allowed" );
+            // if ( allowed.is<bool>() && !allowed.as<bool>() ) { break; };
         }
         if( !final_result.empty() && final_result != d.topic_stack.back().id ) {
             next = talk_topic( final_result );
@@ -3168,6 +3162,7 @@ void talk_effect_t::parse_string_effect( const std::string &effect_id, const Jso
             WRAP( do_mining ),
             WRAP( do_read ),
             WRAP( do_butcher ),
+            WRAP( do_dissect ),
             WRAP( do_farming ),
             WRAP( do_craft ),
             WRAP( assign_guard ),

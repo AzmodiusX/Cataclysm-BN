@@ -17,7 +17,7 @@
 #include "item.h"
 #include "itype.h"
 #include "json.h"
-#include "mapdata.h"
+#include "map/mapdata.h"
 #include "messages.h"
 #include "output.h"
 #include "player.h"
@@ -43,9 +43,8 @@
 
 namespace {
 
-bool run_can_make_callback(const std::string id, const std::string ench_id) {
-    std::unique_lock lock(cata::lua_lock);
-    auto& state = *cata::get_active_lua_state();
+auto run_can_make_callback(const std::string id, const std::string ench_id) -> bool {
+    auto& state = *DynamicDataLoader::get_instance().lua.get();
     auto func = cata::get_lua_callback(state, "enchanter_can_make", id);
     if (!func) {
         debugmsg("Lua callback %s for `enchanter_can_make` does not exist. Defaulting to true", id);
@@ -65,9 +64,9 @@ bool run_can_make_callback(const std::string id, const std::string ench_id) {
     return res.get<bool>();
 }
 
-bool run_can_use_on_callback(const std::string id, const std::string ench_id, const item& itm) {
-    std::unique_lock lock(cata::lua_lock);
-    auto& state = *cata::get_active_lua_state();
+auto run_can_use_on_callback(const std::string id, const std::string ench_id, const item& itm)
+    -> bool {
+    auto& state = *DynamicDataLoader::get_instance().lua.get();
     auto func = cata::get_lua_callback(state, "enchanter_can_use_on", id);
     if (!func) {
         debugmsg("Lua callback %s for `enchanter_can_use_on` does not exist. Defaulting to true",
@@ -92,7 +91,7 @@ bool run_can_use_on_callback(const std::string id, const std::string ench_id, co
 } // namespace
 
 namespace enchanter {
-requirement_data total_requirements(const enchant_info& info) {
+auto total_requirements(const enchant_info& info) -> requirement_data {
     return std::accumulate(
         info.requirements.begin(), info.requirements.end(), requirement_data(),
         [](const requirement_data& lhs, const std::pair<requirement_id, int>& rhs) {
@@ -100,8 +99,8 @@ requirement_data total_requirements(const enchant_info& info) {
         });
 }
 
-std::vector<std::string> enchantment_info(
-    const enchant_info& info, Character& crafter, int fold_width, item& itm) {
+auto enchantment_info(const enchant_info& info, Character& crafter, int fold_width, item& itm)
+    -> std::vector<std::string> {
     units::volume vol = itm.base_volume();
     std::ostringstream oss = std::ostringstream();
 
@@ -151,7 +150,8 @@ std::vector<std::string> enchantment_info(
     return result;
 }
 
-int enchantment_selector_menu(std::vector<enchant_info> options, Character& user, item& itm) {
+auto enchantment_selector_menu(std::vector<enchant_info> options, Character& user, item& itm)
+    -> int {
     units::volume vol = itm.base_volume();
     auto crafting_inv = user.crafting_inventory(true);
     int width = 0;

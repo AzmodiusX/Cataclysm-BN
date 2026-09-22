@@ -26,7 +26,7 @@
 #include "kill_tracker.h"
 #include "location_vector.h"
 #include "overmapbuffer.h"
-#include "mapbuffer.h"
+#include "map/mapbuffer.h"
 #include "pimpl.h"
 #include "string_id.h"
 #include "type_id.h"

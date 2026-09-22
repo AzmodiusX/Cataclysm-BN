@@ -1,19 +1,18 @@
 #include "batch_turns.h"
 
+#include "calendar.h"
+#include "game_constants.h"
+#include "item.h"
+#include "map/field.h"
+#include "map/field_type.h"
+#include "map/submap.h"
+#include "profile.h"
+#include "vehicle/vehicle.h"
+
 #include <algorithm>
 #include <bitset>
 #include <cstddef>
 #include <ranges>
-
-#include "profile.h"
-
-#include "calendar.h"
-#include "game_constants.h"
-#include "field.h"
-#include "field_type.h"
-#include "item.h"
-#include "submap.h"
-#include "vehicle.h"
 
 /**
  * Compute the expected number of intensity drops after adding @p elapsed_turns
