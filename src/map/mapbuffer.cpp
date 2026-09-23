@@ -4716,7 +4716,8 @@ auto mapbuffer::valid_move( const tripoint_abs_ms &from, const tripoint_abs_ms &
     }
 
     if( !options.flying && !down_ter.has_flag( TFLAG_GOES_UP ) &&
-        !down_ter.has_flag( TFLAG_RAMP ) && !up_is_ledge && !options.via_ramp ) {
+        !down_ter.has_flag( TFLAG_RAMP ) && !down_ter.has_flag( TFLAG_CLIMBABLE ) &&
+        !up_is_ledge && !options.via_ramp ) {
         return false;
     }
 
@@ -9852,7 +9853,7 @@ auto mapbuffer::actualize_submap( const tripoint_abs_sm &pos ) -> void
 
     for( const auto p : ::submap_tiles() ) {
         const auto abs_pos = project_combine( pos, p );
-        const auto options = actualize_tile_options {
+        auto options = actualize_tile_options {
             .buffer = *this,
             .sm = *tmpsub,
             .local = p,
@@ -9874,14 +9875,18 @@ auto mapbuffer::actualize_submap( const tripoint_abs_sm &pos ) -> void
             fill_funnels( options );
         }
 
+        decay_cosmetic_fields( options );
+
+        // These do not happen while actively simulated.
+        options.elapsed = calendar::turn - tmpsub->last_actualized;
         grow_plant( options );
         restock_fruits( options );
         produce_sap( options );
         rad_scorch( options );
-        decay_cosmetic_fields( options );
     }
 
     tmpsub->last_touched = calendar::turn;
+    tmpsub->last_actualized = calendar::turn;
 }
 
 auto mapbuffer::drain_pending_submap_destroy() -> void

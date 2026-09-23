@@ -323,6 +323,9 @@ class submap : maptile_soa<SEEX, SEEY>
         // Initialized to calendar::turn_zero; legacy saves that predate
         // serialization will receive the maximum-capped catchup on first load.
         time_point last_touched = calendar::turn_zero;
+        // This is used for effects that are updated when a submap is actualized,
+        // rather than while it is actively simulated.
+        time_point last_actualized = calendar::turn_zero;
         std::vector<spawn_point> spawns;
 
         // ---- Per-submap simulation caches ----

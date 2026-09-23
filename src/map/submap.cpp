@@ -76,6 +76,7 @@ void submap::swap( submap &first, submap &second )
     std::swap( first.field_cache, second.field_cache );
     std::swap( first.emitter_cache, second.emitter_cache );
     std::swap( first.last_touched, second.last_touched );
+    std::swap( first.last_actualized, second.last_actualized );
     std::swap( first.spawns, second.spawns );
     std::swap( first.vehicles, second.vehicles );
     std::swap( first.partial_constructions, second.partial_constructions );
@@ -88,7 +89,6 @@ void submap::swap( submap &first, submap &second )
     std::swap( first.cosmetics, second.cosmetics );
     std::swap( first.frn_vars, second.frn_vars );
     std::swap( first.ter_vars, second.ter_vars );
-
     for( const auto &p : submap_tiles() ) {
         std::swap( first.itm[p.x()][p.y()], second.itm[p.x()][p.y()] );
         const auto first_dim = first.get_dimension();
