@@ -1,5 +1,31 @@
 #include "visitable.h"
 
+#include "active_item_cache.h"
+#include "bionics.h"
+#include "character.h"
+#include "debug.h"
+#include "inventory.h"
+#include "item.h"
+#include "item_contents.h"
+#include "itype.h"
+#include "make_static.h"
+#include "map/map.h"
+#include "map/map_selector.h"
+#include "map/submap.h"
+#include "monster.h"
+#include "mtype.h"
+#include "mutation.h"
+#include "pimpl.h"
+#include "player.h"
+#include "point.h"
+#include "type_id.h"
+#include "units.h"
+#include "value_ptr.h"
+#include "vehicle/veh_type.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h"
+#include "vehicle/vehicle_selector.h"
+
 #include <algorithm>
 #include <climits>
 #include <limits>
@@ -285,6 +311,14 @@ bool visitable<Character>::has_quality( const quality_id &qual, int level, int q
             qty--;
         }
     }
+    if( qual == qual_BUTCHER ) {
+        for( const trait_id &mut : self->get_mutations() ) {
+            if( mut->butchering_quality > level ) {
+                if( qty <= 1 ) { return true; }
+                qty--;
+            }
+        }
+    }
 
     return qty <= 0 ? true : has_quality_internal( *this, qual, level, qty ) == qty;
 }
@@ -338,10 +372,17 @@ int visitable<Character>::max_quality( const quality_id &qual ) const
     for( const auto &bio : *self->my_bionics ) {
         res = std::max( res, bio.get_quality( qual ) );
     }
+    for( const auto it : self->get_enchantment_fake_items() ) {
+        if( it->qualities.contains( qual ) ) {
+            res = std::max( res, it->qualities.at( qual ) );
+        }
+    }
 
     if( qual == qual_BUTCHER ) {
         for( const trait_id &mut : self->get_mutations() ) {
-            res = std::max( res, mut->butchering_quality );
+            if( mut->butchering_quality > 0 ) {
+                res = std::max( res, mut->butchering_quality );
+            }
         }
     }
 

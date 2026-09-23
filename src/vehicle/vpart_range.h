@@ -178,4 +178,3 @@ inline constexpr bool enable_borrowed_range<vehicle_part_range> = true;
 template<typename T>
 inline constexpr bool enable_borrowed_range<vehicle_part_with_feature_range<T>> = true;
 } // namespace std::ranges
-

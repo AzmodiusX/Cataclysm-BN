@@ -277,4 +277,3 @@ void weather_types::load( const JsonObject &jo, const std::string &src )
 {
     weather_type_factory.load( jo, src );
 }
-

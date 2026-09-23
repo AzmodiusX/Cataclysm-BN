@@ -100,4 +100,3 @@ void VehiclePalette::reset()
 {
     all_palettes.reset();
 }
-

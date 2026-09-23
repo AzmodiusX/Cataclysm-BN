@@ -77,4 +77,3 @@ class weather_generator
         static weather_generator load( const JsonObject &jo );
 };
 
-

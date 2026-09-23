@@ -92,4 +92,3 @@ class vehicle_selector : public location_visitable<vehicle_selector>
         std::vector<value_type> data;
 };
 
-

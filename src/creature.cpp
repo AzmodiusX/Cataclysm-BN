@@ -421,6 +421,7 @@ bool Creature::sees( const Creature &critter ) const
                  critter.get_size() <= creature_size::medium ) ) {
         return false;
     }
+    double range_mod = 1;
     if( ch != nullptr ) {
         if( ch->movement_mode_is( CMM_CROUCH ) || ch->movement_mode_is( CMM_PRONE ) ) {
             const int coverage = here.obstacle_coverage( abs_pos(), critter.abs_pos() );
@@ -453,6 +454,7 @@ bool Creature::sees( const Creature &critter ) const
             }
             return false;
         }
+        range_mod *= ( double( ch->visibility() ) / 100.0 );
     }
     return sees( critter.abs_pos(), critter.is_avatar() ) && visible( ch );
 }

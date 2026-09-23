@@ -7,6 +7,7 @@
 #include "game.h"
 #include "game_constants.h"
 #include "line.h"
+#include "map/map.h"
 #include "translations.h"
 #include "map/map.h"
 #include "world.h"

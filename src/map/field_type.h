@@ -348,4 +348,3 @@ extern field_type_id fd_null,
        fd_smoke_vent,
        fd_tindalos_rift
        ;
-

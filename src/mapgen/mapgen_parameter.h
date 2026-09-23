@@ -66,4 +66,3 @@ struct mapgen_parameters {
                           mapgen_parameter_scope up_to_scope = mapgen_parameter_scope::last );
 };
 
-

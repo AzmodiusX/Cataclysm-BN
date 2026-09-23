@@ -2717,6 +2717,7 @@ void npc::move_to( const tripoint_abs_ms &pt, bool no_bashing, std::set<tripoint
             return;
         }
     }
+
     mapbuffer &buf = get_mapbuffer();
     const auto abs_here = abs_pos();
 

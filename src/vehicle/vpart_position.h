@@ -156,4 +156,3 @@ inline vehicle *veh_pointer_or_null( const optional_vpart_position &p )
     return p ? &p->vehicle() : nullptr;
 }
 
-

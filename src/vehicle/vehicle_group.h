@@ -202,4 +202,3 @@ class VehicleSpawn
         using FunctionMap = std::unordered_map<std::string, builtin_vehicle_function>;
         static FunctionMap builtin_functions;
 };
-

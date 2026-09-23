@@ -198,4 +198,3 @@ class field
         //_displayed_field_type currently is equal to the last field added to the square. You can modify this behavior in the class functions if you wish.
         field_type_id _displayed_field_type;
 };
-

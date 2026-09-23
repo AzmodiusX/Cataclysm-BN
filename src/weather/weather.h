@@ -237,4 +237,3 @@ class weather_manager
 };
 
 weather_manager &get_weather();
-

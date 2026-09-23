@@ -74,4 +74,3 @@ class map_selector : public location_visitable<map_selector>
         std::vector<value_type> data;
 };
 
-

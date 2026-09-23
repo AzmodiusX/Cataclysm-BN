@@ -279,4 +279,3 @@ class veh_interact
         bool can_self_jack();
 };
 
-

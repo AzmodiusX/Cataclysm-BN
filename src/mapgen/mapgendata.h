@@ -215,4 +215,3 @@ class mapgendata
             return mapgendata_detail::extract_variant_value<Result>( it->second );
         }
 };
-

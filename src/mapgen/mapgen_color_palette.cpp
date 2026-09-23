@@ -98,4 +98,3 @@ void MapgenColorPalette::reset()
 {
     all_palettes.reset();
 }
-
