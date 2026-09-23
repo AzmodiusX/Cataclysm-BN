@@ -4,16 +4,14 @@
 #include "game.h"
 #include "line.h"
 #include "map/map.h"
+#include "map/map_iterator.h"
 #include "map/mapbuffer.h"
 #include "map/mapbuffer_registry.h"
-#include "map/map_iterator.h"
 #include "messages.h"
 #include "monster.h"
 #include "sounds.h"
 #include "vehicle/veh_type.h"
 #include "vehicle/vehicle.h"
-#include "vehicle/vpart_position.h"
-#include "vehicle/veh_type.h"
 #include "vehicle/vpart_position.h"
 
 #include <algorithm>

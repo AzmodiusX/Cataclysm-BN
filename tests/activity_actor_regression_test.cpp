@@ -10,8 +10,8 @@
 #include "flag.h"
 #include "item.h"
 #include "json.h"
-#include "map_helpers.h"
 #include "map/mapbuffer.h"
+#include "map_helpers.h"
 #include "player_activity.h"
 #include "player_helpers.h"
 #include "salvage.h"
@@ -575,7 +575,7 @@ TEST_CASE(
     "butcher actor cancels when no suitable tool exists", "[activity][activity_actor][butcher]") {
     clear_all_state();
     avatar& dummy = get_avatar();
-    clear_character( dummy, false );
+    clear_character(dummy, false);
     mapbuffer& buffer = dummy.get_mapbuffer();
     const auto target = dummy.abs_pos();
 

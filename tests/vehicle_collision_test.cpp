@@ -1,5 +1,5 @@
-#include "cache_validation.h"
 #include "../src/map/map.h"
+#include "cache_validation.h"
 #include "catch/catch.hpp"
 #include "coordinates.h"
 #include "game.h"

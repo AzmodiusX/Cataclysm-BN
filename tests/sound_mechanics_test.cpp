@@ -1,9 +1,9 @@
 #include "avatar.h"
 #include "cata_utility.h"
 #include "catch/catch.hpp"
+#include "game.h"
 #include "map/map.h"
 #include "map_helpers.h"
-#include "game.h"
 #include "options_helpers.h"
 #include "sounds.h"
 #include "state_helpers.h"
@@ -83,7 +83,7 @@ TEST_CASE("queued_sounds_outside_resized_map_are_discarded", "[sound][resize]") 
         REQUIRE(here.inbounds(source));
         sounds::sound(
             {.volume = 50,
-             .origin = bub_to_abs( source ),
+             .origin = bub_to_abs(source),
              .category = sounds::sound_t::movement,
              .description = "gasping",
              .movement_noise = true,
@@ -94,8 +94,8 @@ TEST_CASE("queued_sounds_outside_resized_map_are_discarded", "[sound][resize]") 
 
     const auto& instances = here.m_sound_cache.sound_instances;
     REQUIRE(instances.size() == 2);
-    CHECK(instances[0].sound.origin == bub_to_abs( sources[3] ));
-    CHECK(instances[1].sound.origin == bub_to_abs( sources[4] ));
+    CHECK(instances[0].sound.origin == bub_to_abs(sources[3]));
+    CHECK(instances[1].sound.origin == bub_to_abs(sources[4]));
     here.batch_flood_fill_sounds();
     CHECK(instances.size() == 2);
 }
@@ -150,7 +150,7 @@ TEST_CASE("sounds_keep_absolute_positions_when_reality_bubble_resizes", "[sound]
         for (const auto& source : sources) {
             sounds::sound(
                 {.volume = 50,
-                 .origin = bub_to_abs( source ),
+                 .origin = bub_to_abs(source),
                  .category = sounds::sound_t::movement,
                  .description = "gasping",
                  .from_monster = true});
@@ -164,13 +164,13 @@ TEST_CASE("sounds_keep_absolute_positions_when_reality_bubble_resizes", "[sound]
         REQUIRE(instances.size() == 1);
         REQUIRE(instances.front().sound.origin == cached_absolute);
         CHECK(here.m_sound_cache.sound_list_filtered.empty());
-        CHECK(instances.front().vol_at_tri( abs_to_bub( instances.front().sound.origin ) ) ==
-               cached_volume);
+        CHECK(instances.front().vol_at_tri(abs_to_bub(instances.front().sound.origin))
+              == cached_volume);
 
         here.batch_flood_fill_sounds();
         REQUIRE(instances.size() == retained_absolute.size());
         for (const auto& sound : instances) {
-            CHECK(here.inbounds( abs_to_bub( sound.sound.origin ) ));
+            CHECK(here.inbounds(abs_to_bub(sound.sound.origin)));
             CHECK(std::ranges::contains(retained_absolute, sound.sound.origin));
         }
 
@@ -187,10 +187,11 @@ TEST_CASE("sounds_keep_absolute_positions_when_reality_bubble_resizes", "[sound]
     here.batch_flood_fill_sounds();
     REQUIRE(instances.size() == retained_absolute.size() + 1);
     for (const auto& sound : instances) {
-        CHECK(here.inbounds( abs_to_bub( sound.sound.origin ) ));
+        CHECK(here.inbounds(abs_to_bub(sound.sound.origin)));
         CHECK(std::ranges::contains(retained_absolute, sound.sound.origin));
     }
     CHECK(instances.front().sound.origin == cached_absolute);
-    CHECK(instances.front().vol_at_tri( abs_to_bub( instances.front().sound.origin ) ) == cached_volume);
+    CHECK(
+        instances.front().vol_at_tri(abs_to_bub(instances.front().sound.origin)) == cached_volume);
     CHECK(instances.back().sound.origin == cached_absolute);
 }

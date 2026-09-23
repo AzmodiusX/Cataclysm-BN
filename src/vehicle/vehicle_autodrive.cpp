@@ -1,21 +1,3 @@
-#include "vehicle/vehicle.h"
-#include "vehicle/vehicle_part.h" // IWYU pragma: associated
-
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstddef>
-#include <cstdint>
-#include <functional>
-#include <map>
-#include <memory>
-#include <optional>
-#include <queue>
-#include <string>
-#include <unordered_set>
-#include <utility>
-#include <vector>
-
 #include "avatar.h"
 #include "character.h"
 #include "coordinates.h"
@@ -34,7 +16,24 @@
 #include "translations.h"
 #include "type_id.h"
 #include "vehicle/veh_type.h"
+#include "vehicle/vehicle.h"
+#include "vehicle/vehicle_part.h" // IWYU pragma: associated
 #include "vehicle/vpart_position.h"
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <memory>
+#include <optional>
+#include <queue>
+#include <string>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 /*
  * This file contains code that allows a vehicle to be driven by an in-game character (most
@@ -594,8 +593,8 @@ auto vehicle::autodrive_controller::check_drivable(tripoint_bub_ms pt) const -> 
     // we reach them
     if (pt_omt == data.current_omt) {
         // driver must see the tile or have seen it before in order to plan a route over it
-        if( !driver.sees( pt_abs ) ) {
-            if( !driver.is_avatar() ) {
+        if (!driver.sees(pt_abs)) {
+            if (!driver.is_avatar()) {
                 return false;
             } else if (!driver.as_avatar()->has_memorized_tile_for_autodrive(pt_abs)) {
                 // apparently open air doesn't get memorized, so pretend it is or else
@@ -931,14 +930,10 @@ auto vehicle::autodrive_controller::check_collision_zone(orientation turn_dir)
     face_dir.advance();
     const point forward_offset(face_dir.dx(), face_dir.dy());
     bool blind = true;
-    for( point p : data.profile( to_orientation( face_dir.dir() ) ).collision_points ) {
-        if( driver.sees( driven_veh.abs_ms_location() + forward_offset + p ) ) {
-            blind = false;
-        }
+    for (point p : data.profile(to_orientation(face_dir.dir())).collision_points) {
+        if (driver.sees(driven_veh.abs_ms_location() + forward_offset + p)) { blind = false; }
     }
-    if( blind ) {
-        return collision_check_result::no_visibility;
-    }
+    if (blind) { return collision_check_result::no_visibility; }
     if (blind) { return collision_check_result::no_visibility; }
 
     // now check the area we're about to move into in 1 step, anything there
@@ -964,13 +959,11 @@ auto vehicle::autodrive_controller::check_collision_zone(orientation turn_dir)
         offset += point(tdir.dx(), tdir.dy());
         for (point p : profile.collision_points) { collision_zone.insert(p + offset); }
     }
-    for( point p : collision_zone ) {
-        if( !driver.sees( driven_veh.abs_ms_location() + p ) ) {
+    for (point p : collision_zone) {
+        if (!driver.sees(driven_veh.abs_ms_location() + p)) {
             return collision_check_result::slow_down;
         }
-        if( !check_drivable( veh_pos + p ) ) {
-            return collision_check_result::slow_down;
-        }
+        if (!check_drivable(veh_pos + p)) { return collision_check_result::slow_down; }
     }
     return collision_check_result::ok;
 }
@@ -995,15 +988,16 @@ auto vehicle::autodrive_controller::compute_next_step() -> std::optional<navigat
             data.max_speed_tps /= 2;
             new_path = compute_path(data.max_speed_tps);
         }
-        if( !new_path ) {
-            debugmsg( "Autodrive path failure: vehicle=%s pos=%s current_omt=%s next_omt=%s "
-                      "next_next_omt=%s max_speed=%d min_speed=%d valid_goal_positions=%zu",
-                      driven_veh.name, veh_pos.to_string(), data.current_omt.to_string(),
-                      data.next_omt.to_string(), data.next_next_omt.to_string(), data.max_speed_tps,
-                      MIN_SPEED_TPS, data.goal_zone.size() );
+        if (!new_path) {
+            debugmsg(
+                "Autodrive path failure: vehicle=%s pos=%s current_omt=%s next_omt=%s "
+                "next_next_omt=%s max_speed=%d min_speed=%d valid_goal_positions=%zu",
+                driven_veh.name, veh_pos.to_string(), data.current_omt.to_string(),
+                data.next_omt.to_string(), data.next_next_omt.to_string(), data.max_speed_tps,
+                MIN_SPEED_TPS, data.goal_zone.size());
             return std::nullopt;
         }
-        data.path.swap( *new_path );
+        data.path.swap(*new_path);
     }
     return data.path.back();
 }

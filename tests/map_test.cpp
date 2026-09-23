@@ -1,7 +1,7 @@
-#include "action.h"
 #include "../src/map/map.h"
 #include "../src/map/submap.h"
 #include "../src/map/submap_load_manager.h"
+#include "action.h"
 #include "avatar.h"
 #include "avatar_action.h"
 #include "cata_utility.h"
@@ -16,11 +16,11 @@
 #include "game_constants.h"
 #include "iexamine.h"
 #include "item.h"
-#include "map/map.h"
-#include "map/utils/map_functions.h"
 #include "map/field_type.h"
+#include "map/map.h"
 #include "map/mapbuffer.h"
 #include "map/mapbuffer_registry.h"
+#include "map/utils/map_functions.h"
 #include "map_helpers.h"
 #include "mapgen/mapgen_constructor.h"
 #include "messages.h"
@@ -38,7 +38,6 @@
 #include "vehicle/vehicle_part.h"
 #include "vehicle/vpart_range.h"
 #include "weather/weather.h"
-#include "vehicle/vehicle.h"
 
 #include <memory>
 #include <optional>

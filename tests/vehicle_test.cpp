@@ -29,9 +29,6 @@
 #include "vehicle/vehicle_wait.h"
 #include "vehicle/vpart_position.h"
 #include "vehicle/vpart_range.h"
-#include "vehicle/veh_type.h"
-#include "vehicle/vehicle.h"
-#include "vehicle/vehicle_wait.h"
 
 #include <algorithm>
 #include <memory>

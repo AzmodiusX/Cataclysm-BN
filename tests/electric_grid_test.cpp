@@ -9,16 +9,15 @@
 #include "distribution_grid.h"
 #include "game.h"
 #include "map/mapbuffer.h"
+#include "map/submap.h"
 #include "map_helpers.h"
 #include "overmap.h"
 #include "overmapbuffer.h"
 #include "state_helpers.h"
 #include "stringmaker.h"
-#include "map/submap.h"
 #include "vehicle/vehicle.h"
 #include "vehicle/vehicle_part.h"
 #include "vehicle/vpart_range.h"
-#include "vehicle/vehicle.h"
 
 #include <vector>
 

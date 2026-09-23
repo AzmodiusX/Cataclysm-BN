@@ -6,7 +6,6 @@
 #include "item.h"
 #include "map/map.h"
 #include "map/mapbuffer.h"
-#include "map/map.h"
 #include "type_id.h"
 #include "vehicle/veh_type.h"
 #include "vehicle/vehicle.h"

@@ -6,7 +6,6 @@
 #include "cached_options.h"
 #include "catch/catch.hpp"
 #include "coordinates.h"
-#include "map/field_type.h"
 #include "fungal_effects.h"
 #include "game.h"
 #include "game_constants.h"

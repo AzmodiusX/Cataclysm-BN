@@ -6,8 +6,8 @@
 #include "json.h"
 #include "lru_cache.h"
 #include "map/map.h"
-#include "map_helpers.h"
 #include "map/map_memory.h"
+#include "map_helpers.h"
 #include "string_formatter.h"
 
 #include <cstdio>

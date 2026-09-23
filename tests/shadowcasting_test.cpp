@@ -3,9 +3,9 @@
 #include "coordinates.h"
 #include "game_constants.h"
 #include "line.h" // For rl_dist.
+#include "map/lightmap.h"
 #include "map/map.h"
 #include "map_helpers.h"
-#include "map/lightmap.h"
 #include "rng.h"
 #include "shadowcasting.h"
 #include "state_helpers.h"

@@ -5,7 +5,6 @@
 #include "map_helpers.h"
 #include "weather/weather.h"
 #include "weather/weather_gen.h"
-#include "weather/weather.h"
 
 #include <algorithm>
 #include <memory>

@@ -1,5 +1,5 @@
-#include "avatar.h"
 #include "../src/map/map.h"
+#include "avatar.h"
 #include "ballistics.h"
 #include "calendar.h"
 #include "catch/catch.hpp"

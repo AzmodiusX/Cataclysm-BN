@@ -17,14 +17,13 @@
 #include "item.h"
 #include "line.h"
 #include "magic.h"
-#include "magic_spell_effect_helpers.h"
-#include "magic_teleporter_list.h"
-#include "magic_ter_furn_transform.h"
-#include "map/map.h"
 #include "magic/magic.h"
 #include "magic/magic_spell_effect_helpers.h"
 #include "magic/magic_teleporter_list.h"
 #include "magic/magic_ter_furn_transform.h"
+#include "magic_spell_effect_helpers.h"
+#include "magic_teleporter_list.h"
+#include "magic_ter_furn_transform.h"
 #include "map/field.h"
 #include "map/field_type.h"
 #include "map/map.h"
@@ -524,29 +523,23 @@ void spell_effect::target_attack(
     const spell& sp, Creature& caster, const tripoint_abs_ms& epicenter) {
     const auto targets = spell_effect_area(
         sp, epicenter, spell_effect_blast, caster, sp.has_flag(spell_flag::IGNORE_WALLS));
-    damage_targets( sp, caster, targets );
-    if( sp.has_flag( spell_flag::DAMAGE_TERRAIN ) ) {
-        bash_area( sp, caster, targets );
-    }
+    damage_targets(sp, caster, targets);
+    if (sp.has_flag(spell_flag::DAMAGE_TERRAIN)) { bash_area(sp, caster, targets); }
     if (sp.has_flag(spell_flag::SWAP_POS)) { swap_pos(caster, epicenter); }
 }
 
 void spell_effect::cone_attack(const spell& sp, Creature& caster, const tripoint_abs_ms& target) {
     const auto affected = spell_effect_area(
         sp, target, spell_effect_cone, caster, sp.has_flag(spell_flag::IGNORE_WALLS));
-    damage_targets( sp, caster, affected );
-    if( sp.has_flag( spell_flag::DAMAGE_TERRAIN ) ) {
-        bash_area( sp, caster, affected );
-    }
+    damage_targets(sp, caster, affected);
+    if (sp.has_flag(spell_flag::DAMAGE_TERRAIN)) { bash_area(sp, caster, affected); }
 }
 
 void spell_effect::line_attack(const spell& sp, Creature& caster, const tripoint_abs_ms& target) {
     const auto affected = spell_effect_area(
         sp, target, spell_effect_line, caster, sp.has_flag(spell_flag::IGNORE_WALLS));
-    damage_targets( sp, caster, affected );
-    if( sp.has_flag( spell_flag::DAMAGE_TERRAIN ) ) {
-        bash_area( sp, caster, affected );
-    }
+    damage_targets(sp, caster, affected);
+    if (sp.has_flag(spell_flag::DAMAGE_TERRAIN)) { bash_area(sp, caster, affected); }
 }
 
 area_expander::area_expander(): frontier(area_node_comparator(area)) {}
@@ -1168,8 +1161,7 @@ void spell_effect::bash_area(
         if (!sp.is_valid_target(caster, potential_target)) { continue; }
         // the bash already makes noise, so no need for spell::make_sound()
         get_map().get_mapbuffer().bash(
-            potential_target, sp.terrain_damage(sp.damage()),
-            sp.has_flag(spell_flag::SILENT));
+            potential_target, sp.terrain_damage(sp.damage()), sp.has_flag(spell_flag::SILENT));
     }
 }
 
