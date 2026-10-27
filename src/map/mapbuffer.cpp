@@ -40,9 +40,9 @@
 #include "monster.h"
 #include "mtype.h"
 #include "npc.h"
-#include "overmap/omdata.h"
 #include "options.h"
 #include "output.h"
+#include "overmap/omdata.h"
 #include "pathfinding.h"
 #include "popup.h"
 #include "profile.h"
@@ -7611,9 +7611,7 @@ auto mapbuffer::spill_liquid_field(const tripoint_abs_ms& center, const item& li
     const auto spill_tiles = divide_round_up(
         units::to_milliliter(liquid.volume()), units::to_milliliter(spill_tile_volume));
     const auto amount = static_cast<int>(std::max<decltype(spill_tiles)>(1, spill_tiles));
-    if( amount <= 0 ) {
-        return;
-    }
+    if (amount <= 0) { return; }
 
     auto frontier = std::queue<tripoint_abs_ms>();
     auto visited = std::set<tripoint_abs_ms>();
@@ -7623,118 +7621,104 @@ auto mapbuffer::spill_liquid_field(const tripoint_abs_ms& center, const item& li
     auto candidates = std::vector<spilled_liquid_field_candidate>();
     auto represented_amount = 0;
     const auto sort_spill_tiles = [&]() {
-        ranges::sort( spill_tiles_to_fill, [&]( const tripoint_abs_ms &lhs,
-                                               const tripoint_abs_ms &rhs ) {
-            return std::tuple( rl_dist( center, lhs ), lhs.x(), lhs.y(), lhs.z() ) <
-                   std::tuple( rl_dist( center, rhs ), rhs.x(), rhs.y(), rhs.z() );
-        } );
+        ranges::
+            sort(spill_tiles_to_fill, [&](const tripoint_abs_ms& lhs, const tripoint_abs_ms& rhs) {
+                return std::tuple(rl_dist(center, lhs), lhs.x(), lhs.y(), lhs.z())
+                     < std::tuple(rl_dist(center, rhs), rhs.x(), rhs.y(), rhs.z());
+            });
     };
     const auto sort_candidates = [&]() {
-        ranges::sort( candidates, [&]( const spilled_liquid_field_candidate &lhs,
-                                      const spilled_liquid_field_candidate &rhs ) {
-            return std::tuple( lhs.distance, lhs.pos.x(), lhs.pos.y(), lhs.pos.z() ) <
-                   std::tuple( rhs.distance, rhs.pos.x(), rhs.pos.y(), rhs.pos.z() );
-        } );
+        ranges::sort(candidates, [&](const spilled_liquid_field_candidate& lhs,
+                                     const spilled_liquid_field_candidate& rhs) {
+            return std::tuple(lhs.distance, lhs.pos.x(), lhs.pos.y(), lhs.pos.z())
+                 < std::tuple(rhs.distance, rhs.pos.x(), rhs.pos.y(), rhs.pos.z());
+        });
     };
-    const auto add_candidate = [&]( const tripoint_abs_ms &current,
-                                    const tripoint_abs_ms &adjacent ) {
-        if( spill_tiles_seen.contains( adjacent ) || candidates_seen.contains( adjacent ) ||
-            !passable( adjacent ) || obstructed_by_vehicle_rotation( current, adjacent ) ) {
-            return;
-        }
-
-        candidates_seen.insert( adjacent );
-        candidates.push_back( {
-            .distance = rl_dist( center, adjacent ),
-            .pos = adjacent,
-        } );
-    };
-    const auto expand_candidates = [&]( const tripoint_abs_ms &current ) {
-        for( const auto &[dx, dy] : spilled_liquid_adjacent_offsets ) {
-            const auto adjacent = current + point( dx, dy );
-            if( get_field_entry( adjacent, type ) != nullptr ) {
-                continue;
+    const auto add_candidate =
+        [&](const tripoint_abs_ms& current, const tripoint_abs_ms& adjacent) {
+            if (spill_tiles_seen.contains(adjacent) || candidates_seen.contains(adjacent)
+                || !passable(adjacent) || obstructed_by_vehicle_rotation(current, adjacent)) {
+                return;
             }
-            add_candidate( current, adjacent );
+
+            candidates_seen.insert(adjacent);
+            candidates.push_back({
+                .distance = rl_dist(center, adjacent),
+                .pos = adjacent,
+            });
+        };
+    const auto expand_candidates = [&](const tripoint_abs_ms& current) {
+        for (const auto& [dx, dy] : spilled_liquid_adjacent_offsets) {
+            const auto adjacent = current + point(dx, dy);
+            if (get_field_entry(adjacent, type) != nullptr) { continue; }
+            add_candidate(current, adjacent);
         }
     };
 
-    if( get_field_entry( center, type ) != nullptr ) {
-        frontier.push( center );
-        while( !frontier.empty() ) {
+    if (get_field_entry(center, type) != nullptr) {
+        frontier.push(center);
+        while (!frontier.empty()) {
             const auto current = frontier.front();
             frontier.pop();
-            if( visited.contains( current ) ) {
-                continue;
-            }
-            visited.insert( current );
+            if (visited.contains(current)) { continue; }
+            visited.insert(current);
 
-            const auto *existing_field = get_field_entry( current, type );
-            if( existing_field == nullptr ) {
-                continue;
-            }
-            spill_tiles_seen.insert( current );
-            spill_tiles_to_fill.push_back( current );
+            const auto* existing_field = get_field_entry(current, type);
+            if (existing_field == nullptr) { continue; }
+            spill_tiles_seen.insert(current);
+            spill_tiles_to_fill.push_back(current);
             represented_amount += existing_field->get_field_intensity();
 
-            for( const auto &[dx, dy] : spilled_liquid_adjacent_offsets ) {
-                const auto adjacent = current + point( dx, dy );
-                if( get_field_entry( adjacent, type ) != nullptr ) {
-                    if( !visited.contains( adjacent ) ) {
-                        frontier.push( adjacent );
-                    }
+            for (const auto& [dx, dy] : spilled_liquid_adjacent_offsets) {
+                const auto adjacent = current + point(dx, dy);
+                if (get_field_entry(adjacent, type) != nullptr) {
+                    if (!visited.contains(adjacent)) { frontier.push(adjacent); }
                     continue;
                 }
-                add_candidate( current, adjacent );
+                add_candidate(current, adjacent);
             }
         }
     } else {
-        candidates_seen.insert( center );
-        candidates.push_back( {
+        candidates_seen.insert(center);
+        candidates.push_back({
             .distance = 0,
             .pos = center,
-        } );
+        });
     }
 
     sort_spill_tiles();
-    const auto target_amount = std::min( represented_amount + amount, max_visual_amount );
-    while( represented_amount < target_amount ) {
+    const auto target_amount = std::min(represented_amount + amount, max_visual_amount);
+    while (represented_amount < target_amount) {
         auto changed = false;
-        for( const auto &tile : spill_tiles_to_fill ) {
-            const auto existing_intensity = get_field_intensity( tile, type );
-            if( !existing_intensity || *existing_intensity >= max_field_intensity ) {
-                continue;
-            }
-            mod_field_intensity( tile, {
-                .type = type,
-                .intensity = 1,
-                .isoffset = true,
-            } );
+        for (const auto& tile : spill_tiles_to_fill) {
+            const auto existing_intensity = get_field_intensity(tile, type);
+            if (!existing_intensity || *existing_intensity >= max_field_intensity) { continue; }
+            mod_field_intensity(
+                tile,
+                {
+                    .type = type,
+                    .intensity = 1,
+                    .isoffset = true,
+                });
             represented_amount++;
             changed = true;
-            if( represented_amount >= target_amount ) {
-                break;
-            }
+            if (represented_amount >= target_amount) { break; }
         }
-        if( represented_amount >= target_amount ) {
-            break;
-        }
-        if( spill_tiles_to_fill.size() < max_visual_spill_tiles && !candidates.empty() ) {
+        if (represented_amount >= target_amount) { break; }
+        if (spill_tiles_to_fill.size() < max_visual_spill_tiles && !candidates.empty()) {
             sort_candidates();
             const auto candidate = candidates.front();
-            candidates.erase( candidates.begin() );
-            if( add_field( candidate.pos, { .type = type, .intensity = 1 } ) ) {
+            candidates.erase(candidates.begin());
+            if (add_field(candidate.pos, {.type = type, .intensity = 1})) {
                 represented_amount++;
                 changed = true;
-                spill_tiles_seen.insert( candidate.pos );
-                spill_tiles_to_fill.push_back( candidate.pos );
+                spill_tiles_seen.insert(candidate.pos);
+                spill_tiles_to_fill.push_back(candidate.pos);
                 sort_spill_tiles();
-                expand_candidates( candidate.pos );
+                expand_candidates(candidate.pos);
             }
         }
-        if( !changed ) {
-            break;
-        }
+        if (!changed) { break; }
     }
 }
 

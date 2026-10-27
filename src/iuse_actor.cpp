@@ -1854,7 +1854,7 @@ void firestarter_actor::resolve_firestarter_use( Character &p, const tripoint_ab
     if( here.add_field( pos, {
     .type = fd_fire,
     .intensity = fuel_field_fire_intensity( fuel_intensity ),
-    .age = fuel_field_fire_age( fuel_intensity )
+        .age = fuel_field_fire_age( fuel_intensity )
     } ) ) {
         if( !p.has_trait( trait_PYROMANIA ) ) {
             p.add_msg_if_player( _( "You successfully light a fire." ) );

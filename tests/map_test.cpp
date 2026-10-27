@@ -25,8 +25,8 @@
 #include "map/map.h"
 #include "map/mapbuffer.h"
 #include "map/mapbuffer_registry.h"
-#include "map/utils/map_functions.h"
 #include "map/submap_fields.h"
+#include "map/utils/map_functions.h"
 #include "map_helpers.h"
 #include "mapgen/mapgen_constructor.h"
 #include "messages.h"
@@ -35,11 +35,11 @@
 #include "options.h"
 #include "options_helpers.h"
 #include "pathfinding.h"
-#include "player_helpers.h"
-#include "simulated_island_helpers.h"
 #include "player_activity.h"
+#include "player_helpers.h"
 #include "point.h"
 #include "projectile.h"
+#include "simulated_island_helpers.h"
 #include "state_helpers.h"
 #include "type_id.h"
 #include "units.h"
@@ -1209,7 +1209,7 @@ TEST_CASE("auto_stair_travel_finds_unseen_loaded_stairs", "[map][stair][autotrav
     const auto found_stairs = g->find_local_stairs_leading_to(get_map(), test_origin.z() + 1);
 
     REQUIRE(found_stairs);
-    CHECK(*found_stairs == abs_to_bub( unseen_stairs ));
+    CHECK(*found_stairs == abs_to_bub(unseen_stairs));
 }
 
 TEST_CASE("auto_stair_travel_finds_ramp_transitions", "[map][stair][autotravel]") {
@@ -1260,8 +1260,7 @@ TEST_CASE("auto_stair_travel_route_continues_with_vertical_move", "[map][stair][
     here.set_ter(stairs, ter_id("t_stairs_up"));
     auto settings = you.get_pathfinding_pair();
 
-    auto route = Pathfinding::route(here,
-        you.abs_pos(), stairs, settings.first, settings.second);
+    auto route = Pathfinding::route(here, you.abs_pos(), stairs, settings.first, settings.second);
     REQUIRE(!route.empty());
     route.emplace_back(stairs.xy(), test_origin.z() + 1);
     you.set_destination(route);
@@ -2025,7 +2024,9 @@ TEST_CASE("flammable_fields_can_be_ignited", "[map][field][fire]") {
     REQUIRE(here.add_field(test_origin, {.type = fuel, .intensity = intensity}));
     CHECK(here.is_flammable(test_origin));
 
-    SECTION("firestarter") { firestarter_actor::resolve_firestarter_use(get_avatar(), test_origin); }
+    SECTION("firestarter") {
+        firestarter_actor::resolve_firestarter_use(get_avatar(), test_origin);
+    }
     SECTION("heat projectile") {
         auto shot = projectile{};
         shot.impact.add_damage(DT_HEAT, 1);

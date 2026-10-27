@@ -1,7 +1,7 @@
 #include "vehicle/veh_interact.h"
 
-#include "activity_actor_definitions.h"
 #include "../overmap/overmapbuffer.h"
+#include "activity_actor_definitions.h"
 #include "activity_handlers.h"
 #include "avatar.h"
 #include "avatar_functions.h"

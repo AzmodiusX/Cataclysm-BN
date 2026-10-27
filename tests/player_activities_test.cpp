@@ -72,8 +72,8 @@ TEST_CASE(
     here.set_ter(source, ter_str_id("t_water_sh"));
     REQUIRE(map.water_from(abs_to_bub(source)));
     const auto charges_per_turn =
-        std::max(1, map.water_from(abs_to_bub(source))->charges_per_volume(units::from_liter(4.0F / 6.0F)));
-    const auto requested = charges_per_turn + 1;
+        std::max(1, map.water_from(abs_to_bub(source))->charges_per_volume(units::from_liter(4.0F
+/ 6.0F))); const auto requested = charges_per_turn + 1;
 
     auto activity = player_activity(activity_id("ACT_FILL_LIQUID"));
     activity.values = {LST_INFINITE_MAP, 0, LTT_MAP, requested};

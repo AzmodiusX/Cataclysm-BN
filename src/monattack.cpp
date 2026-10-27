@@ -2901,9 +2901,9 @@ bool mattack::ranged_pull( monster *z )
 
     // Limit the range in case some weird math thing would cause the target to fly past us
     auto range = std::min(
-        std::max( ( z->type->melee_sides * z->type->melee_dice ) / 10,
-                  z->get_grab_strength() ),
-        rl_dist( z->abs_pos(), target->abs_pos() ) + 1 );
+                     std::max( ( z->type->melee_sides * z->type->melee_dice ) / 10,
+                               z->get_grab_strength() ),
+                     rl_dist( z->abs_pos(), target->abs_pos() ) + 1 );
     auto pt = target->bub_pos();
     while( range > 0 ) {
         // Recalculate the ray each step

@@ -27,7 +27,7 @@ TEST_CASE("reload_on_vehicle_cargo", "[magazine][visitable][item][item_location]
     clear_all_state();
     move_player_out_of_the_way();
 
-    auto &who = g->u;
+    auto& who = g->u;
     auto& here = who.get_mapbuffer();
     const auto vehicle_center = test_origin + point_rel_ms(5, 5);
     const vproto_id car_id("car");

@@ -25,9 +25,6 @@
 #include <ranges>
 #include <set>
 
-#include <array>
-#include <ranges>
-
 // Dimension ID used only by these tests — never appears in game data.
 static const dimension_id TEST_DIM_ID("sim_test_dim");
 

@@ -8,7 +8,6 @@
 #ifdef TILES
 #    include "cata_tiles.h"
 #endif // TILES
-#include "ime.h"
 #include "cata_utility.h"
 #include "catacharset.h"
 #include "clzones.h"
@@ -22,12 +21,13 @@
 #include "game_constants.h"
 #include "game_ui.h"
 #include "hash_utils.h"
+#include "ime.h"
 #include "input.h"
 #include "int_id.h"
 #include "line.h"
 #include "map/map.h"
-#include "map/mapbuffer.h"
 #include "map/map_iterator.h"
+#include "map/mapbuffer.h"
 #include "messages.h"
 #include "mission.h"
 #include "mongroup.h"
@@ -352,9 +352,9 @@ auto get_weather_at_point(const point_abs_omt& pos) -> weather_type_id {
     }
     auto iter = weather_cache.find(pos);
     if (iter == weather_cache.end()) {
-        const tripoint_abs_omt pos_z( pos, OVERMAP_HEIGHT );
+        const tripoint_abs_omt pos_z(pos, OVERMAP_HEIGHT);
         const weather_type_id weather =
-            current_weather( project_to<coords::ms>( pos_z ), calendar::turn );
+            current_weather(project_to<coords::ms>(pos_z), calendar::turn);
         iter = weather_cache.insert(std::make_pair(pos, weather)).first;
     }
     return iter->second;
