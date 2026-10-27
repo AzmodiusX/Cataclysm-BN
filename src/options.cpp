@@ -6,6 +6,7 @@
 #include <cfloat>
 #include <climits>
 #include <iterator>
+#include <ranges>
 #include <stdexcept>
 
 #include "calendar.h"
@@ -27,6 +28,7 @@
 #include "language.h"
 #include "line.h"
 #include "mapsharing.h"
+#include "mod_manager.h"
 #include "output.h"
 #include "path_info.h"
 #include "preload_config.h"
@@ -201,6 +203,323 @@ options_manager::options_manager()
 
 static const std::string blank_value( 1, 001 ); // because "" might be valid
 
+namespace
+{
+
+constexpr auto option_group_type = "OPTION_GROUP";
+constexpr auto option_space_type = "OPTION_SPACE";
+constexpr auto option_type = "OPTION";
+
+struct option_dependency_definition {
+    std::string option;
+    std::vector<std::string> values;
+};
+
+struct option_group_definition {
+    std::string id;
+    std::string page;
+    translation title;
+    translation desc;
+};
+
+struct int_map_item_definition {
+    int value = 0;
+    translation label;
+};
+
+struct option_definition {
+    std::string name;
+    std::string stype;
+    std::string scope;
+    std::string page;
+    std::string group;
+    translation menu_text;
+    translation tooltip;
+    options_manager::copt_hide_t hide = options_manager::COPT_NO_HIDE;
+    std::vector<option_dependency_definition> deps;
+    std::vector<options_manager::id_and_option> items;
+    std::vector<int_map_item_definition> int_map_items;
+    std::string default_string;
+    std::string default_string_android;
+    bool default_bool = false;
+    bool default_bool_android = false;
+    bool has_default_bool_android = false;
+    int min_int = 0;
+    int max_int = 0;
+    int default_int = 0;
+    int default_int_android = 0;
+    bool has_default_int_android = false;
+    float min_float = 0.0f;
+    float max_float = 0.0f;
+    float default_float = 0.0f;
+    float default_float_android = 0.0f;
+    bool has_default_float_android = false;
+    float step_float = 0.0f;
+    int max_length = 0;
+    bool verbose = false;
+    std::string format;
+};
+
+struct parsed_option_definitions {
+    std::vector<option_group_definition> groups;
+    std::vector<option_definition> options;
+};
+
+struct pending_option_prerequisites {
+    std::string option_name;
+    std::vector<option_dependency_definition> deps;
+};
+
+auto option_definitions_path() -> std::string
+{
+    return PATH_INFO::datadir() + "json/options";
+}
+
+auto read_translation_member( const JsonObject &jo, const std::string &member_name,
+                              const translation &fallback ) -> translation
+{
+    if( !jo.has_member( member_name ) ) {
+        return fallback;
+    }
+
+    auto result = fallback;
+    result.deserialize( *jo.get_raw( member_name ) );
+    return result;
+}
+
+auto read_option_hide( const JsonObject &jo ) -> options_manager::copt_hide_t
+{
+    if( !jo.has_string( "hide" ) ) {
+        return options_manager::COPT_NO_HIDE;
+    }
+
+    const auto hide = jo.get_string( "hide" );
+    if( hide == "none" ) {
+        return options_manager::COPT_NO_HIDE;
+    }
+    if( hide == "always" ) {
+        return options_manager::COPT_ALWAYS_HIDE;
+    }
+    if( hide == "sdl_hide" ) {
+        return options_manager::COPT_SDL_HIDE;
+    }
+    if( hide == "curses_hide" ) {
+        return options_manager::COPT_CURSES_HIDE;
+    }
+    if( hide == "posix_curses_hide" ) {
+        return options_manager::COPT_POSIX_CURSES_HIDE;
+    }
+    if( hide == "no_sound_hide" ) {
+        return options_manager::COPT_NO_SOUND_HIDE;
+    }
+    if( hide == "android_only" ) {
+        return options_manager::COPT_ANDROID_HIDE;
+    }
+
+    jo.throw_error( string_format( "Unknown option hide rule '%s'", hide ), "hide" );
+    return options_manager::COPT_NO_HIDE;
+}
+
+auto read_option_dependencies( const JsonObject &jo ) -> std::vector<option_dependency_definition>
+{
+    if( !jo.has_array( "deps" ) ) {
+        return {};
+    }
+
+    auto result = std::vector<option_dependency_definition>();
+    for( const JsonObject dep_jo : jo.get_array( "deps" ) ) {
+        auto dep = option_dependency_definition{ .option = dep_jo.get_string( "option" ), .values = {} };
+        if( dep_jo.has_array( "values" ) ) {
+            for( const std::string value : dep_jo.get_array( "values" ) ) {
+                dep.values.push_back( value );
+            }
+        }
+        result.push_back( dep );
+    }
+    return result;
+}
+
+auto parse_option_group_definition( const JsonObject &jo ) -> option_group_definition
+{
+    jo.allow_omitted_members();
+    const auto id = jo.get_string( "id" );
+    return option_group_definition{
+        .id = id,
+        .page = jo.get_string( "page" ),
+        .title = read_translation_member( jo, "title", no_translation( id ) ),
+        .desc = read_translation_member( jo, "desc", no_translation( "" ) ),
+    };
+}
+
+auto parse_string_items( const JsonObject &jo ) -> std::vector<options_manager::id_and_option>
+{
+    auto result = std::vector<options_manager::id_and_option>();
+    for( const JsonObject item_jo : jo.get_array( "items" ) ) {
+        const auto label = read_translation_member( item_jo, "label",
+                           no_translation( item_jo.get_string( "value" ) ) );
+        result.emplace_back( item_jo.get_string( "value" ), label );
+    }
+    return result;
+}
+
+auto parse_int_map_items( const JsonObject &jo ) -> std::vector<int_map_item_definition>
+{
+    auto result = std::vector<int_map_item_definition>();
+    for( const JsonObject item_jo : jo.get_array( "items" ) ) {
+        result.push_back( int_map_item_definition{
+            .value = item_jo.get_int( "value" ),
+            .label = read_translation_member( item_jo, "label", no_translation( std::to_string( item_jo.get_int( "value" ) ) ) ),
+        } );
+    }
+    return result;
+}
+
+auto parse_option_definition( const JsonObject &jo ) -> option_definition
+{
+    jo.allow_omitted_members();
+
+    auto option = option_definition{
+        .name = jo.get_string( "name" ),
+        .stype = jo.get_string( "stype" ),
+        .scope = jo.get_string( "scope" ),
+        .page = jo.get_string( "page" ),
+        .group = jo.has_string( "group" ) ? jo.get_string( "group" ) : std::string(),
+        .menu_text = read_translation_member( jo, "menu_text", no_translation( jo.get_string( "name" ) ) ),
+        .tooltip = read_translation_member( jo, "tooltip", no_translation( "" ) ),
+        .hide = read_option_hide( jo ),
+        .deps = read_option_dependencies( jo ),
+        .items = {},
+        .int_map_items = {},
+        .default_string = {},
+        .default_string_android = {},
+        .default_bool = false,
+        .default_bool_android = false,
+        .has_default_bool_android = false,
+        .min_int = 0,
+        .max_int = 0,
+        .default_int = 0,
+        .default_int_android = 0,
+        .has_default_int_android = false,
+        .min_float = 0.0f,
+        .max_float = 0.0f,
+        .default_float = 0.0f,
+        .default_float_android = 0.0f,
+        .has_default_float_android = false,
+        .step_float = 0.0f,
+        .max_length = 0,
+        .verbose = false,
+        .format = jo.has_string( "format" ) ? jo.get_string( "format" ) : std::string(),
+    };
+
+    if( option.stype == "bool" ) {
+        option.default_bool = jo.get_bool( "default" );
+        option.has_default_bool_android = jo.has_bool( "default_android" );
+        option.default_bool_android = jo.get_bool( "default_android", option.default_bool );
+#if defined(__ANDROID__)
+        if( option.has_default_bool_android ) {
+            option.default_bool = option.default_bool_android;
+        }
+#endif
+    } else if( option.stype == "int" ) {
+        option.min_int = jo.get_int( "min" );
+        option.max_int = jo.get_int( "max" );
+        option.default_int = jo.get_int( "default" );
+        option.has_default_int_android = jo.has_int( "default_android" );
+        option.default_int_android = jo.get_int( "default_android", option.default_int );
+#if defined(__ANDROID__)
+        if( option.has_default_int_android ) {
+            option.default_int = option.default_int_android;
+        }
+#endif
+    } else if( option.stype == "float" ) {
+        option.min_float = static_cast<float>( jo.get_float( "min" ) );
+        option.max_float = static_cast<float>( jo.get_float( "max" ) );
+        option.default_float = static_cast<float>( jo.get_float( "default" ) );
+        option.has_default_float_android = jo.has_float( "default_android" );
+        option.default_float_android = static_cast<float>( jo.get_float( "default_android",
+                                       option.default_float ) );
+#if defined(__ANDROID__)
+        if( option.has_default_float_android ) {
+            option.default_float = option.default_float_android;
+        }
+#endif
+        option.step_float = static_cast<float>( jo.get_float( "step" ) );
+    } else if( option.stype == "string_input" ) {
+        option.default_string = jo.get_string( "default" );
+        if( jo.has_string( "default_android" ) ) {
+            option.default_string_android = jo.get_string( "default_android" );
+#if defined(__ANDROID__)
+            option.default_string = option.default_string_android;
+#endif
+        }
+        option.max_length = jo.get_int( "max_length" );
+    } else if( option.stype == "string_select" ) {
+        option.default_string = jo.get_string( "default" );
+        if( jo.has_string( "default_android" ) ) {
+            option.default_string_android = jo.get_string( "default_android" );
+#if defined(__ANDROID__)
+            option.default_string = option.default_string_android;
+#endif
+        }
+        option.items = parse_string_items( jo );
+    } else if( option.stype == "int_map" ) {
+        option.default_int = jo.get_int( "default" );
+        option.has_default_int_android = jo.has_int( "default_android" );
+        option.default_int_android = jo.get_int( "default_android", option.default_int );
+#if defined(__ANDROID__)
+        if( option.has_default_int_android ) {
+            option.default_int = option.default_int_android;
+        }
+#endif
+        option.verbose = jo.get_bool( "verbose", false );
+        option.int_map_items = parse_int_map_items( jo );
+    } else {
+        jo.throw_error( string_format( "Unknown option stype '%s'", option.stype ), "stype" );
+    }
+
+    return option;
+}
+
+auto capture_option_values( const options_manager::options_container &container )
+-> std::map<std::string, std::string>
+{
+    auto values = std::map<std::string, std::string>();
+    for( const auto &[name, opt] : container ) {
+        values.emplace( name, opt.getValue( true ) );
+    }
+    return values;
+}
+
+auto restore_option_values( const std::map<std::string, std::string> &values,
+                            options_manager::options_container &container ) -> void
+{
+    for( const auto &[name, value] : values ) {
+        if( container.contains( name ) ) {
+            container[name].setValue( value );
+        }
+    }
+}
+
+auto sync_snapshot_keys( const options_manager::options_container &current,
+                         options_manager::options_container &snapshot ) -> void
+{
+    for( const auto &[name, option] : current ) {
+        if( !snapshot.contains( name ) ) {
+            snapshot.emplace( name, option );
+        }
+    }
+
+    for( auto iter = snapshot.begin(); iter != snapshot.end(); ) {
+        if( current.contains( iter->first ) ) {
+            ++iter;
+        } else {
+            iter = snapshot.erase( iter );
+        }
+    }
+}
+
+} // namespace
+
 void options_manager::enable_json( const std::string &lvar )
 {
     post_json_verify[ lvar ] = blank_value;
@@ -257,16 +576,36 @@ void options_manager::addOptionToPage( const std::string &name, const std::strin
     for( Page &p : pages_ ) {
         if( p.id_ == page ) {
             // Don't add duplicate options to the page
-            for( const PageItem &i : p.items_ ) {
-                if( i.type == ItemType::Option && i.data == name ) {
-                    return;
-                }
+            const auto already_exists = std::ranges::any_of( p.items_, [&]( const PageItem & item ) {
+                return item.type == ItemType::Option && item.data == name;
+            } );
+            if( already_exists ) {
+                return;
             }
-            p.items_.emplace_back( ItemType::Option, name, adding_to_group_ );
+            insert_page_item( p, PageItem( ItemType::Option, name, adding_to_group_ ) );
             return;
         }
     }
     // @TODO handle the case when an option has no valid page id (note: consider hidden external options as well)
+}
+
+auto options_manager::insert_page_item( Page &page, const PageItem &item ) -> void
+{
+    if( item.group.empty() ) {
+        page.items_.push_back( item );
+        return;
+    }
+
+    const auto group_range = std::find_if( page.items_.rbegin(),
+    page.items_.rend(), [&]( const PageItem & existing ) {
+        return existing.group == item.group;
+    } );
+    if( group_range == page.items_.rend() ) {
+        page.items_.push_back( item );
+        return;
+    }
+
+    page.items_.insert( group_range.base(), item );
 }
 
 options_manager::cOpt::cOpt()
@@ -539,7 +878,7 @@ void options_manager::add_empty_line( const std::string &sPageIn )
 {
     for( Page &p : pages_ ) {
         if( p.id_ == sPageIn ) {
-            p.items_.emplace_back( ItemType::BlankLine, "", adding_to_group_ );
+            insert_page_item( p, PageItem( ItemType::BlankLine, "", adding_to_group_ ) );
             break;
         }
     }
@@ -562,11 +901,22 @@ void options_manager::add_option_group( const std::string &page_id,
         }
     }
     groups_.push_back( group );
+
+    for( Page &p : pages_ ) {
+        if( p.id_ != page_id ) {
+            continue;
+        }
+        if( !p.items_.empty() && p.items_.back().type != ItemType::BlankLine ) {
+            insert_page_item( p, PageItem( ItemType::BlankLine, "", "" ) );
+        }
+        break;
+    }
+
     adding_to_group_ = groups_.back().id_;
 
     for( Page &p : pages_ ) {
         if( p.id_ == page_id ) {
-            p.items_.emplace_back( ItemType::GroupHeader, group.id_, adding_to_group_ );
+            insert_page_item( p, PageItem( ItemType::GroupHeader, group.id_, adding_to_group_ ) );
             break;
         }
     }
@@ -596,7 +946,7 @@ void options_manager::cOpt::setPrerequisites( const std::string &sOption,
 {
     const bool hasOption = get_options().has_option( sOption );
     if( !hasOption ) {
-        debugmsg( "setPrerequisite: unknown option %s", sType );
+        debugmsg( "setPrerequisite: unknown option %s", sOption );
         return;
     }
 
@@ -679,6 +1029,13 @@ bool options_manager::cOpt::is_hidden() const
             return true;
 #else
             return false;
+#endif
+
+        case COPT_ANDROID_HIDE:
+#if defined(__ANDROID__)
+            return false;
+#else
+            return true;
 #endif
 
         case COPT_ALWAYS_HIDE:
@@ -1226,20 +1583,175 @@ void options_manager::Page::removeRepeatedEmptyLines()
     }
 }
 
+auto options_manager::parse_option_definition_entry( const JsonObject &jo ) -> void
+{
+    const auto type = jo.get_string( "type" );
+    const auto has_page = [&]( const std::string & page_id ) -> bool {
+        return std::ranges::any_of( pages_, [&]( const Page & page )
+        {
+            return page.id_ == page_id;
+        } );
+    };
+    const auto has_group = [&]( const std::string & group_id ) -> bool {
+        return std::ranges::any_of( groups_, [&]( const Group & group )
+        {
+            return group.id_ == group_id;
+        } );
+    };
+
+    if( type == option_group_type ) {
+        auto parsed = parse_option_group_definition( jo );
+        if( !has_page( parsed.page ) ) {
+            debugmsg( "Option group '%s' references unknown page '%s'", parsed.id, parsed.page );
+            return;
+        }
+        add_option_group( parsed.page, Group( parsed.id, parsed.title, parsed.desc ),
+        []( const std::string & ) {} );
+        return;
+    }
+    if( type == option_type ) {
+        auto parsed = parse_option_definition( jo );
+        if( !has_page( parsed.page ) ) {
+            debugmsg( "Option '%s' references unknown page '%s'", parsed.name, parsed.page );
+            return;
+        }
+        if( parsed.scope != "global" && parsed.scope != "world" ) {
+            debugmsg( "Option '%s' has unknown scope '%s'", parsed.name, parsed.scope );
+            return;
+        }
+        if( parsed.scope == "world" && parsed.page != world_default ) {
+            debugmsg( "World-scoped option '%s' must be placed on page '%s'", parsed.name, world_default );
+            return;
+        }
+        if( parsed.scope == "global" && parsed.page == world_default ) {
+            debugmsg( "Global option '%s' cannot be placed on page '%s'", parsed.name, world_default );
+            return;
+        }
+
+        const auto group_id = has_group( parsed.group ) ? parsed.group : std::string();
+        if( !parsed.group.empty() && group_id.empty() ) {
+            debugmsg( "Option '%s' references unknown group '%s'", parsed.name, parsed.group );
+            return;
+        }
+
+        adding_to_group_ = group_id;
+        if( parsed.stype == "bool" ) {
+            add( parsed.name, parsed.page, std::string( parsed.menu_text.debug_get_raw() ),
+                 std::string( parsed.tooltip.debug_get_raw() ),
+                 parsed.default_bool, parsed.hide );
+        } else if( parsed.stype == "int" ) {
+            add( parsed.name, parsed.page, std::string( parsed.menu_text.debug_get_raw() ),
+                 std::string( parsed.tooltip.debug_get_raw() ),
+                 parsed.min_int, parsed.max_int, parsed.default_int, parsed.hide,
+                 parsed.format.empty() ? "%i" : parsed.format );
+        } else if( parsed.stype == "float" ) {
+            add( parsed.name, parsed.page, std::string( parsed.menu_text.debug_get_raw() ),
+                 std::string( parsed.tooltip.debug_get_raw() ),
+                 parsed.min_float, parsed.max_float, parsed.default_float, parsed.step_float,
+                 parsed.hide, parsed.format.empty() ? "%.2f" : parsed.format );
+        } else if( parsed.stype == "string_input" ) {
+            add( parsed.name, parsed.page, std::string( parsed.menu_text.debug_get_raw() ),
+                 std::string( parsed.tooltip.debug_get_raw() ),
+                 parsed.default_string, parsed.max_length, parsed.hide );
+        } else if( parsed.stype == "string_select" ) {
+            add( parsed.name, parsed.page, std::string( parsed.menu_text.debug_get_raw() ),
+                 std::string( parsed.tooltip.debug_get_raw() ),
+                 parsed.items, parsed.default_string, parsed.hide );
+        } else if( parsed.stype == "int_map" ) {
+            const auto int_items = parsed.int_map_items
+            | std::views::transform( []( const int_map_item_definition & item ) {
+                return std::tuple<int, std::string>( item.value,
+                                                     std::string( item.label.debug_get_raw() ) );
+            } )
+            | std::ranges::to<std::vector>();
+            add( parsed.name, parsed.page, std::string( parsed.menu_text.debug_get_raw() ),
+                 std::string( parsed.tooltip.debug_get_raw() ),
+                 int_items, parsed.default_int, parsed.default_int, parsed.hide, parsed.verbose );
+        }
+        for( const auto &dep : parsed.deps ) {
+            if( dep.values.empty() ) {
+                get_option( parsed.name ).setPrerequisite( dep.option );
+            } else {
+                get_option( parsed.name ).setPrerequisites( dep.option, dep.values );
+            }
+        }
+        adding_to_group_.clear();
+        return;
+    }
+
+    if( type == option_space_type ) {
+        std::string page = jo.get_string( "page" );
+        if( !has_page( page ) ) {
+            debugmsg( "Option space references unknown page '%s'", page );
+            return;
+        }
+        add_empty_line( page );
+        return;
+    }
+
+    jo.throw_error( string_format( "Unknown option definition type '%s'", type ), "type" );
+}
+
+auto options_manager::parse_option_definition_file( JsonIn &jsin ) -> void
+{
+    if( jsin.test_object() ) {
+        auto jo = jsin.get_object();
+        parse_option_definition_entry( jo );
+        jo.finish();
+        return;
+    }
+
+    jsin.start_array();
+    while( !jsin.end_array() ) {
+        auto jo = jsin.get_object();
+        parse_option_definition_entry( jo );
+        jo.finish();
+    }
+}
+
+auto options_manager::load_option_definitions() -> void
+{
+    auto files = get_files_from_path( ".json", option_definitions_path(), true, true );
+
+    for( const auto &file : files ) {
+        read_from_file_json( file, [&]( JsonIn & jsin ) {
+            parse_option_definition_file( jsin );
+        }, true );
+    }
+
+    mod_manager manager = mod_manager();
+    manager.refresh_mod_list();
+    for( const auto &mod : manager.all_mod_objects() ) {
+        if( mod.load_options ) {
+            files = get_files_from_path( ".json", mod.options_path, true, true );
+
+            for( const auto &file : files ) {
+                read_from_file_json( file, [&]( JsonIn & jsin ) {
+                    parse_option_definition_file( jsin );
+                }, true );
+            }
+
+        }
+    }
+}
+
 void options_manager::init()
 {
     options.clear();
+    groups_.clear();
+    adding_to_group_.clear();
     for( Page &p : pages_ ) {
         p.items_.clear();
     }
 
-    add_options_general();
     add_options_interface();
     add_options_graphics();
     add_options_performance();
     add_options_debug();
     add_options_world_default();
     add_options_android();
+    load_option_definitions();
+    add_options_general();
 
     for( Page &p : pages_ ) {
         p.removeRepeatedEmptyLines();
@@ -1253,280 +1765,6 @@ void options_manager::add_options_general()
     const auto add_empty_line = [&]() {
         this->add_empty_line( general );
     };
-
-    add( "PROMPT_ON_CHARACTER_DEATH", general, translate_marker( "Prompt on character death" ),
-         translate_marker( "If enabled, when your character dies, the player is given a prompt that gives the option to reload the last saved game instead of dying." ),
-         false
-       );
-
-    add_empty_line();
-
-    add( "DEF_CHAR_NAME", general, translate_marker( "Default character name" ),
-         translate_marker( "Set a default character name that will be used instead of a random name on character creation." ),
-         "", 30
-       );
-
-    add( "DEF_CHAR_GENDER", general, translate_marker( "Default character gender" ),
-    translate_marker( "Set a default character gender that will be used on character creation." ), {
-        { "male", to_translation( "Male" )},
-        { "female", to_translation( "Female" )},
-    }, "male" );
-
-    add_empty_line();
-
-    add_option_group( general, Group( "comestible_merging",
-                                      to_translation( "Merge similar comestibles" ),
-                                      to_translation( "Configure how similar items are stacked." ) ),
-    [&]( auto & page_id ) {
-        add( "MERGE_COMESTIBLES", page_id, translate_marker( "Merging Mode" ),
-        translate_marker( "Merge similar comestibles.  Legacy: default behavior.  Liquid: Merge only liquid comestibles.  All: Merge all comestibles." ), {
-            { "legacy", to_translation( "Legacy" ) },
-            { "liquid", to_translation( "Liquid" ) },
-            { "all", to_translation( "All" ) }
-        }, "all" );
-
-        add( "MERGE_COMESTIBLES_THRESHOLD", general, translate_marker( "Freshness similarity threshold" ),
-             translate_marker( "Limit maximum allowed staleness difference when merging comestibles."
-                               "  The lower the value, the more similar the items must be to merge."
-                               "  0.0: Only merge identical items."
-                               "  1.0: Merge comestibles regardless of its freshness."
-                             ),
-             0.0, 1.0, 0.25, 0.05 );
-
-        get_option( "MERGE_COMESTIBLES_THRESHOLD" ).setPrerequisites( "MERGE_COMESTIBLES", {"liquid", "all"} );
-    } );
-
-    add_empty_line();
-
-    add( "AUTO_PICKUP", general, translate_marker( "Auto pickup enabled" ),
-         translate_marker( "Enable item auto pickup.  Change pickup rules with the Auto Pickup Manager." ),
-         false
-       );
-
-    add( "AUTO_PICKUP_ADJACENT", general, translate_marker( "Auto pickup adjacent" ),
-         translate_marker( "If true, will enable to pickup items one tile around to the player.  You can assign No Auto Pickup zones with the Zones Manager 'Y' key for e.g.  your homebase." ),
-         false
-       );
-
-    get_option( "AUTO_PICKUP_ADJACENT" ).setPrerequisite( "AUTO_PICKUP" );
-
-    add( "AUTO_PICKUP_WEIGHT_LIMIT", general, translate_marker( "Auto pickup weight limit" ),
-         translate_marker( "Auto pickup items with weight less than or equal to [option] * 50 grams.  You must also set the small items option.  '0' disables this option" ),
-         0, 20, 0
-       );
-
-    get_option( "AUTO_PICKUP_WEIGHT_LIMIT" ).setPrerequisite( "AUTO_PICKUP" );
-
-    add( "AUTO_PICKUP_VOL_LIMIT", general, translate_marker( "Auto pickup volume limit" ),
-         translate_marker( "Auto pickup items with volume less than or equal to [option] * 50 milliliters.  You must also set the light items option.  '0' disables this option" ),
-         0, 20, 0
-       );
-
-    get_option( "AUTO_PICKUP_VOL_LIMIT" ).setPrerequisite( "AUTO_PICKUP" );
-
-    add( "AUTO_PICKUP_SAFEMODE", general, translate_marker( "Auto pickup safe mode" ),
-         translate_marker( "Auto pickup is disabled as long as you can see monsters nearby.  This is affected by 'Safe Mode proximity distance'." ),
-         false
-       );
-
-    get_option( "AUTO_PICKUP_SAFEMODE" ).setPrerequisite( "AUTO_PICKUP" );
-
-    add( "NO_AUTO_PICKUP_ZONES_LIST_ITEMS", general,
-         translate_marker( "List items within no auto pickup zones" ),
-         translate_marker( "If false, you will not see messages about items, you step on, within no auto pickup zones." ),
-         true
-       );
-
-    get_option( "NO_AUTO_PICKUP_ZONES_LIST_ITEMS" ).setPrerequisite( "AUTO_PICKUP" );
-
-    add_empty_line();
-
-    add( "AUTO_FEATURES", general, translate_marker( "Additional auto features" ),
-         translate_marker( "If true, enables configured auto features below.  Disabled as long as any enemy monster is seen." ),
-         false
-       );
-
-    add( "AUTO_PULP_BUTCHER", general, translate_marker( "Auto pulp or butcher" ),
-         translate_marker( "Action to perform when 'Auto pulp or butcher' is enabled.  Pulp: Pulp corpses you stand on.  - Pulp Adjacent: Also pulp corpses adjacent from you.  - Butcher: Butcher corpses you stand on." ),
-    { { "off", to_translation( "options", "Disabled" ) }, { "pulp", translate_marker( "Pulp" ) }, { "pulp_adjacent", translate_marker( "Pulp Adjacent" ) }, { "butcher", translate_marker( "Butcher" ) } },
-    "off"
-       );
-
-    get_option( "AUTO_PULP_BUTCHER" ).setPrerequisite( "AUTO_FEATURES" );
-
-    add( "AUTO_MINING", general, translate_marker( "Auto mining" ),
-         translate_marker( "If true, enables automatic use of wielded pickaxes and jackhammers whenever trying to move into mineable terrain." ),
-         false
-       );
-
-    get_option( "AUTO_MINING" ).setPrerequisite( "AUTO_FEATURES" );
-
-    add( "AUTO_FORAGING", general, translate_marker( "Auto foraging" ),
-         translate_marker( "Action to perform when 'Auto foraging' is enabled.  Bushes: Only forage bushes.  - Trees: Only forage trees.  - Everything: Forage bushes, trees, and everything else including flowers, cattails etc." ),
-    { { "off", to_translation( "options", "Disabled" ) }, { "bushes", translate_marker( "Bushes" ) }, { "trees", translate_marker( "Trees" ) }, { "flowers", translate_marker( "Flowers" ) }, { "both", translate_marker( "Everything" ) } },
-    "off"
-       );
-
-    get_option( "AUTO_FORAGING" ).setPrerequisite( "AUTO_FEATURES" );
-
-    add_empty_line();
-
-    add( "DANGEROUS_PICKUPS", general, translate_marker( "Dangerous pickups" ),
-         translate_marker( "If false, will cause player to drop new items that cause them to exceed the weight limit." ),
-         false
-       );
-
-    add( "DANGEROUS_TERRAIN_WARNING_PROMPT", general,
-         translate_marker( "Dangerous terrain warning prompt" ),
-         translate_marker( "Always: You will be prompted to move onto dangerous tiles.  Running: You will only be able to move onto dangerous tiles while running and will be prompted.  Crouching: You will only be able to move onto a dangerous tile while crouching and will be prompted.  Never:  You will not be able to move onto a dangerous tile unless running and will not be warned or prompted.  Ignore:  You will be able to move onto a dangerous tile without any warnings or prompts." ),
-    {
-        { "ALWAYS", to_translation( "Always" ) },
-        { "RUNNING", translate_marker( "Running" ) },
-        { "CROUCHING", translate_marker( "Crouching" ) },
-        { "NEVER", translate_marker( "Never" ) },
-        { "IGNORE", translate_marker( "Ignore" ) }
-    },
-    "ALWAYS"
-       );
-
-    add_empty_line();
-
-    add( "SAFEMODE", general, translate_marker( "Safe mode" ),
-         translate_marker( "If true, will hold the game and display a warning if a hostile monster/npc is approaching." ),
-         true
-       );
-
-    add( "SAFEMODEPROXIMITY", general, translate_marker( "Safe mode proximity distance" ),
-         translate_marker( "If safe mode is enabled, distance to hostiles at which safe mode should show a warning.  0 = Max player view distance.  This option only has effect when no safe mode rule is specified.  Otherwise, edit the default rule in Safe Mode Manager instead of this value." ),
-         0, MAX_VIEW_DISTANCE, 0
-       );
-
-    add( "SAFEMODEVEH", general, translate_marker( "Safe mode when driving" ),
-         translate_marker( "When true, safe mode will alert you of hostiles while you are driving a vehicle." ),
-         false
-       );
-
-    add( "AUTOSAFEMODE", general, translate_marker( "Auto reactivate safe mode" ),
-         translate_marker( "If true, safe mode will automatically reactivate after a certain number of turns.  See option 'Turns to auto reactivate safe mode.'" ),
-         false
-       );
-
-    add( "AUTOSAFEMODETURNS", general, translate_marker( "Turns to auto reactivate safe mode" ),
-         translate_marker( "Number of turns after which safe mode is reactivated.  Will only reactivate if no hostiles are in 'Safe mode proximity distance.'" ),
-         1, 600, 50
-       );
-
-    add( "SAFEMODEIGNORETURNS", general, translate_marker( "Turns to remember ignored monsters" ),
-         translate_marker( "Number of turns an ignored monster stays ignored after it is no longer seen.  0 disables this option and monsters are permanently ignored." ),
-         0, 3600, 200
-       );
-
-    add( "QUERY_BEFORE_ATTACKING_NEUTRAL", general,
-         translate_marker( "Query before attacking neutral monsters" ),
-         translate_marker( "If true, you will be prompted to confirm before attacking neutral or fleeing monsters that you have yet to engage in combat with." ),
-         true
-       );
-
-    add_empty_line();
-
-    add_option_group( general, Group( "clothing_destruction_popup",
-                                      to_translation( "Clothing destruction popup" ),
-                                      to_translation( "Configure when popups appear due to clothing being destroyed." ) ),
-    [&]( auto & page_id ) {
-        add( "CLOTHING_DESTRUCTION_POPUP", page_id, translate_marker( "Enable popup" ),
-             translate_marker( "If true, a popup will display when a piece of the player/NPC's worn clothing is destroyed." ),
-             true );
-
-        add( "CLOTHING_DESTRUCTION_POPUP_CONTENTS", page_id, translate_marker( "Only if contents present" ),
-             translate_marker( "Only show popup if destroyed clothing has contents." ),
-             false );
-
-        add( "CLOTHING_DESTRUCTION_POPUP_MIN_WEIGHT", page_id,
-             translate_marker( "Min weight for popup (g)" ),
-             translate_marker( "Minimum weight of the item for the popup to trigger." ),
-             0, 1000000, 0 );
-
-        add( "CLOTHING_DESTRUCTION_POPUP_MIN_VOLUME", page_id,
-             translate_marker( "Min volume for popup (ml)" ),
-             translate_marker( "Minimum volume of the item for the popup to trigger." ),
-             0, 1000000, 0 );
-    } );
-
-    add_empty_line();
-
-    add( "TURN_DURATION", general, translate_marker( "Realtime turn progression" ),
-         translate_marker( "If enabled, monsters will take periodic gameplay turns.  This value is the delay between each turn, in seconds.  Works best with Safe Mode disabled.  0 = disabled." ),
-         0.0, 10.0, 0.0, 0.05
-       );
-
-    add_empty_line();
-
-    add( "AUTOSAVE", general, translate_marker( "Autosave" ),
-         translate_marker( "If true, game will periodically save the map.  Autosaves occur based on in-game turns or real-time minutes, whichever is larger." ),
-         true
-       );
-
-    add( "AUTOSAVE_TURNS", general, translate_marker( "Game turns between autosaves" ),
-         translate_marker( "Number of game turns between autosaves" ),
-         10, 1000, 50
-       );
-
-    get_option( "AUTOSAVE_TURNS" ).setPrerequisite( "AUTOSAVE" );
-
-    add( "AUTOSAVE_MINUTES", general, translate_marker( "Real minutes between autosaves" ),
-         translate_marker( "Number of real time minutes between autosaves" ),
-         0, 127, 5
-       );
-
-    get_option( "AUTOSAVE_MINUTES" ).setPrerequisite( "AUTOSAVE" );
-
-    add_empty_line();
-
-    add( "AUTO_NOTES", general, translate_marker( "Auto notes" ),
-         translate_marker( "If true, automatically sets notes" ),
-         true
-       );
-
-    add( "AUTO_NOTES_STAIRS", general, translate_marker( "Auto notes (stairs)" ),
-         translate_marker( "If true, automatically sets notes on places that have stairs that go up or down" ),
-         false
-       );
-
-    get_option( "AUTO_NOTES_STAIRS" ).setPrerequisite( "AUTO_NOTES" );
-
-    add( "AUTO_NOTES_MAP_EXTRAS", general, translate_marker( "Auto notes (map extras)" ),
-         translate_marker( "If true, automatically sets notes on places that contain various map extras" ),
-         true
-       );
-
-    get_option( "AUTO_NOTES_MAP_EXTRAS" ).setPrerequisite( "AUTO_NOTES" );
-
-    add( "AUTO_NOTES_DROPPED_FAVORITES", "general",
-         translate_marker( "Auto notes (dropped favorites)" ),
-         translate_marker( "If true, automatically sets notes when player drops favorited items." ),
-         true
-       );
-
-    get_option( "AUTO_NOTES_DROPPED_FAVORITES" ).setPrerequisite( "AUTO_NOTES" );
-
-    add_empty_line();
-
-    add( "CIRCLEDIST", general, translate_marker( "Circular distances" ),
-         translate_marker( "If true, the game will calculate range in a realistic way: light sources will be circles, diagonal movement will cover more ground and take longer.  If disabled, everything is square: moving to the northwest corner of a building takes as long as moving to the north wall." ),
-         true
-       );
-
-    add( "DROP_EMPTY", general, translate_marker( "Drop empty containers" ),
-         translate_marker( "Set to drop empty containers after use.  No: Don't drop any.  - Watertight: All except watertight containers.  - All: Drop all containers." ),
-    { { "no", translate_marker( "No" ) }, { "watertight", translate_marker( "Watertight" ) }, { "all", translate_marker( "All" ) } },
-    "no"
-       );
-
-    add( "DEATHCAM", general, translate_marker( "DeathCam" ),
-         translate_marker( "Always: Always start deathcam.  Ask: Query upon death.  Never: Never show deathcam." ),
-    { { "always", translate_marker( "Always" ) }, { "ask", translate_marker( "Ask" ) }, { "never", translate_marker( "Never" ) } },
-    "ask"
-       );
 
     add_empty_line();
 
@@ -2178,6 +2416,11 @@ void options_manager::add_options_graphics()
        );
 
     get_option( "LOADING_SCREEN_IMAGES" ).setPrerequisite( "USE_TILES" );
+
+    add( "LOADING_PROGRESS_COMPACT", graphics, translate_marker( "Compact loading progress bar" ),
+         translate_marker( "If true, shows loading progress info as a compact bar at the bottom of the screen instead of a centered list of all steps. Good for enabled loading screen images." ),
+         true
+       );
 
     add_empty_line();
 
@@ -2963,6 +3206,10 @@ void options_manager::add_options_world_default()
          translate_marker( "Zombies Always Evolve" ),
          translate_marker( "When reaching the maximum half lives, instead of never evolving they will evolve at that time." ),
          false );
+    add( "REVIVIFICATION_FREQUENCY", world_default, translate_marker( "Revivification Frequency" ),
+         translate_marker( "Determines how soon in hours a freshly-killed zombie will attempt to revive, before damaged or burnt status is taken into account.  No effect if Prevent Zombie Revivification mod is used." ),
+         1, 1000, 6
+       );
     add( "CROWD_CRUSH", world_default,
          translate_marker( "Crowd crush" ),
          translate_marker( "When enabled, being grabbed by enough adjacent creatures can drain breath and eventually cause crushing damage." ),
@@ -2982,7 +3229,6 @@ void options_manager::add_options_world_default()
        );
 
     add_empty_line();
-
     add_option_group( world_default, Group( "skill_buff_category",
                                             to_translation( "Enabled Skill Buffs" ),
                                             to_translation( "Enable or disable major skill buffs" ) ),
@@ -2995,7 +3241,6 @@ void options_manager::add_options_world_default()
              true );
     }
                     );
-
     add_empty_line();
 
     add( "canmutprofmut", world_default, "Starting Trait Cancelling",
@@ -3859,7 +4104,6 @@ std::string options_manager::show( bool ingame, const bool world_options_only,
     std::unordered_map<std::string, bool> groups_state;
     groups_state.emplace( "", true ); // Non-existent group
     for( const Group &g : groups_ ) {
-        // Start collapsed
         groups_state.emplace( g.id_, false );
     }
 
@@ -3967,11 +4211,11 @@ std::string options_manager::show( bool ingame, const bool world_options_only,
         // Format name & value strings for given entry
         const auto fmt_name_value = [&]( const PageItem & it, bool is_selected )
         -> std::pair<string_col, string_col> {
-            const char *IN_GROUP_PREFIX = ": ";
+            const auto in_group_prefix = "  ";
             switch( it.type )
             {
                 case ItemType::BlankLine: {
-                    std::string name = it.group.empty() ? "" : IN_GROUP_PREFIX;
+                    std::string name = it.group.empty() ? "" : in_group_prefix;
                     return { string_col( name, c_white ), string_col() };
                 }
                 case ItemType::GroupHeader: {
@@ -3985,7 +4229,7 @@ std::string options_manager::show( bool ingame, const bool world_options_only,
                     const bool hasPrerequisite = opt.hasPrerequisite();
                     const bool hasPrerequisiteFulfilled = opt.checkPrerequisite();
 
-                    std::string name_prefix = it.group.empty() ? "" : IN_GROUP_PREFIX;
+                    std::string name_prefix = it.group.empty() ? "" : in_group_prefix;
                     string_col name( name_prefix + opt.getMenuText(), !hasPrerequisite ||
                                      hasPrerequisiteFulfilled ? c_white : c_light_gray );
 

@@ -375,6 +375,10 @@ class Character : public Creature, public location_visitable<Character>
         virtual void mod_dex_bonus( int ndex );
         virtual void mod_per_bonus( int nper );
         virtual void mod_int_bonus( int nint );
+        void mod_str_bonus( int nstr, bool force_on_tick );
+        void mod_dex_bonus( int ndex, bool force_on_tick );
+        void mod_per_bonus( int nper, bool force_on_tick );
+        void mod_int_bonus( int nint, bool force_on_tick );
 
         // Prints message(s) about current health
         void print_health() const;
@@ -454,6 +458,8 @@ class Character : public Creature, public location_visitable<Character>
         tripoint_abs_ms abs_pos() const override;
         /** Returns the player's sight range */
         int sight_range( int light_level ) const override;
+        /** Returns the range at which the player can spot camouflaged creatures */
+        int  spotting_range() const override;
         /** Returns the player maximum vision range factoring in mutations, diseases, and other effects */
         int  unimpaired_range() const;
         /** Returns true if overmap tile is within player line-of-sight */
@@ -562,6 +568,8 @@ class Character : public Creature, public location_visitable<Character>
         bool is_wearing_active_power_armor() const;
         /** Returns true if the player is wearing an active optical cloak */
         bool is_wearing_active_optcloak() const;
+        /** Returns 0 if the player is not wearing a plate carrier, otherwise returns the number of plate carriers the player is wearing */
+        int is_wearing_plate_carrier() const;
 
         /** Returns true if the player is in a climate controlled area or armor */
         bool in_climate_control();
@@ -594,6 +602,7 @@ class Character : public Creature, public location_visitable<Character>
         character_movemode get_movement_mode() const;
 
         virtual void set_movement_mode( character_movemode mode ) = 0;
+        void force_movement_mode( character_movemode mode );
 
         /**Determine if character is susceptible to dis_type and if so apply the symptoms*/
         void expose_to_disease( diseasetype_id dis_type );
@@ -860,6 +869,8 @@ class Character : public Creature, public location_visitable<Character>
         bool is_limb_broken( const bodypart_id &limb ) const;
         /** source of truth of whether a Character can run */
         bool can_run();
+        /** source of truth of whether a Character can run */
+        void try_remove_downed( Character &c );
         /** Hurts all body parts for dam, no armor reduction */
         void hurtall( int dam, Creature *source, bool disturb = true );
         /** Harms all body parts for dam, with armor reduction. If vary > 0 damage to parts are random within vary % (1-100) */
@@ -996,7 +1007,9 @@ class Character : public Creature, public location_visitable<Character>
         /** Returns true if the player doesn't have the mutation or a conflicting one and it complies with the force typing */
         bool mutation_ok( const trait_id &mutation, bool force_good, bool force_bad ) const;
         /** Picks a random valid mutation in a category and mutate_towards() it */
-        void mutate_category( const mutation_category_id &mut_cat );
+        void mutate_category( const mutation_category_id &cat );
+        /** Picks a random valid mutation in a category, mutate_towards() it and possibly cross thresh */
+        void mutate_category( const mutation_category_id &cat, bool cross_thresh );
         /** Mutates toward one of the given mutations, upgrading or removing conflicts if necessary */
         bool mutate_towards( std::vector<trait_id> muts, int num_tries = INT_MAX );
         /** Mutates toward the entered mutation, upgrading or removing conflicts if necessary */
@@ -1434,6 +1447,9 @@ class Character : public Creature, public location_visitable<Character>
         std::vector<detached_ptr<item>> inv_dump_remove();
 
         units::mass weight_carried() const;
+        // TODO: See if we can move all weight_carried instances to this
+        // Recalculating the cache requires this to be non-constant
+        units::mass cached_weight_carried();
         units::volume volume_carried() const;
 
         units::mass weight_carried_reduced_by( const excluded_stacks &without ) const;
@@ -1785,6 +1801,17 @@ class Character : public Creature, public location_visitable<Character>
         /** Returns the intensity of the specified addiction */
         int  addiction_level( add_type type ) const;
 
+    private:
+        std::unordered_set<perk_id> perks;
+    public:
+        std::vector<perk_id> get_perks() const;
+        /** Adds a perk to the player */
+        void add_perk( const perk_id &perk );
+        /** Removes a perk from the player */
+        void remove_perk( const perk_id &perk );
+        /** Checks if the player has a perk. */
+        bool has_perk( const perk_id &perk ) const;
+
         /** This character becomes familiar with creatures of the given type **/
         void set_knows_creature_type( const mtype_id &c );
         /** Returns a list of all monster types known by this character **/
@@ -1950,9 +1977,15 @@ class Character : public Creature, public location_visitable<Character>
         /** Regenerates stamina */
         void update_stamina( int turns );
 
+        location_inventory &get_inv() { return inv; };
     protected:
         void on_damage_of_type( int adjusted_damage, damage_type type, const bodypart_id &bp ) override;
         location_inventory inv;
+    private:
+        units::mass worn_weight_cache;
+        bool worn_weight_cache_dirty = true;
+        units::mass wielded_weight_cache;
+        bool wielded_weight_cache_drity = true;
     public:
 
         /** Called when an item is worn */

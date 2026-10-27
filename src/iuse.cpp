@@ -69,11 +69,11 @@
 #include "mtype.h"
 #include "mutation.h"
 #include "npc.h"
-#include "omdata.h"
 #include "options.h"
 #include "output.h"
-#include "overmap.h"
-#include "overmapbuffer.h"
+#include "overmap/omdata.h"
+#include "overmap/overmap.h"
+#include "overmap/overmapbuffer.h"
 #include "pimpl.h"
 #include "player.h"
 #include "player_activity.h"
@@ -328,6 +328,7 @@ static const trait_id trait_THRESH_PLANT( "THRESH_PLANT" );
 static const trait_id trait_TOLERANCE( "TOLERANCE" );
 static const trait_id trait_URSINE_EYE( "URSINE_EYE" );
 static const trait_id trait_WAYFARER( "WAYFARER" );
+static const trait_id trait_WAYFARER_SELF( "WAYFARER_SELF" );
 
 static const quality_id qual_AXE( "AXE" );
 static const quality_id qual_DIG( "DIG" );
@@ -5407,6 +5408,7 @@ int iuse::unfold_generic( Character *p, item *it, bool, const tripoint_abs_ms *p
         return 0;
     }
     veh->name = it->get_var( "vehicle_name" );
+    veh->type = vproto_id( it->get_var( "vehicle_id", "none" ) );
     if( !veh->restore( it->get_var( "folding_bicycle_parts" ) ) ) {
         here.destroy_vehicle( veh );
         return 0;
@@ -8261,6 +8263,7 @@ int iuse::remoteveh( Character *p, item *it, bool t, const tripoint_abs_ms *pt )
         if( stop ) {
             it->deactivate();
             g->setremoteveh( nullptr );
+            g->u.view_offset = tripoint_rel_ms::zero();
         }
 
         return it->type->charges_to_use();
@@ -8278,7 +8281,14 @@ int iuse::remoteveh( Character *p, item *it, bool t, const tripoint_abs_ms *pt )
 
     if( choice == 0 && controlling ) {
         it->deactivate();
+        if( remote->velocity == 0 && remote->engine_on && !remote->is_flying_in_air() ) {
+            remote->stop_engines();
+        }
+        if( remote->has_part( "CAMERA" ) && remote->has_part( "CAMERA_CONTROL" ) ) {
+            remote->camera_on = false;
+        }
         g->setremoteveh( nullptr );
+        g->u.view_offset = tripoint_rel_ms::zero();
         return 0;
     }
 
@@ -8295,9 +8305,13 @@ int iuse::remoteveh( Character *p, item *it, bool t, const tripoint_abs_ms *pt )
     if( !hackveh( *p, *it, *veh ) ) {
         return 0;
     }
+    const auto rctrl_parts = veh->get_avail_parts( "REMOTE_CONTROLS" );
 
     if( choice == 0 ) {
         if( g->u.has_trait( trait_WAYFARER ) ) {
+            add_msg( m_info,
+                     _( "Despite using a controller, you still refuse to take control of this vehicle." ) );
+        } else if( g->u.has_trait( trait_WAYFARER_SELF ) && veh->type != vproto_id( "none" ) ) {
             add_msg( m_info,
                      _( "Despite using a controller, you still refuse to take control of this vehicle." ) );
         } else {
@@ -8307,9 +8321,11 @@ int iuse::remoteveh( Character *p, item *it, bool t, const tripoint_abs_ms *pt )
             if( !veh->engine_on ) {
                 veh->start_engines();
             }
+            if( veh->has_part( "CAMERA" ) && veh->has_part( "CAMERA_CONTROL" ) ) {
+                veh->camera_on = true;
+            }
         }
     } else if( choice == 1 ) {
-        const auto rctrl_parts = veh->get_avail_parts( "REMOTE_CONTROLS" );
         // Revert to original behavior if we can't find remote controls.
         if( rctrl_parts.empty() ) {
             veh->use_controls( pos );
@@ -8320,6 +8336,10 @@ int iuse::remoteveh( Character *p, item *it, bool t, const tripoint_abs_ms *pt )
 
     g->u.view_offset.x() = p2.x();
     g->u.view_offset.y() = p2.y();
+    if( !rctrl_parts.empty() ) {
+        g->u.view_offset = rctrl_parts.begin()->bub_pos() - g->u.bub_pos();
+    }
+
     return it->type->charges_to_use();
 }
 
@@ -9619,7 +9639,17 @@ int use_function::call( Character &p, item &it, bool active,
 int iuse::bullet_vibe_on( Character *p, item *it, bool t, const tripoint_abs_ms *pt )
 {
     if( t ) { // Normal use
-        if( p->has_item( *it ) ) {
+        if( p->get_fatigue() > fatigue_levels::dead_tired ) {
+
+            std::string active_item = it->typeId().str();
+            std::string base_item = active_item.erase( active_item.rfind( '_' ) );
+
+            p->add_msg_if_player( _( "You're too tired for a good time. You shut off your %s." ),
+                                  it->display_name() );
+            it->convert( itype_id( base_item ) );
+            it->deactivate();
+
+        } else if( p->has_item( *it ) ) {
             // Only triggers every 1 minute so that fatigue isn't ridiculous
             if( action_time_scale::once_every_this_tick( 2_minutes ) ) {
                 p->add_morale( MORALE_FEELING_GOOD, 1, 30, 20_minutes, 10_minutes, true );

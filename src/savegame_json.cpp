@@ -66,7 +66,7 @@
 #include "npc_class.h"
 #include "npc_favor.h" // IWYU pragma: associated
 #include "options.h"
-#include "overmapbuffer.h"
+#include "overmap/overmapbuffer.h"
 #include "pickup_token.h"
 #include "pimpl.h"
 #include "player.h"
@@ -730,6 +730,7 @@ void Character::load( const JsonObject &data )
     recalculate_size();
 
     data.read( "my_bionics", *my_bionics );
+    data.read( "my_perks", perks );
 
     for( auto &w : worn ) {
         w->on_takeoff( *this );
@@ -931,6 +932,7 @@ void Character::store( JsonOut &json ) const
     json.member( "martial_arts_data", martial_arts_data );
     // "Fracking Toasters" - Saul Tigh, toaster
     json.member( "my_bionics", *my_bionics );
+    json.member( "my_perks", perks );
 
     json.member_as_string( "move_mode",  move_mode );
 
@@ -2205,6 +2207,17 @@ auto monster::load( const JsonObject &data,
     data.read( "mounted_player_id", mounted_player_id );
     data.read( "path", path );
     data.read( "monster_flags", monster_flags );
+    if( type->pet_training && training_level > 0 ) {
+        for( const auto &lf : type->pet_training->level_flags ) {
+            if( lf.level <= training_level ) {
+                for( const m_flag f : lf.flags ) {
+                    if( !has_flag( f ) ) {
+                        monster_flags.insert( f );
+                    }
+                }
+            }
+        }
+    }
 }
 
 /*
@@ -4524,6 +4537,11 @@ void submap::store( JsonOut &jsout ) const
                 jsout.write( cur.get_field_type().id() );
                 jsout.write( cur.get_field_intensity() );
                 jsout.write( cur.get_field_age() );
+                if( cur.electricity_conducted ) {
+                    jsout.start_object();
+                    jsout.member( "electricity_conducted", true );
+                    jsout.end_object();
+                }
             }
             jsout.end_array();
         }
@@ -4789,6 +4807,11 @@ void submap::load( JsonIn &jsin, const std::string &member_name, int version,
                     field_cache.push_back( point_sm_ms( i, j ) );
                 }
                 fld[i][j].add_field( ft, intensity, time_duration::from_turns( age ) );
+                if( jsin.test_object() ) {
+                    auto metadata = jsin.get_object();
+                    fld[i][j].find_field( ft )->electricity_conducted =
+                        metadata.get_bool( "electricity_conducted", false );
+                }
             }
         }
     } else if( member_name == "graffiti" ) {

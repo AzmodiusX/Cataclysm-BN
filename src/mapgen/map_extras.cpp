@@ -1,5 +1,7 @@
 #include "mapgen/map_extras.h"
 
+#include "../overmap/overmap.h"
+#include "../overmap/overmapbuffer.h"
 #include "auto_note.h"
 #include "calendar.h"
 #include "cata_utility.h"
@@ -29,9 +31,7 @@
 #include "mapgen/mapgendata.h"
 #include "mongroup.h"
 #include "options.h"
-#include "overmap.h"
-#include "overmapbuffer.h"
-#include "overmapbuffer_registry.h"
+#include "overmap/overmapbuffer_registry.h"
 #include "point.h"
 #include "point_float.h"
 #include "regional_settings.h"
@@ -1979,13 +1979,13 @@ static void burned_ground_parser(mapgen_constructor& m, const point_omt_ms& loc)
             m.furn_set(loc, f_ash);
         }
         // everything else is destroyed, ash is added
-    } else if (ter_furn_has_flag(tr, fid, TFLAG_FLAMMABLE)
-               || ter_furn_has_flag(tr, fid, TFLAG_FLAMMABLE_HARD)) {
+    } else if (tr.is_basic_flammable() || fid.is_basic_flammable() || tr.is_hard_flammable()
+               || fid.is_hard_flammable()) {
         if (m.is_bashable(loc)) { // one is not enough
             m.destroy(loc);
         }
         if (m.ter(loc) == t_pit) { m.ter_set(loc, t_pit_shallow); }
-    } else if (ter_furn_has_flag(tr, fid, TFLAG_FLAMMABLE_ASH)) {
+    } else if (tr.is_ash_flammable() || fid.is_ash_flammable()) {
         if (m.is_bashable(loc)) { m.destroy(loc); }
         if (m.ter(loc) == t_pit) { m.ter_set(loc, t_pit_shallow); }
         m.furn_set(loc, f_ash);
@@ -2932,6 +2932,11 @@ void map_extra::load(const JsonObject& jo, const std::string&) {
         generator_method =
             jg.get_enum_value<map_extra_method>("generator_method", map_extra_method::null);
         mandatory(jg, was_loaded, "generator_id", generator_id);
+    }
+    if (jo.has_object("path_cost")) {
+        JsonObject jp = jo.get_object("path_cost");
+        optional(jp, was_loaded, "on_foot", pathing_cost.on_foot);
+        optional(jp, was_loaded, "land_vehicle", pathing_cost.land_vehicle);
     }
     optional(jo, was_loaded, "sym", symbol, unicode_codepoint_from_symbol_reader, NULL_UNICODE);
     color = jo.has_member("color") ? color_from_string(jo.get_string("color")) : c_white;

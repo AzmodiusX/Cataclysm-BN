@@ -28,9 +28,9 @@
 #include "mapgen/map_extras.h"
 #include "mapgen/mapgen_constructor.h"
 #include "output.h"
-#include "overmap.h"
-#include "overmap_special.h"
-#include "overmapbuffer.h"
+#include "overmap/overmap.h"
+#include "overmap/overmap_special.h"
+#include "overmap/overmapbuffer.h"
 #include "player.h"
 #include "pldata.h"
 #include "point.h"
@@ -451,7 +451,7 @@ void start_location::burn( const tripoint_abs_omt &/*omtstart*/, const size_t co
                m.is_outside( p ) ||
                ( p.x() >= u.x() - rad && p.x() <= u.x() + rad &&
                  p.y() >= u.y() - rad && p.y() <= u.y() + rad ) ) ) {
-            if( m.has_flag( "FLAMMABLE", p ) || m.has_flag( "FLAMMABLE_ASH", p ) ) {
+            if( m.ter( p ).obj().is_flammable() || m.furn( p ).obj().is_flammable() ) {
                 valid.push_back( p );
             }
         }

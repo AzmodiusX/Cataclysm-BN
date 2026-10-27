@@ -1,5 +1,6 @@
 #include "mapgen/mapgen_constructor.h"
 
+#include "../overmap/overmapbuffer.h"
 #include "artifact.h"
 #include "catalua.h"
 #include "catalua_hooks.h"
@@ -24,9 +25,8 @@
 #include "mapgen/mapgendata.h"
 #include "mongroup.h"
 #include "npc.h"
-#include "omdata.h"
 #include "options.h"
-#include "overmapbuffer.h"
+#include "overmap/omdata.h"
 #include "point.h"
 #include "point_float.h"
 #include "rng.h"
@@ -397,6 +397,12 @@ auto mapgen_constructor::furn_set(const point_omt_ms& p, const furn_id& furnitur
     if (sm == nullptr || sm->get_furn(local) == furniture) { return false; }
     sm->set_furn(local, furniture);
     const auto& new_furniture = furniture.obj();
+    const auto& plumbing = new_furniture.fluid_grid;
+    if (plumbing && plumbing->role == fluid_grid_role::fixture && !plumbing->universal_liquids
+        && plumbing->allows_liquid(itype_id("water_clean"))) {
+        // Existing building fixtures are already plumbed into the clean water supply.
+        sm->get_furn_vars(local).set("fluid_grid_assigned_liquid", "water_clean");
+    }
     if (new_furniture.active) {
         cata::poly_serialized<active_tile_data> atd;
         atd.reset(new_furniture.active->clone());

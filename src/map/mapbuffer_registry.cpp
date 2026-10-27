@@ -1,7 +1,7 @@
 #include "map/mapbuffer_registry.h"
 
 #include "map/mapbuffer.h"
-#include "overmapbuffer_registry.h" // g_active_dimension_id
+#include "overmap/overmapbuffer_registry.h" // g_active_dimension_id
 #include "thread_pool.h"
 
 #include <vector>

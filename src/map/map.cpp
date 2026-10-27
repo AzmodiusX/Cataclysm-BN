@@ -1,5 +1,6 @@
 #include "map/map.h"
 
+#include "../overmap/overmapbuffer.h"
 #include "active_item_cache.h"
 #include "active_tile_data.h"
 #include "ammo.h"
@@ -33,6 +34,7 @@
 #include "explosion.h"
 #include "explosion_queue.h"
 #include "faction.h"
+#include "field_ignition_utils.h"
 #include "flag.h"
 #include "flat_set.h"
 #include "fluid_grid.h"
@@ -77,7 +79,6 @@
 #include "npc.h"
 #include "options.h"
 #include "output.h"
-#include "overmapbuffer.h"
 #include "player.h"
 #include "point.h"
 #include "point_float.h"
@@ -96,6 +97,7 @@
 #include "translations.h"
 #include "trap.h"
 #include "ui_manager.h"
+#include "units_energy.h"
 #include "value_ptr.h"
 #include "vehicle/veh_type.h"
 #include "vehicle/vehicle.h"
@@ -140,6 +142,7 @@ static const ammo_effect_str_id ammo_effect_LASER("LASER");
 static const ammo_effect_str_id ammo_effect_LIGHTNING("LIGHTNING");
 static const ammo_effect_str_id ammo_effect_NO_PENETRATE_OBSTACLES("NO_PENETRATE_OBSTACLES");
 static const ammo_effect_str_id ammo_effect_PLASMA("PLASMA");
+static const ammo_effect_str_id ammo_effect_SHOT("SHOT");
 
 static const itype_id itype_autoclave("autoclave");
 static const itype_id itype_battery("battery");
@@ -442,8 +445,18 @@ auto map::resize(int new_mapsize) -> void {
 }
 
 auto map::bind_dimension(const dimension_id& dim) -> void {
+    const auto changed = bound_dimension_ != dim;
     bound_dimension_ = dim;
     refresh_active_submap_view();
+    if (changed) {
+        // Cached vehicle pointers belong to the old buffer, which may now be unloaded.
+        dirty_vehicle_list.clear();
+        for (auto z = -OVERMAP_DEPTH; z <= OVERMAP_HEIGHT; ++z) { clear_vehicle_list(z); }
+        for (const auto p : bubble_submaps()) {
+            update_vehicle_list(get_submap_at(project_to<coords::ms>(p)), p.z());
+        }
+        reset_vehicle_cache();
+    }
 }
 
 auto map::refresh_active_submap_view() -> void {
@@ -1639,6 +1652,8 @@ bool map::displace_vehicle(vehicle& veh, const tripoint_rel_ms& dp) {
     if (remote) {
         // Has to be after update_map or coordinates won't be valid
         g->setremoteveh(&veh);
+        const auto cam_parts = veh.get_avail_parts("REMOTE_CONTROLS");
+        if (!cam_parts.empty()) { g->u.view_offset = cam_parts.begin()->bub_pos() - g->u.bub_pos(); }
     }
     mark_vehicle_moved();
     return true;
@@ -2120,6 +2135,11 @@ bool map::is_wall_adjacent(const tripoint_bub_ms& center) const {
 int map::move_cost(const tripoint_bub_ms& p, const vehicle* ignored_vehicle) const {
     // Dimension bounds are always impassable
     if (get_mapbuffer().is_outside_pocket_dimension_bounds(map_local_to_abs(*this, p))) {
+        return 0;
+    }
+    if (std::ranges::any_of(field_at(p), [](const auto& entry) {
+            return entry.second.is_impassable();
+        })) {
         return 0;
     }
 
@@ -2749,9 +2769,9 @@ bool map::flammable_items_at(const tripoint_bub_ms& p, int threshold) {
 bool map::is_flammable(const tripoint_bub_ms& p) {
     if (flammable_items_at(p)) { return true; }
 
-    if (has_flag("FLAMMABLE", p)) { return true; }
+    if (ter(p).obj().is_flammable() || furn(p).obj().is_flammable()) { return true; }
 
-    if (has_flag("FLAMMABLE_ASH", p)) { return true; }
+    if (flammable_fields(get_field(p)).intensity > 0) { return true; }
 
     if (get_field_intensity(p, fd_web) > 0) { return true; }
 
@@ -2910,11 +2930,12 @@ bool map::mop_spills(const tripoint_bub_ms& p) {
     }
 
     field& fld = field_at(p);
-    static const std::vector<field_type_id> to_check =
-        {fd_blood,      fd_blood_veggy, fd_blood_insect, fd_blood_invertebrate,
-         fd_gibs_flesh, fd_gibs_veggy,  fd_gibs_insect,  fd_gibs_invertebrate,
-         fd_bile,       fd_slime,       fd_sludge};
-    for (field_type_id fid : to_check) { retval |= fld.remove_field(fid); }
+    auto fields_to_remove = std::vector<field_type_id>{};
+    for (const auto& [field_id, entry] : fld) {
+        static_cast<void>(field_id);
+        if (entry.is_moppable()) { fields_to_remove.push_back(entry.get_field_type()); }
+    }
+    for (const field_type_id& field_id : fields_to_remove) { retval |= fld.remove_field(field_id); }
 
     if (const optional_vpart_position vp = veh_at(p)) {
         vehicle* const veh = &vp->vehicle();
@@ -3911,10 +3932,13 @@ void map::shoot(
     double range = rl_dist(origin, p);
     const bool point_blank = range <= 1;
     const auto abs_pos = bub_to_abs(p);
+    // Point-blank shots to terrain count as a crit, also increase damage for shotshells
+    // 5x since base damage is typically divided into 5 projectiles, times 1.5 comes out to 7.5
+    const float breaching_mod = proj.has_effect(ammo_effect_SHOT) ? 7.5 : 1.5;
     if (furn.bash.ranged) {
         // Damage cover like a crit if we're breaching at point blank range, otherwise randomize
         // like a normal hit.
-        float destroy_roll = point_blank ? dam * 1.5 : dam * rng_float(0.9, 1.1);
+        float destroy_roll = point_blank ? dam * breaching_mod : dam * rng_float(0.9, 1.1);
         const ranged_bash_info& rfi = *furn.bash.ranged;
         if (!hit_items
             && (!check(rfi.block_unaimed_chance)
@@ -3964,7 +3988,7 @@ void map::shoot(
         float modified_dam = dam;
         float modified_pen = pen;
         // Separate hit roll since damage might have been lowered by furniture first.
-        float destroy_roll = point_blank ? dam * 1.5 : dam * rng_float(0.9, 1.1);
+        float destroy_roll = point_blank ? dam * breaching_mod : dam * rng_float(0.9, 1.1);
         const ranged_bash_info& ri = *ter.bash.ranged;
         if (!hit_items
             && (!check(ri.block_unaimed_chance)
@@ -4016,6 +4040,16 @@ void map::shoot(
     apply_ammo_trail_effects(bub_to_abs(p), proj.get_ammo_effects(), 1.0);
 
     // Check fields?
+    if (inc) {
+        const auto fuel = flammable_fields(get_field(p));
+        const auto fuel_intensity = fuel.intensity;
+        if (fuel_intensity > 0) {
+            for (const auto type : fuel.types) { remove_field(p, type); }
+            add_field(p, fd_fire, fuel_field_fire_intensity(fuel_intensity),
+                      fuel_field_fire_age(fuel_intensity));
+        }
+    }
+
     const field_entry* fieldhit = get_field(p, fd_web);
     if (fieldhit != nullptr) {
         if (inc) {
@@ -4100,7 +4134,7 @@ bool map::hit_with_fire(const tripoint_bub_ms& p) {
     }
 
     // non passable but flammable terrain, set it on fire
-    if (has_flag("FLAMMABLE", p) || has_flag("FLAMMABLE_ASH", p)) { add_field(p, fd_fire, 3); }
+    if (ter(p).obj().is_flammable() || furn(p).obj().is_flammable()) { add_field(p, fd_fire, 3); }
     return true;
 }
 
@@ -4668,7 +4702,7 @@ static auto vehicle_item_needs_recharge(const item& it) -> bool {
         || (it.type->battery && it.type->battery->max_capacity > it.energy_remaining());
 }
 
-static auto process_vehicle_items(vehicle& cur_veh) -> void {
+static auto process_vehicle_items(vehicle& cur_veh, int turns) -> void {
     for (const cargo_recharge_target& entry : cur_veh.get_cargo_recharge_targets()) {
         if (!entry.target || !vehicle_item_needs_recharge(*entry.target)) { continue; }
 
@@ -4682,16 +4716,34 @@ static auto process_vehicle_items(vehicle& cur_veh) -> void {
             continue;
         }
 
-        auto power = recharge_part.info().bonus;
-        while (power >= 1000 || x_in_y(power, 1000)) {
-            const auto missing = cur_veh.discharge_battery(1, false);
+
+        auto power = recharge_part.info().bonus * turns;
+        power = power / 1000 + x_in_y(power % 1000, 1000);
+
+        if (power > 0) {
+            // check if we have battery at all, otherwise skip
+            auto missing = cur_veh.discharge_battery(1, false);
             if (missing > 0) { return; }
+
+            // apply recharger as if we have infinite battery, track amount
+            int charged_by = 0;
             if (target.is_battery()) {
-                target.mod_energy(1_kJ);
+                charged_by = units::to_joule(target.mod_energy(1_kJ * power)) / 1000;
             } else {
-                target.ammo_set(itype_battery, target.ammo_remaining() + 1);
+                int previous_ammo = target.ammo_remaining();
+                target.ammo_set(itype_battery, previous_ammo + power);
+                charged_by = target.ammo_remaining() - previous_ammo;
             }
-            power -= 1000;
+
+            // deplete battery properly, rescind any charge it didn't have enough juice to provide
+            missing = cur_veh.discharge_battery(charged_by - 1, false);
+            if (missing > 0) {
+                if (target.is_battery()) {
+                    target.mod_energy(1_kJ * -1 * missing);
+                } else {
+                    target.ammo_set(itype_battery, target.ammo_remaining() - missing);
+                }
+            }
         }
     }
 }
@@ -4836,7 +4888,7 @@ void map::process_items_in_vehicle(vehicle& cur_veh, submap& current_submap, int
     // If there is nothing to process, skip the expensive cargo-part collection.
     if (cur_veh.active_items.empty() && !cur_veh.has_cargo_recharge) { return; }
 
-    if (cur_veh.has_cargo_recharge) { process_vehicle_items(cur_veh); }
+    if (cur_veh.has_cargo_recharge) { process_vehicle_items(cur_veh, turns); }
 
     if (cur_veh.active_items.empty()) { return; }
 

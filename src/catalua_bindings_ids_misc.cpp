@@ -6,6 +6,7 @@
 #include "martialarts.h"
 #include "mod_manager.h"
 #include "mongroup.h"
+#include "perk.h"
 #include "requirements.h"
 #include "type_id.h"
 #include "vitamin.h"
@@ -19,6 +20,8 @@ auto cata::detail::reg_game_ids_misc( sol::state &lua ) -> void
     reg_id<fault, false>( lua );
     reg_id<quality, false>( lua );
     reg_id<vitamin, false>( lua );
+    reg_id<enchantment, false>( lua );
     reg_id<enchantment_value, false>( lua );
     reg_id<enchantment_flag, false>( lua );
+    reg_id<perk, false>( lua );
 }

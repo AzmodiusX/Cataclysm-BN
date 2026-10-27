@@ -55,7 +55,7 @@
 #include "npc.h"
 #include "options.h"
 #include "output.h"
-#include "overmapbuffer.h"
+#include "overmap/overmapbuffer.h"
 #include "pimpl.h"
 #include "player.h"
 #include "player_activity.h"
@@ -2860,7 +2860,7 @@ std::map<bodypart_id, int> Character::bionic_installation_issues( const bionic_i
     }
     for( const std::pair<const bodypart_str_id, int> &elem : bioid->occupied_bodyparts ) {
         int lacked_slots = elem.second - get_free_bionics_slots( elem.first );
-        if( bioid->upgraded_bionic ) {
+        if( bioid->upgraded_bionic && bioid->upgraded_bionic->occupied_bodyparts.contains( elem.first ) ) {
             lacked_slots -= bioid->upgraded_bionic->occupied_bodyparts.at( elem.first );
         }
         if( lacked_slots > 0 ) {

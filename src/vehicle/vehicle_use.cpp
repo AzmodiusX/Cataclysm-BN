@@ -1,3 +1,4 @@
+#include "../overmap/overmapbuffer.h"
 #include "action.h"
 #include "activity_actor.h"
 #include "activity_actor_definitions.h"
@@ -29,10 +30,11 @@
 #include "monster.h"
 #include "mtype.h"
 #include "output.h"
-#include "overmapbuffer.h"
 #include "pickup.h"
 #include "player.h"
 #include "player_activity.h"
+#include "reload/reload.h"
+#include "reload/reload_ui.h"
 #include "requirements.h"
 #include "rng.h"
 #include "sounds.h"
@@ -71,6 +73,7 @@ static const activity_id ACT_HOTWIRE_CAR("ACT_HOTWIRE_CAR");
 static const activity_id ACT_RELOAD("ACT_RELOAD");
 static const activity_id ACT_START_ENGINES("ACT_START_ENGINES");
 
+static const itype_id fuel_type_animal("animal");
 static const itype_id fuel_type_battery("battery");
 static const itype_id fuel_type_muscle("muscle");
 static const itype_id fuel_type_none("null");
@@ -676,7 +679,9 @@ void vehicle::use_controls(const tripoint_abs_ms& pos) {
             actions.emplace_back([&] {
                 if (!confirm_stop_driving()) {
                     return;
-                } else if (engine_on && has_engine_type_not(fuel_type_muscle, true)) {
+                } else if (engine_on && has_engine_type_not(fuel_type_muscle, true)
+                           && has_engine_type_not(fuel_type_animal, true)
+                           && has_engine_type_not(fuel_type_wind, true)) {
                     add_msg(_("You turn the engine off and let go of the controls."));
                     sound_event se;
                     se.origin = pos;
@@ -716,7 +721,9 @@ void vehicle::use_controls(const tripoint_abs_ms& pos) {
                 refresh();
             });
 
-        } else if (has_engine_type_not(fuel_type_muscle, true)) {
+        } else if (has_engine_type_not(fuel_type_muscle, true)
+                   && has_engine_type_not(fuel_type_animal, true)
+                   && has_engine_type_not(fuel_type_wind, true)) {
             options.emplace_back(
                 engine_on ? _("Turn off the engine") : _("Turn on the engine"),
                 keybind("TOGGLE_ENGINE"));
@@ -972,6 +979,7 @@ bool vehicle::fold_up() {
     if (can_be_folded) {
         folding_veh_item->set_var("weight", to_milligram(total_mass()));
         folding_veh_item->set_var("volume", total_folded_volume() / units::legacy_volume_factor);
+        folding_veh_item->set_var("vehicle_id", type.str());
         // remove "folded" from name to allow for more flexibility with folded vehicle names. also
         // lowers first character
         folding_veh_item->set_var("name", to_lower_case(name));
@@ -2108,7 +2116,7 @@ void vehicle::interact_with(const tripoint_bub_ms& pos, int interact_part) {
             return;
         }
         case RELOAD_TURRET: {
-            item_reload_option opt = character_funcs::select_ammo(you, turret.base(), true);
+            auto opt = reload_ui::select_ammo(you, turret.base(), {.prompt = true});
             if (opt) {
                 you.assign_activity(ACT_RELOAD, opt.moves(), opt.qty());
                 you.activity->targets.emplace_back(turret.base());

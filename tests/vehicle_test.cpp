@@ -1,4 +1,5 @@
 #include "../src/map/map.h"
+#include "../src/overmap/overmapbuffer.h"
 #include "../src/vehicle/vehicle_part.h"
 #include "../src/vehicle/vpart_position.h"
 #include "avatar.h"

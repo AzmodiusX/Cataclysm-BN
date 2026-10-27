@@ -69,6 +69,8 @@
 #include "player_activity.h"
 #include "point.h"
 #include "ranged.h"
+#include "reload/reload.h"
+#include "reload/reload_ui.h"
 #include "recipe.h"
 #include "recipe_dictionary.h"
 #include "rng.h"
@@ -450,8 +452,8 @@ bool aim_activity_actor::load_RAS_weapon()
         }
         return true;
     };
-    item_reload_option opt = ammo_location_is_valid() ? item_reload_option( &you, weapon,
-                             weapon, *you.ammo_location ) : character_funcs::select_ammo( you, *gun );
+    auto opt = ammo_location_is_valid() ? item_reload_option( &you, weapon, weapon,
+               *you.ammo_location ) : reload_ui::select_ammo( you, *gun );
     if( !opt ) {
         // Menu canceled
         return false;
@@ -2383,9 +2385,9 @@ void craft_activity_actor::calc_all_moves( player_activity &act, Character &who 
             // No live crafting modifiers are applied while outside the reality bubble.
             const auto moves_elapsed = action_time_scale::activity_progress_for_turns( elapsed_turns );
             const int old_counter = craft_item->get_counter();
-            const int new_counter = std::min(
-                                        static_cast<int>( old_counter + moves_elapsed / base_total_moves * 10'000'000.0 ),
-                                        10'000'000 );
+            const int new_counter = static_cast<int>( std::min(
+                                        old_counter + moves_elapsed / base_total_moves * 10'000'000.0,
+                                        10'000'000.0 ) );
             craft_item->set_counter( new_counter );
             craft_counter = new_counter;
 
@@ -2529,9 +2531,9 @@ void craft_activity_actor::do_turn( player_activity &act, Character &who )
     const auto scaled_moves = action_time_scale::activity_progress_from_actor_moves( who );
     const auto delta_progress = scaled_moves * base_total_moves / cur_total_moves;
     const double current_progress = old_counter * base_total_moves / 10'000'000.0 + delta_progress;
-    const int new_counter = std::min(
-                                static_cast<int>( std::round( current_progress / base_total_moves * 10'000'000.0 ) ),
-                                10'000'000 );
+    const int new_counter = static_cast<int>( std::min(
+                                std::round( current_progress / base_total_moves * 10'000'000.0 ),
+                                10'000'000.0 ) );
     const int five_percent_steps = new_counter / 500'000 - old_counter / 500'000;
     craft_item->set_counter( new_counter );
     craft_counter = new_counter;
@@ -2636,7 +2638,7 @@ act_progress_message craft_activity_actor::get_progress_message(
     mults_desc += string_format( " - %s: %s\n", _( "Total" ),
                                  colorize( std::to_string( total_pct ) + '%', total_col ) );
     mults_desc += fmt_spd( act.speed.player_speed, _( "Speed" ) );
-    mults_desc += fmt_spd( act.speed.light, _( "Light" ) );
+    mults_desc += fmt_spd( act.speed.light, pgettext( "crafting speed multiplier", "Light" ) );
     mults_desc += fmt_spd( act.speed.bench_factor, _( "Workbench" ) );
     mults_desc += fmt_spd( act.speed.morale, _( "Morale" ) );
     mults_desc += fmt_spd( act.speed.tools, _( "Tools" ) );

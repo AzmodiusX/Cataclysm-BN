@@ -50,7 +50,7 @@
 #include "npc.h"
 #include "options.h"
 #include "output.h"
-#include "overmap.h"
+#include "overmap/overmap.h"
 #include "player.h"
 #include "player_activity.h"
 #include "activity_actor_definitions.h"
@@ -86,6 +86,7 @@ static const bionic_id bio_memory( "bio_memory" );
 
 static const efftype_id effect_alarm_clock( "alarm_clock" );
 static const efftype_id effect_contacts( "contacts" );
+static const efftype_id effect_downed( "downed" );
 static const efftype_id effect_sleep( "sleep" );
 static const efftype_id effect_slept_through_alarm( "slept_through_alarm" );
 static const efftype_id effect_cold( "cold" );
@@ -97,11 +98,12 @@ static const itype_id itype_guidebook( "guidebook" );
 static const trait_id trait_CENOBITE( "CENOBITE" );
 static const trait_id trait_HYPEROPIC( "HYPEROPIC" );
 static const trait_id trait_ILLITERATE( "ILLITERATE" );
-static const trait_id trait_PROF_DICEMASTER( "PROF_DICEMASTER" );
 
 static const morale_type MORALE_FOOD_COLD( "morale_food_cold" );
 static const morale_type MORALE_FOOD_VERY_COLD( "morale_food_very_cold" );
 
+static const enchantment_flag_id
+ench_flag_NO_READING_COMPLEXITY_PENALTY( "NO_READING_COMPLEXITY_PENALTY" );
 class JsonIn;
 class JsonOut;
 
@@ -505,7 +507,8 @@ int avatar::time_to_read( const item &book, const Character &reader,
                         character_funcs::fine_detail_vision_mod( reader ) );
 
     const int effective_int = std::min( { get_int(), reader.get_int(), learner ? learner->get_int() : INT_MAX } );
-    if( type->intel > effective_int && !reader.has_trait( trait_PROF_DICEMASTER ) ) {
+    if( type->intel > effective_int &&
+        !reader.has_enchantment_flag( ench_flag_NO_READING_COMPLEXITY_PENALTY ) ) {
         retval += type->time * ( type->intel - effective_int ) * 100;
     }
     return retval;
@@ -766,7 +769,7 @@ auto avatar::read( item *loc, const bool continuous, const int continuous_reader
 
     const int intelligence = get_int();
     const bool complex_penalty = type->intel > std::min( intelligence, reader->get_int() ) &&
-                                 !reader->has_trait( trait_PROF_DICEMASTER );
+                                 !reader->has_enchantment_flag( ench_flag_NO_READING_COMPLEXITY_PENALTY );
     const auto *complex_player = reader->get_int() < intelligence ? reader : this;
     if( complex_penalty && !continuous ) {
         add_msg( m_warning,
@@ -1306,9 +1309,16 @@ void avatar::set_movement_mode( character_movemode new_mode )
             } else {
                 // Spend moves to stand up if crouched or prone, otherwise just stop running.
                 if( move_mode == CMM_PRONE ) {
-                    mod_moves( -300 );
-                    recoil = MAX_RECOIL;
-                    add_msg( _( "You get up from the ground." ) );
+                    if( has_effect( effect_downed ) ) {
+                        // Spend a turn trying to get back up if the player tried to manually swap stances while downed.
+                        Character::try_remove_downed( *this );
+                        mod_moves( -100 );
+                        return;
+                    } else {
+                        mod_moves( -300 );
+                        recoil = MAX_RECOIL;
+                        add_msg( _( "You get up from the ground." ) );
+                    }
                 } else if( move_mode == CMM_CROUCH ) {
                     mod_moves( -100 );
                     recoil = MAX_RECOIL;
@@ -1333,9 +1343,16 @@ void avatar::set_movement_mode( character_movemode new_mode )
                 } else {
                     // Spend moves to stand up if crouched or prone, otherwise just stop running.
                     if( move_mode == CMM_PRONE ) {
-                        mod_moves( -300 );
-                        recoil = MAX_RECOIL;
-                        add_msg( _( "You get up from the ground and start running." ) );
+                        if( has_effect( effect_downed ) ) {
+                            // Spend a turn trying to get back up if the player tried to manually swap stances while downed.
+                            Character::try_remove_downed( *this );
+                            mod_moves( -100 );
+                            return;
+                        } else {
+                            mod_moves( -300 );
+                            recoil = MAX_RECOIL;
+                            add_msg( _( "You get up from the ground and start running." ) );
+                        }
                     } else if( move_mode == CMM_CROUCH ) {
                         mod_moves( -100 );
                         recoil = MAX_RECOIL;
@@ -1371,9 +1388,16 @@ void avatar::set_movement_mode( character_movemode new_mode )
                     mod_moves( -100 );
                     add_msg( _( "You start crouching." ) );
                 } else if( move_mode == CMM_PRONE ) {
-                    recoil = MAX_RECOIL;
-                    mod_moves( -200 );
-                    add_msg( _( "You rise from prone to a crouch." ) );
+                    if( has_effect( effect_downed ) ) {
+                        // Spend a turn trying to get back up if the player tried to manually swap stances while downed.
+                        Character::try_remove_downed( *this );
+                        mod_moves( -100 );
+                        return;
+                    } else {
+                        recoil = MAX_RECOIL;
+                        mod_moves( -200 );
+                        add_msg( _( "You rise from prone to a crouch." ) );
+                    }
                 }
             }
             break;

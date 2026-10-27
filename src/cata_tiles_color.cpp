@@ -5,7 +5,7 @@
 #    include "map/field.h"
 #    include "map/map.h"
 #    include "monster.h"
-#    include "omdata.h"
+#    include "overmap/omdata.h"
 #    include "vehicle/veh_type.h"
 #    include "vehicle/vehicle.h"
 #    include "vehicle/vehicle_part.h"
@@ -213,6 +213,13 @@ auto cata_tiles::get_trap_color(
 auto cata_tiles::get_field_color(
     const field &f, const map &, const tripoint_bub_ms & ) const -> color_tint_pair
 {
+    if( const auto tint_rgb = f.displayed_field_type().obj().get_tint_rgb(); tint_rgb.has_value() ) {
+        return { tint_config{ *tint_rgb }, tint_config{ *tint_rgb } };
+    }
+    const auto tint = f.displayed_field_type().obj().get_tint();
+    if( tint != c_unset ) {
+        return { tint_config{ tint }, tint_config{ tint } };
+    }
     return tint_from_tileset( tileset_ptr, f );
 }
 

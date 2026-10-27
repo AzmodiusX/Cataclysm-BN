@@ -1,5 +1,7 @@
 #include "mapgen/mapgen.h"
 
+#include "../overmap/overmap.h"
+#include "../overmap/overmapbuffer.h"
 #include "advanced_inv_listitem.h"
 #include "all_enum_values.h"
 #include "artifact_enum_traits.h"
@@ -53,12 +55,10 @@
 #include "mongroup.h"
 #include "npc.h"
 #include "numeric_interval.h"
-#include "omdata.h"
 #include "options.h"
-#include "overmap.h"
-#include "overmap_connection.h"
-#include "overmapbuffer.h"
-#include "overmapbuffer_registry.h"
+#include "overmap/omdata.h"
+#include "overmap/overmap_connection.h"
+#include "overmap/overmapbuffer_registry.h"
 #include "player.h"
 #include "point.h"
 #include "point_float.h"
@@ -1803,7 +1803,7 @@ public:
             const auto target = point_omt_ms(x.get(), y.get());
             const auto& furn = dat.m.furn(target).obj();
             if (furn.fluid_grid && furn.fluid_grid->role == fluid_grid_role::tank
-                && furn.fluid_grid->allowed_liquids.contains(migrated)) {
+                && furn.fluid_grid->allows_liquid(migrated)) {
                 const auto added = fluid_grid::seed_liquid_charges_for_mapgen({
                     .p = dat.m.get_abs_omt(),
                     .liquid_type = migrated,

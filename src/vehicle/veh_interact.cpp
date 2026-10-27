@@ -1,6 +1,7 @@
 #include "vehicle/veh_interact.h"
 
 #include "activity_actor_definitions.h"
+#include "../overmap/overmapbuffer.h"
 #include "activity_handlers.h"
 #include "avatar.h"
 #include "avatar_functions.h"
@@ -27,7 +28,6 @@
 #include "npc.h"
 #include "options.h"
 #include "output.h"
-#include "overmapbuffer.h"
 #include "player.h"
 #include "player_activity.h"
 #include "point.h"

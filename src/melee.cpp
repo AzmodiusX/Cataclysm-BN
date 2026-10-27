@@ -33,6 +33,7 @@
 #include "map/map.h"
 #include "map/mapdata.h"
 #include "map/map_iterator.h"
+#include "map/utils/map_functions.h"
 #include "martialarts.h"
 #include "messages.h"
 #include "monattack.h"
@@ -1879,6 +1880,11 @@ void Character::reach_attack( const tripoint_abs_ms &p )
         return;
     }
 
+    if( map_funcs::physical_floor_between( here, bub_pos(), p ) ) {
+        add_msg_if_player( _( "There's a floor in the way!" ) );
+        return;
+    }
+
     reach_attacking = true;
     melee_attack( *critter, true, &force_technique, false );
     reach_attacking = false;
@@ -2587,6 +2593,10 @@ void Character::perform_technique( const ma_technique &technique, Creature &t, d
         }
     }
 
+    if( technique.stun_dur > 0 ) {
+        t.add_effect( effect_stunned, rng( 1_turns, time_duration::from_turns( technique.stun_dur ) ) );
+    }
+
     if( technique.side_switch ) {
         const auto b = t.bub_pos();
         int newx;
@@ -2649,9 +2659,6 @@ void Character::perform_technique( const ma_technique &technique, Creature &t, d
             }
         }
 
-        if( technique.stun_dur > 0 && !technique.powerful_knockback ) {
-            t.add_effect( effect_stunned, rng( 1_turns, time_duration::from_turns( technique.stun_dur ) ) );
-        }
         if( t.bub_pos() != prev_pos && can_be_downed_after_knockback( t ) ) {
             if( technique.controlled_knockback ) {
                 apply_thrown_creature_downed_effect( t );
@@ -3142,7 +3149,7 @@ std::string Character::melee_special_effects( Creature &t, damage_instance &d, i
     if( has_active_bionic( bio_shock ) && get_power_level() >= bio_shock->power_trigger &&
         ( !is_armed() || primary_weapon().conductive() ) ) {
         mod_power_level( -bio_shock->power_trigger );
-        d.add_damage( DT_ELECTRIC, rng( 2, 10 ) );
+        d.add_damage( DT_ELECTRIC, rng( 5, 10 ) );
 
         if( is_player() ) {
             dump += string_format( _( "You shock %s." ), target ) + "\n";

@@ -307,7 +307,7 @@
     "id": "f_gunsafe_o",
     "name": "open gun safe",
     "description": "A large and heavy container with thick metal walls and a rotary combination lock, this is designed to securely store firearms, weapon mods, and ammunition.",
-    "symbol": "X",
+    "symbol": "O",
     "color": "light_gray",
     "looks_like": "f_gunsafe_ml",
     "move_cost_mod": -1,
@@ -1062,7 +1062,7 @@
     "id": "f_standing_tank_plumbed",
     "copy-from": "f_standing_tank",
     "name": "standing tank (plumbed)",
-    "description": "A large freestanding metal tank hooked into a fluid grid.",
+    "description": "A large freestanding metal tank hooked into a fluid grid. It accepts any liquid, and unassigned tanks can be assigned automatically when the grid needs more capacity for a liquid.",
     "symbol": "O",
     "color": "light_gray",
     "keg_capacity": 1200,
@@ -1070,7 +1070,8 @@
       "role": "tank",
       "allow_input": true,
       "allow_output": true,
-      "allowed_liquids": [ "water", "water_clean" ],
+      "allowed_liquids": "universal",
+      "autofill": true,
       "disconnected_variant": "f_standing_tank",
       "use_keg_capacity": true
     }

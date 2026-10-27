@@ -1073,6 +1073,7 @@
     "id": "museum_armor_pet",
     "items": [
       [ "chainmail_armor_medium_quadruped", 30 ],
+      [ "plate_armor_medium_quadruped", 30 ],
       [ "leather_armor_medium_quadruped", 30 ],
       [ "leatherbone_armor_medium_quadruped", 30 ],
       [ "saddlebag", 30 ],
@@ -1162,6 +1163,7 @@
     "type": "item_group",
     "id": "museum_guns",
     "items": [
+      { "group": "guns_surplus", "prob": 100 },
       [ "pistol_flintlock", 40 ],
       [ "carbine_flintlock", 30 ],
       [ "rifle_flintlock", 40 ],
@@ -1171,8 +1173,9 @@
       [ "flintlock_shot", 40 ],
       [ "shotgun_paper", 50 ],
       [ "colt_army", 50 ],
-      [ "colt_ring", 50 ],
+      [ "colt_ring", 25 ],
       [ "colt_navy", 50 ],
+      [ "colt_ring_36", 25 ],
       [ "shot_paper_00", 25 ],
       [ "shot_paper_bird", 15 ],
       [ "shot_paper_slug", 10 ],
@@ -1529,7 +1532,7 @@
     "items": [
       [ "helmet_riot", 25 ],
       [ "mask_gas", 25 ],
-      [ "modularveststeel", 20 ],
+      { "collection": [ { "item": "ballistic_vest_esapi" }, { "item": "steel_ballistic_plate" } ], "prob": 20 },
       [ "gloves_tactical", 10 ],
       [ "armguard_hard", 20 ],
       [ "legguard_hard", 20 ],
@@ -2517,16 +2520,7 @@
       { "item": "boots_combat", "prob": 50 },
       { "item": "helmet_army", "prob": 10 },
       { "item": "gloves_tactical", "prob": 10 },
-      {
-        "distribution": [
-          { "item": "modularvestceramic", "prob": 50 },
-          { "item": "modularvest", "prob": 25 },
-          { "item": "modularveststeel", "prob": 10 },
-          { "item": "modularvesthard", "prob": 10 },
-          { "item": "modularvestsuper", "prob": 5 }
-        ],
-        "prob": 10
-      },
+      { "group": "military_ballistic_vests_and_plates", "prob": 10 },
       { "group": "clothing_tactical_leg", "prob": 5 },
       {
         "distribution": [
@@ -2737,7 +2731,8 @@
       { "item": "lemat_revolver", "prob": 5 },
       { "item": "colt_army", "prob": 5 },
       { "item": "colt_navy", "prob": 5 },
-      { "item": "colt_ring", "prob": 5 },
+      { "item": "colt_ring", "prob": 2 },
+      { "item": "colt_ring_36", "prob": 3 },
       { "item": "longrifle_flintlock", "prob": 7 },
       { "item": "rifle_flintlock", "prob": 3 },
       { "item": "carbine_flintlock", "prob": 2 },

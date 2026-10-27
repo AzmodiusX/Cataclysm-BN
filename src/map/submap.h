@@ -201,7 +201,7 @@ public:
         return it->second;
     };
 
-    const data_vars::data_set& get_furn_vars(const point_sm_ms& p) const {
+    auto get_furn_vars(const point_sm_ms& p) const -> const data_vars::data_set& {
         const auto it = frn_vars.find(p);
         if (it == frn_vars.end()) { return EMPTY_VARS; }
         return it->second;

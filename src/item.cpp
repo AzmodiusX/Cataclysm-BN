@@ -10,6 +10,7 @@
 #include "bodypart.h"
 #include "cached_item_options.h"
 #include "calendar.h"
+#include "catalua_hooks.h"
 #include "cata_utility.h"
 #include "catacharset.h"
 #include "catalua_icallback_actor.h"
@@ -66,8 +67,8 @@
 #include "npc.h"
 #include "options.h"
 #include "output.h"
-#include "overmap.h"
-#include "overmapbuffer.h"
+#include "overmap/overmap.h"
+#include "overmap/overmapbuffer.h"
 #include "pimpl.h"
 #include "player.h"
 #include "player_activity.h"
@@ -91,6 +92,7 @@
 #include "string_id_utils.h"
 #include "string_utils.h"
 #include "text_snippets.h"
+#include "thread_pool.h"
 #include "translations.h"
 #include "type_id.h"
 #include "units.h"
@@ -1069,8 +1071,10 @@ bool item::swap_side()
 
 bool item::is_worn_only_with( const item &it ) const
 {
-    return( ( has_flag( flag_POWERARMOR_EXTERNAL ) || has_flag( flag_POWERARMOR_MOD ) ) &&
-            it.has_flag( flag_POWERARMOR_EXO ) );
+    return( ( ( has_flag( flag_POWERARMOR_EXTERNAL ) || has_flag( flag_POWERARMOR_MOD ) ||
+                has_flag( flag_POWERARMOR_PLATING ) ) &&
+              it.has_flag( flag_POWERARMOR_EXO ) ) || ( has_flag( flag_ARMOR_PLATE ) &&
+                      it.has_flag( flag_PLATE_CARRIER ) ) );
 }
 
 detached_ptr<item> item::in_its_container( detached_ptr<item> &&self )
@@ -3181,7 +3185,7 @@ void item::armor_fit_info( std::vector<iteminfo> &info, const iteminfo_query *pa
             }
         } else {
             info.emplace_back( "DESCRIPTION", _( "* This clothing <bad>can not be refitted, "
-                                                 "upsized, or downsized</bad>." ) );
+                                                 "upsized, or downsized</bad> to fit abnormal anatomy without <bad>extensive modifications</bad>, but should <info>fit everyone with normal anatomy</info>." ) );
         }
     }
 
@@ -5043,15 +5047,29 @@ void item::on_wield( player &p, int mv )
     // Update encumbrance in case we were wearing it
     p.flag_encumbrance();
 
-    if( type->iwieldable_callbacks ) {
-        type->iwieldable_callbacks->call_on_wield( p, *this, mv );
+    if( !is_pool_worker_thread() ) {
+        const auto &hook_results = cata::run_hooks( "on_character_wield",
+        [&]( sol::table & params ) {
+            params["who"] = &p;
+            params["item"] = this;
+        } );
+        if( type->iwieldable_callbacks ) {
+            type->iwieldable_callbacks->call_on_wield( p, *this, mv );
+        }
     }
 }
 
 void item::on_unwield( Character &who )
 {
-    if( type->iwieldable_callbacks ) {
-        type->iwieldable_callbacks->call_on_unwield( who, *this );
+    if( !is_pool_worker_thread() ) {
+        const auto &hook_results = cata::run_hooks( "on_character_unwield",
+        [&]( sol::table & params ) {
+            params["who"] = &who;
+            params["item"] = *this;
+        } );
+        if( type->iwieldable_callbacks ) {
+            type->iwieldable_callbacks->call_on_unwield( who, *this );
+        }
     }
 }
 
@@ -5442,6 +5460,9 @@ std::string item::tname( unsigned int quantity, bool with_prefix, unsigned int t
 
     if( is_favorite ) {
         tagtext += _( " *" ); // Display asterisk for favorite items
+    }
+    if( has_var( "DROP_WITH_CLOTHING_NAME" ) ) {
+        tagtext += _( " &" ); // Display ampersand for clothing-linked items
     }
 
     //~ This is a string to construct the item name as it is displayed. This format string has been added for maximum flexibility. The strings are: %1$s: Damage text (e.g. "bruised"). %2$s: burn adjectives (e.g. "burnt"). %3$s: tool modifier text (e.g. "atomic"). %4$s: vehicle part text (e.g. "3.8-Liter"). $5$s: main item text (e.g. "apple"). %6s: tags (e.g. "(wet) (poor fit)").
@@ -6715,7 +6736,13 @@ int item::get_base_env_resist_w_filter() const
 bool item::is_power_armor() const
 {
     return ( has_flag( flag_POWERARMOR_EXO ) || has_flag( flag_POWERARMOR_EXTERNAL ) ||
+             has_flag( flag_POWERARMOR_PLATING ) ||
              has_flag( flag_POWERARMOR_MOD ) );
+}
+
+bool item::is_armor_plate() const
+{
+    return has_flag( flag_ARMOR_PLATE );
 }
 
 int item::get_avg_encumber( const Character &who ) const
@@ -6989,8 +7016,8 @@ bool item::ready_to_revive() const
     if( damage_level( 4 ) > 0 ) {
         age_in_hours /= ( damage_level( 4 ) + 1 );
     }
-    int rez_factor = 48 - age_in_hours;
-    if( age_in_hours > 6 && ( rez_factor <= 0 || one_in( rez_factor ) ) ) {
+    int rez_factor = get_option< int >( "REVIVIFICATION_FREQUENCY" );
+    if( age_in_hours >= rez_factor && ( age_in_hours >= rez_factor * 2 || one_in( rez_factor ) ) ) {
         // If we're a special revival zombie, wait to get up until the player is nearby.
         const bool isReviveSpecial = has_flag( flag_REVIVE_SPECIAL );
         if( isReviveSpecial ) {
@@ -8066,6 +8093,15 @@ bool item::add_enchantment( const enchantment_id &ench )
     return true;
 }
 
+bool item::add_enchantment( const enchantment &ench )
+{
+    if( !relic_data ) {
+        relic_data = cata::make_value<relic>();
+    }
+    relic_data->add_passive_effect( ench );
+    return true;
+}
+
 const std::vector<enchantment> &item::get_enchantments( bool dynamic ) const
 {
     if( dynamic && is_relic( true ) ) {
@@ -8122,14 +8158,14 @@ double item::bonus_from_enchantments( double base, enchantment_value_id value,
     return ret;
 }
 
-const std::vector<relic_recharge> &item::get_relic_recharge_scheme() const
+auto item::get_relic_recharge_scheme() const -> std::vector<relic_recharge>
 {
-    std::vector<relic_recharge> recharge_schemes;
+    auto recharge_schemes = std::vector<relic_recharge> {};
     if( type->relic_data ) {
         recharge_schemes = type->relic_data->get_recharge_scheme();
     }
     if( is_relic( true ) ) {
-        std::vector<relic_recharge> dynamic_recharge_schemes = relic_data->get_recharge_scheme();
+        const auto &dynamic_recharge_schemes = relic_data->get_recharge_scheme();
         recharge_schemes.insert( recharge_schemes.end(), dynamic_recharge_schemes.begin(),
                                  dynamic_recharge_schemes.end() );
     }
@@ -9222,82 +9258,6 @@ bool item::units_sufficient( const Character &ch, int qty ) const
     return units_remaining( ch, qty ) == qty;
 }
 
-item_reload_option::item_reload_option( const item_reload_option & ) = default;
-
-item_reload_option &item_reload_option::operator=( const item_reload_option & ) = default;
-
-item_reload_option::item_reload_option( const Character *who, item *target, const item *parent,
-                                        item &ammo ) :
-    who( who ), target( target ), ammo( &ammo ), parent( parent )
-{
-    if( this->target->is_ammo_belt() ) {
-        const auto &linkage = this->target->type->magazine->linkage ;
-        if( linkage ) {
-            max_qty = this->who->charges_of( *linkage );
-        }
-    }
-    qty( max_qty );
-}
-
-int item_reload_option::moves() const
-{
-    int mv = ammo->obtain_cost( *who, qty() ) + who->item_reload_cost( *target, *ammo, qty() );
-    if( parent != target ) {
-        if( parent->is_gun() ) {
-            mv += parent->get_reload_time();
-        } else if( parent->is_tool() ) {
-            mv += 100;
-        }
-    }
-    return mv;
-}
-
-void item_reload_option::qty( int val )
-{
-    bool ammo_in_ammo_container = ammo->is_ammo_container();
-    bool ammo_in_container = ammo->is_container();
-    item &ammo_obj = ( ammo_in_ammo_container || ammo_in_container ) ?
-                     ammo->contents.front() : *ammo;
-
-    if( ammo_in_ammo_container && !ammo_obj.is_ammo() ) {
-        debugmsg( "Invalid reload option: %s", ammo_obj.tname() );
-        return;
-    }
-
-    // Checking ammo capacity implicitly limits guns with removable magazines to capacity 0.
-    // This gets rounded up to 1 later.
-    int remaining_capacity = 0;
-    if( target->is_watertight_container() && ammo_obj.made_of( LIQUID ) ) {
-        remaining_capacity = target->get_remaining_capacity_for_liquid( ammo_obj, true );
-    } else if( target->is_container() && ammo_obj.is_comestible() ) {
-        remaining_capacity = ammo_obj.charges_per_volume( target->get_container_capacity() );
-        if( !target->is_container_empty() ) {
-            remaining_capacity -= target->ammo_remaining();
-        }
-    } else {
-        remaining_capacity = target->ammo_capacity() - target->ammo_remaining();
-    }
-    if( target->has_flag( flag_RELOAD_ONE ) && !ammo->has_flag( flag_SPEEDLOADER ) ) {
-        remaining_capacity = 1;
-    }
-    if( ammo_obj.type->ammo ) {
-        if( ammo_obj.ammo_type() == ammo_plutonium ) {
-            remaining_capacity = remaining_capacity / PLUTONIUM_CHARGES +
-                                 ( remaining_capacity % PLUTONIUM_CHARGES != 0 );
-        }
-    }
-
-    bool ammo_by_charges = ammo_obj.is_ammo() || ammo_in_container || ammo->is_comestible();
-    int available_ammo = ammo_by_charges ? ammo_obj.charges : ammo_obj.ammo_remaining();
-    // constrain by available ammo, target capacity and other external factors (max_qty)
-    // @ref max_qty is currently set when reloading ammo belts and limits to available linkages
-    qty_ = std::min( { val, available_ammo, remaining_capacity, max_qty } );
-
-    // always expect to reload at least one charge
-    qty_ = std::max( qty_, 1 );
-
-}
-
 int item::casings_count() const
 {
     int res = 0;
@@ -9346,7 +9306,8 @@ bool item::reload( Character &who, item &loc, int qty )
     int limit = 0;
     if( is_watertight_container() && ammo->made_of( LIQUID ) ) {
         limit = get_remaining_capacity_for_liquid( *ammo, true );
-    } else if( is_container() && ammo->is_comestible() ) {
+        // Disallow stackable generic to avoid issues with damage melding
+    } else if( is_container() && ( ammo->is_ammo() || ammo->is_comestible() ) ) {
         limit = ammo->charges_per_volume( get_container_capacity() );
         if( !is_container_empty() ) {
             limit -= ammo_remaining();
@@ -11757,9 +11718,17 @@ bool item::on_drop()
         !has_own_flag( flag_DIRTY ) ) {
         set_flag( flag_DIRTY );
     }
+
+    const auto spilled_to_field =
+        made_of( LIQUID ) && type->spill_field != fd_null && !here.has_flag( flag_LIQUIDCONT, pos );
+    if( spilled_to_field ) {
+        here.spill_liquid_field( pos, *this );
+    }
     you.flag_encumbrance();
 
-    return type->drop_action && type->drop_action.call( you, *this, false, pos );
+    const auto handled_by_drop_action =
+        type->drop_action && type->drop_action.call( you, *this, false, pos );
+    return spilled_to_field || handled_by_drop_action;
 }
 
 time_duration item::age() const

@@ -1,4 +1,5 @@
 #include "../src/map/map.h"
+#include "../src/overmap/overmapbuffer.h"
 #include "../src/vehicle/vpart_position.h"
 #include "avatar.h"
 #include "avatar_action.h"
@@ -11,7 +12,6 @@
 #include "item.h"
 #include "map_helpers.h"
 #include "morale_types.h"
-#include "overmapbuffer.h"
 #include "player.h"
 #include "player_helpers.h"
 #include "state_helpers.h"
@@ -583,6 +583,42 @@ TEST_CASE("Water hypothermia check.", "[.][bodytemp]") {
 
     SECTION("Freezing") {
         hypothermia_check(dummy, units::celsius_to_fahrenheit(0), 5_minutes, BODYTEMP_FREEZING);
+    }
+}
+
+TEST_CASE("update_bodytemp keeps the body intact for a single step.", "[bodytemp]") {
+    clear_all_state();
+    player& dummy = get_avatar();
+    guarantee_neutral_weather(dummy, get_weather());
+
+    for (auto& pr : dummy.get_body()) {
+        pr.second.set_temp_cur(BODYTEMP_NORM);
+        pr.second.set_temp_conv(BODYTEMP_NORM);
+    }
+
+    const std::vector<bodypart_id> ids_before = dummy.get_all_body_parts(true);
+    REQUIRE(!ids_before.empty());
+    for (const bodypart_id& bp_id : ids_before) {
+        INFO("before: " << bp_id.id().str());
+        REQUIRE(bp_id.is_valid());
+    }
+
+    SECTION("Without clothing") {}
+
+    SECTION("With worn clothing") { equip_clothing(dummy, heavy_clothing); }
+
+    dummy.update_bodytemp(get_map(), get_weather());
+
+    const std::vector<bodypart_id> ids_after = dummy.get_all_body_parts(true);
+    CHECK(ids_after == ids_before);
+
+    for (const bodypart_id& bp_id : ids_after) {
+        INFO("after: " << bp_id.id().str());
+        REQUIRE(bp_id.is_valid());
+        const bodypart& part = dummy.get_part(bp_id);
+        CHECK(part.get_str_id() == bp_id.id());
+        CHECK(part.get_temp_cur() >= BODYTEMP_FREEZING);
+        CHECK(part.get_temp_cur() <= BODYTEMP_SCORCHING);
     }
 }
 

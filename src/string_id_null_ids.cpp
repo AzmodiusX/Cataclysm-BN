@@ -39,6 +39,7 @@ MAKE_CLASS_NULL_ID( npc_template, "null" )
 MAKE_CLASS_NULL_ID( overmap_connection, "" )
 MAKE_CLASS_NULL_ID( overmap_land_use_code, "" )
 MAKE_CLASS_NULL_ID( overmap_special, "" )
+MAKE_CLASS_NULL_ID( perk, "null" )
 MAKE_CLASS_NULL_ID( recipe, "null" )
 MAKE_CLASS_NULL_ID( SkillDisplayType, "none" )
 MAKE_CLASS_NULL_ID( Skill, "none" )
@@ -54,6 +55,7 @@ MAKE_CLASS_NULL_ID( vitamin, "" )
 MAKE_CLASS_NULL_ID( gun_mode, "" )
 MAKE_CLASS_NULL_ID( fault, "null" )
 MAKE_CLASS_NULL_ID( weapon_category, "" )
+MAKE_CLASS_NULL_ID( weather_generator, "null" )
 
 #define MAKE_STRUCT_NULL_ID( type, ... ) \
     struct type; \

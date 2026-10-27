@@ -32,6 +32,7 @@
 #include "enum_conversions.h"
 #include "enums.h"
 #include "explosion.h"
+#include "field_ignition_utils.h"
 #include "faction.h"
 #include "flag.h"
 #include "flat_set.h"
@@ -68,15 +69,17 @@
 #include "npc.h"
 #include "options.h"
 #include "output.h"
-#include "overmap.h"
-#include "overmap_special.h"
-#include "overmap_ui.h"
+#include "overmap/overmap.h"
+#include "overmap/overmap_special.h"
+#include "overmap/overmap_ui.h"
 #include "player.h"
 #include "player_activity.h"
 #include "pldata.h"
 #include "popup.h"
 #include "recipe.h"
 #include "recipe_dictionary.h"
+#include "reload/reload.h"
+#include "reload/reload_ui.h"
 #include "requirements.h"
 #include "rng.h"
 #include "skill.h"
@@ -232,6 +235,7 @@ void iuse_transform::load( const JsonObject &obj )
         }
     }
     obj.read( "target_ammo", ammo_type );
+    obj.read( "set_timer", set_timer );
 
     obj.read( "countdown", countdown );
 
@@ -316,6 +320,20 @@ int iuse_transform::use( Character &p, item &it, bool t, const tripoint_abs_ms &
         }
     }
 
+    int time;
+    if( set_timer && !p.is_npc() ) {
+        bool got_value = query_int( time, _( "Set the timer to (0 to cancel)?" ) );
+        if( !got_value || time <= 0 ) {
+            p.add_msg_if_player( _( "Never mind." ) );
+            return 0;
+        }
+        p.add_msg_if_player( _( "You set the timer on the %s's to %d." ), it.tname(), time );
+        // Default value in case an NPC uses one.
+    } else {
+        const itype_id act_bomb_type = target;
+        time = act_bomb_type.obj().maximum_charges();
+    }
+
     // All checks complete the damn thing can finally transform
     // Consume charges if necessary at this point.
     if( transform_charges ) {
@@ -375,6 +393,8 @@ int iuse_transform::use( Character &p, item &it, bool t, const tripoint_abs_ms &
                 }
 
             }
+        } else if( set_timer ) {
+            it.set_charges( time );
         }
     } else {
         it.convert( container );
@@ -740,6 +760,7 @@ void unfold_vehicle_iuse::load( const JsonObject &obj )
     obj.read( "unfold_msg", unfold_msg );
     obj.read( "moves", moves );
     obj.read( "tools_needed", tools_needed );
+    obj.read( "full_battery", full_battery );
 }
 
 int unfold_vehicle_iuse::use( Character &p, item &it, bool, const tripoint_abs_ms &pt ) const
@@ -761,7 +782,8 @@ int unfold_vehicle_iuse::use( Character &p, item &it, bool, const tripoint_abs_m
         }
     }
 
-    vehicle *veh = get_map().add_vehicle( vehicle_id, p.bub_pos(), 0_degrees, 0, 0, false, false,
+    vehicle *veh = get_map().add_vehicle( vehicle_id, p.bub_pos(), 0_degrees, full_battery ? 100 : 0, 0,
+                                          false, false,
                                           true );
     if( veh == nullptr ) {
         p.add_msg_if_player( m_info, _( "There's no room to unfold the %s." ), it.tname() );
@@ -1822,7 +1844,18 @@ bool firestarter_actor::prep_firestarter_use( Character &p, const tripoint_abs_m
 
 void firestarter_actor::resolve_firestarter_use( Character &p, const tripoint_abs_ms &pos )
 {
-    if( p.get_mapbuffer().add_field( pos, {fd_fire, 1, 10_minutes} ) ) {
+    auto &here = p.get_mapbuffer();
+    const auto *fields = here.get_field( pos );
+    const auto fuel = fields != nullptr ? flammable_fields( *fields ) : flammable_field_data{};
+    const auto fuel_intensity = fuel.intensity;
+    for( const auto type : fuel.types ) {
+        here.remove_field( pos, type );
+    }
+    if( here.add_field( pos, {
+    .type = fd_fire,
+    .intensity = fuel_field_fire_intensity( fuel_intensity ),
+    .age = fuel_field_fire_age( fuel_intensity )
+    } ) ) {
         if( !p.has_trait( trait_PYROMANIA ) ) {
             p.add_msg_if_player( _( "You successfully light a fire." ) );
         } else {
@@ -3125,6 +3158,9 @@ bool bandolier_actor::reload( Character &p, item &obj ) const
         debugmsg( "Invalid item passed to bandolier_actor" );
         return false;
     }
+    if( !p.is_player() ) {
+        return false;
+    }
     // find all nearby compatible ammo (matching type currently contained if appropriate)
     auto found = p.nearby( [&]( item * e, const item * parent ) {
         return parent != &obj && can_store( obj, *e );
@@ -3139,13 +3175,10 @@ bool bandolier_actor::reload( Character &p, item &obj ) const
     std::vector<item_reload_option> opts;
     std::transform( std::make_move_iterator( found.begin() ), std::make_move_iterator( found.end() ),
     std::back_inserter( opts ), [&]( item * e ) {
-        return item_reload_option( &p, &obj, &obj, *e );
+        return item_reload_option( p.as_player(), &obj, &obj, *e );
     } );
-    if( !p.is_player() ) {
-        return false;
-    }
 
-    item_reload_option sel = character_funcs::select_ammo( *p.as_player(), obj, std::move( opts ) );
+    auto sel = reload_ui::select_ammo( *p.as_player(), obj, std::move( opts ) );
     if( !sel ) {
         return false; // canceled menu
     }
@@ -3255,7 +3288,7 @@ int ammobelt_actor::use( Character &p, item &, bool, const tripoint_abs_ms &pt )
     if( !p.is_player() ) {
         return 0;
     }
-    item_reload_option opt = character_funcs::select_ammo( *p.as_player(), *mag, true );
+    auto opt = reload_ui::select_ammo( *p.as_player(), *mag, { .prompt = true } );
     if( opt ) {
         p.assign_activity( ACT_RELOAD, opt.moves(), opt.qty() );
         p.activity->targets.emplace_back( &*mag );
@@ -3851,7 +3884,7 @@ std::string repair_item_actor::get_name() const
     []( const material_id & mid ) {
         return _( mid->name() );
     } );
-    return string_format( _( "Repair %s" ), mats );
+    return string_format( _( "Repair/Refit %s" ), mats );
 }
 
 void heal_actor::load( const JsonObject &obj )

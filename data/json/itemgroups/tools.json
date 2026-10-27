@@ -167,7 +167,8 @@
       [ "lifestraw", 4 ],
       [ "chem_hexamine", 10 ],
       [ "esbit_stove", 15 ],
-      [ "mess_tin", 10 ]
+      [ "mess_tin", 10 ],
+      [ "billybass", 5 ]
     ]
   },
   {
@@ -533,7 +534,8 @@
       [ "tool_belt", 10 ],
       [ "clamp", 10 ],
       [ "wrench", 10 ],
-      [ "bionic_scanner", 5 ]
+      [ "bionic_scanner", 5 ],
+      { "collection": [ { "item": "delivery_drone_item" }, { "item": "remotevehcontrol", "prob": 50 } ], "prob": 25 }
     ]
   },
   {

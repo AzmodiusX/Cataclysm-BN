@@ -44,13 +44,13 @@
 #    include "monstergenerator.h"
 #    include "mtype.h"
 #    include "npc.h"
-#    include "omdata.h"
 #    include "options.h"
 #    include "output.h"
 #    include "overlay_ordering.h"
-#    include "overmap.h"
-#    include "overmap_location.h"
-#    include "overmapbuffer.h"
+#    include "overmap/omdata.h"
+#    include "overmap/overmap.h"
+#    include "overmap/overmap_location.h"
+#    include "overmap/overmapbuffer.h"
 #    include "path_info.h"
 #    include "pixel_minimap.h"
 #    include "player.h"
@@ -81,6 +81,7 @@
 #    include <bitset>
 #    include <cassert>
 #    include <cmath>
+#    include <cstddef>
 #    include <cstdint>
 #    include <fstream>
 #    include <iterator>
@@ -244,6 +245,17 @@ auto colored_light_tint_for_tile( const colored_light_tint_options &opt ) -> ren
     }
 
     return render_light_tint_from_packed( lc.colored_light_cache[lc.idx( opt.pos.x(), opt.pos.y() )] );
+}
+
+auto get_weather_screen_overlay_color() -> std::optional<SDL_Color>
+{
+    const weather_type_id current_weather = get_weather().weather_id;
+    if( !current_weather || !current_weather->screen_color_overlay.has_value() ) {
+        return std::nullopt;
+    }
+    SDL_Color overlay_color = static_cast<SDL_Color>( *current_weather->screen_color_overlay.color );
+    overlay_color.a = static_cast<uint8_t>( current_weather->screen_color_overlay.alpha );
+    return overlay_color;
 }
 
 void draw_zone_overlay( const draw_zone_overlay_options &opt )
@@ -4154,6 +4166,22 @@ void cata_tiles::draw( point dest, const tripoint_bub_ms &center, int width, int
                 lit_level::LIT, false, 0, false );
         }
     }
+    if( g->remoteveh() ) {
+        if( auto indicator_offset = g->get_veh_dir_indicator_location( true ) ) {
+            const tile_search_params tile { "cursor", C_NONE, empty_string, 0, 0 };
+            const auto pos = indicator_offset->xy() + g->remoteveh()->bub_ms_location();
+            draw_from_id_string(
+                tile, pos, std::nullopt, std::nullopt,
+                lit_level::LIT, false, 0, false );
+        }
+    }
+    if( !g->display_overlay_state( ACTION_DISPLAY_TILES_NO_VFX ) ) {
+        if( const std::optional<SDL_Color> overlay_color = get_weather_screen_overlay_color();
+            overlay_color ) {
+            SetRenderDrawBlendMode( renderer, SDL_BLENDMODE_BLEND );
+            geometry->rect( renderer, dest, width, height, *overlay_color );
+        }
+    }
 
     const bool draw_submap_grid = g->debug_submap_grid_overlay ||
                                   ( g->is_zones_manager_open() && g->is_zone_submap_grid_overlay_enabled() );
@@ -6973,13 +7001,15 @@ void cata_tiles::draw_line()
     if( line_trajectory.empty() ) {
         return;
     }
-    static std::string line_overlay = "animation_line";
-    const auto target_known = avatar_knows_travel_destination( g->u, line_pos );
+    static const auto line_overlay = std::string{ "animation_line" };
+    const auto target_known = avatar_knows_travel_destination( g->u, line_pos ) ||
+                              has_memory_at( tripoint_bub_ms( line_pos ) );
     if( should_draw_travel_line_overlay( is_target_line, target_known ) ) {
-        for( auto it = line_trajectory.begin(); it != line_trajectory.end() - 1; ++it ) {
+        for( const auto &p : line_trajectory | std::views::take(
+                 static_cast<std::ptrdiff_t>( line_trajectory.size() - 1 ) ) ) {
             draw_from_id_string(
             {line_overlay, C_NONE, empty_string, 0, 0},
-            *it, std::nullopt, std::nullopt,
+            p, std::nullopt, std::nullopt,
             lit_level::LIT, false, 0, false
             );
         }

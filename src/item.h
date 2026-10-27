@@ -1,20 +1,10 @@
 #pragma once
 
-#include <climits>
-#include <cstdint>
-#include <functional>
-#include <map>
-#include <optional>
-#include <set>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <vector>
-
 #include "calendar.h"
 #include "catalua_icallback_actor.h"
 #include "coordinates.h"
 #include "damage.h"
+#include "data_vars.h"
 #include "detached_ptr.h"
 #include "dimension_info.h"
 #include "enums.h"
@@ -25,15 +15,24 @@
 #include "item_contents.h"
 #include "kill_tracker.h"
 #include "location_vector.h"
-#include "overmapbuffer.h"
-#include "map/mapbuffer.h"
+#include "overmap/overmapbuffer.h"
 #include "pimpl.h"
 #include "string_id.h"
 #include "type_id.h"
 #include "units.h"
 #include "value_ptr.h"
 #include "visitable.h"
-#include "data_vars.h"
+
+#include <climits>
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <optional>
+#include <set>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 class Character;
 class JsonIn;
@@ -212,38 +211,6 @@ inline iteminfo::flags &operator|=( iteminfo::flags &l, iteminfo::flags r )
 {
     return l = l | r;
 }
-
-class item_reload_option
-{
-    public:
-        item_reload_option() = default;
-
-        item_reload_option( const item_reload_option & );
-        item_reload_option &operator=( const item_reload_option & );
-
-        item_reload_option( const Character *who, item *target, const item *parent,
-                            item &ammo );
-
-        const Character *who = nullptr;
-        item *target = nullptr;
-        item *ammo;
-
-        int qty() const {
-            return qty_;
-        }
-        void qty( int val );
-
-        int moves() const;
-
-        explicit operator bool() const {
-            return who && target && ammo && qty_ > 0;
-        }
-
-    private:
-        int qty_ = 0;
-        int max_qty = INT_MAX;
-        const item *parent = nullptr;
-};
 
 inline bool is_crafting_component( const item &component );
 
@@ -1909,6 +1876,10 @@ class item : public location_visitable<item>, public game_object<item>
          */
         bool is_power_armor() const;
         /**
+         * Whether this is a armor plate item.
+         */
+        bool is_armor_plate() const;
+        /**
          * If this is an armor item, return its armor data. You should probably not use this function,
          * use the various functions above (like @ref get_storage) to access armor data directly.
          */
@@ -2400,6 +2371,7 @@ class item : public location_visitable<item>, public game_object<item>
         std::optional<dimension_info> pocket_dim;
 
         bool add_enchantment( const enchantment_id &ench );
+        bool add_enchantment( const enchantment &ench );
 
         const std::vector<enchantment> &get_enchantments( bool dynamic ) const;
 
@@ -2435,7 +2407,7 @@ class item : public location_visitable<item>, public game_object<item>
 
         /** returns the parent item, or a null pointer if it has no parent */
         item *parent_item() const;
-        const std::vector<relic_recharge> &get_relic_recharge_scheme() const;
+        auto get_relic_recharge_scheme() const -> std::vector<relic_recharge>;
 
     private:
         struct absolute_rot_process_options {
