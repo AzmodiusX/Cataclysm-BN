@@ -162,9 +162,9 @@ TEST_CASE(
     auto& dummy = get_avatar();
     clear_character(dummy);
 
-    const auto avatar_start = dummy.bub_pos();
+    const auto avatar_start = dummy.abs_pos();
     const auto monster_start = avatar_start + tripoint_north;
-    auto& zed = spawn_test_monster("debug_mon", monster_start);
+    auto& zed = spawn_test_monster("debug_mon", abs_to_bub(monster_start));
     dummy.add_effect(efftype_id("grabbing"), 1_days, body_part_torso);
     zed.add_effect(efftype_id("grabbed"), 1_days);
     auto remains_adjacent = false;
@@ -172,11 +172,11 @@ TEST_CASE(
     SECTION("Avatar teleports away") { dummy.setpos(avatar_start + tripoint_south); }
     SECTION("Avatar moves to another z-level") { dummy.setpos(avatar_start + tripoint_above); }
     SECTION("Monster is knocked away") {
-        auto trajectory = std::vector<tripoint_bub_ms>{
+        auto trajectory = std::vector<tripoint_abs_ms>{
             monster_start, monster_start + tripoint_north,
             monster_start + tripoint_north + tripoint_north};
         g->knockback(trajectory, 0, 0, &dummy);
-        REQUIRE(zed.bub_pos() == monster_start + tripoint_north + tripoint_north);
+        REQUIRE(zed.abs_pos() == monster_start + tripoint_north + tripoint_north);
     }
     SECTION("Cardinally adjacent grab persists") { remains_adjacent = true; }
     SECTION("Diagonally adjacent grab persists") {

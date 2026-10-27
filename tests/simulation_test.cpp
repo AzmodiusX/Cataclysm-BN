@@ -148,7 +148,7 @@ TEST_CASE("adjacent_fire_ignites_fuel_fields", "[simulation][field][fire]") {
     put_player_underground();
 
     const auto cleanup = on_out_of_scope([]() {
-        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS), false);
+        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS));
     });
     auto* sm = make_blank_submap(MAPBUFFER, FAR_SM_POS);
     REQUIRE(sm != nullptr);
@@ -179,7 +179,7 @@ TEST_CASE(
     put_player_underground();
 
     const auto cleanup = on_out_of_scope([]() {
-        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS), false);
+        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS));
     });
     auto* sm = make_blank_submap(MAPBUFFER, FAR_SM_POS);
     REQUIRE(sm != nullptr);
@@ -231,7 +231,7 @@ TEST_CASE(
     put_player_underground();
 
     const auto cleanup = on_out_of_scope([]() {
-        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS), false);
+        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS));
     });
     auto* sm = make_blank_submap(MAPBUFFER, FAR_SM_POS);
     REQUIRE(sm != nullptr);
@@ -259,7 +259,7 @@ TEST_CASE(
     put_player_underground();
 
     const auto cleanup = on_out_of_scope([]() {
-        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS), false);
+        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS));
     });
     auto* sm = make_blank_submap(MAPBUFFER, FAR_SM_POS);
     REQUIRE(sm != nullptr);
@@ -295,7 +295,7 @@ TEST_CASE(
     put_player_underground();
 
     const auto cleanup = on_out_of_scope([]() {
-        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS), false);
+        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS));
     });
     auto* sm = make_blank_submap(MAPBUFFER, FAR_SM_POS);
     REQUIRE(sm != nullptr);
@@ -331,7 +331,7 @@ TEST_CASE("water_puddles_extinguish_fire_on_the_same_tile", "[simulation][field]
 
     auto* sm = make_blank_submap(MAPBUFFER, FAR_SM_POS);
     const auto cleanup = on_out_of_scope([]() {
-        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS), false);
+        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS));
     });
     REQUIRE(sm != nullptr);
 
@@ -364,7 +364,7 @@ TEST_CASE(
     put_player_underground();
 
     const auto cleanup = on_out_of_scope([]() {
-        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS), false);
+        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS));
     });
     auto* sm = make_blank_submap(MAPBUFFER, FAR_SM_POS);
     REQUIRE(sm != nullptr);
@@ -395,7 +395,7 @@ TEST_CASE(
     auto restore_rng = restore_on_out_of_scope<cata_default_random_engine>(rng_get_engine());
     rng_set_engine_seed(12345);
     const auto cleanup = on_out_of_scope([]() {
-        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS), false);
+        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS));
     });
     auto* first = make_blank_submap(MAPBUFFER, FAR_SM_POS);
     const auto next_pos = FAR_SM_POS + tripoint_rel_sm(1, 0, 0);
@@ -448,7 +448,7 @@ TEST_CASE(
 
     auto* sm = make_blank_submap(MAPBUFFER, FAR_SM_POS);
     const auto cleanup = on_out_of_scope([]() {
-        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS), false);
+        MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS));
     });
     REQUIRE(sm != nullptr);
     const auto pool_field = field_type_id("test_fd_conductive_pool");
@@ -986,5 +986,5 @@ TEST_CASE("batch_turns_decay_plain_display_liquid_fields", "[simulation][field][
 
     CHECK(sm->get_field(spill_pt).find_field(water_field) == nullptr);
 
-    MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS), false);
+    MAPBUFFER.unload_omt(project_to<coords::omt>(FAR_SM_POS));
 }

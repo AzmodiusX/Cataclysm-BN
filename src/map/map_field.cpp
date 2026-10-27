@@ -21,6 +21,7 @@
 #include "make_static.h"
 #include "map/emit.h"
 #include "map/field.h"
+#include "field_ignition_utils.h"
 #include "map/field_type.h"
 #include "map/map.h"
 #include "map/map_iterator.h"

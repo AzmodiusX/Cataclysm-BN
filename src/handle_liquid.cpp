@@ -96,7 +96,7 @@ static auto perform_liquid_transfer( item &liquid,
                                      liquid_dest_opt &target ) -> liquid_transfer_result;
 static auto perform_liquid_transfer( detached_ptr<item> &liquid,
                                      liquid_dest_opt &target ) -> liquid_transfer_result;
-static auto perform_liquid_transfer( const tripoint_bub_ms &pos,
+static auto perform_liquid_transfer( const tripoint_abs_ms &pos,
                                      liquid_dest_opt &target ) -> liquid_transfer_result;
 static auto perform_liquid_transfer( vehicle *veh, int part_id,
                                      liquid_dest_opt &target ) -> liquid_transfer_result;
@@ -157,7 +157,7 @@ auto get_liquid_target( item &liquid, const int radius, liquid_dest_opt &target 
 
     uilist menu;
 
-    map &here = get_map();
+    auto &here = get_map().get_mapbuffer();
     const std::string liquid_name = liquid.display_name( liquid.charges );
 
     if( liquid.is_loaded() ) {
@@ -202,8 +202,8 @@ auto get_liquid_target( item &liquid, const int radius, liquid_dest_opt &target 
     } );
     // This handles liquids stored in vehicle parts directly (e.g. tanks).
     std::set<vehicle *> opts;
-    for( const auto &e : here.points_in_radius( g->u.bub_pos(), 1 ) ) {
-        auto veh = veh_pointer_or_null( here.veh_at( e ) );
+    for( const auto &e : simulated_tiles_in_radius( here, g->u.abs_pos(), 1 ) ) {
+        auto veh = veh_pointer_or_null( here.veh_at( e.abs_pos() ) );
         if( veh ) {
             vehicle_part_range vpr = veh->get_all_parts();
             if( veh && std::any_of( vpr.begin(), vpr.end(), [&liquid]( const vpart_reference & pt ) {
@@ -238,18 +238,18 @@ auto get_liquid_target( item &liquid, const int radius, liquid_dest_opt &target 
         }
     }
 
-    for( auto &target_pos : here.points_in_radius( g->u.bub_pos(), 1 ) ) {
-        if( !iexamine::has_keg( target_pos ) ) {
+    for( const auto &target_pos : simulated_tiles_in_radius( here, g->u.abs_pos(), 1 ) ) {
+        if( !iexamine::has_keg( abs_to_bub( target_pos.abs_pos() ) ) ) {
             continue;
         }
         if( liquid.is_loaded() && liquid.where() == item_location_type::map &&
-            liquid.bub_pos() == target_pos ) {
+            liquid.abs_pos() == target_pos.abs_pos() ) {
             continue;
         }
-        const std::string dir = direction_name( direction_from( g->u.bub_pos(), target_pos ) );
+        const std::string dir = direction_name( direction_from( g->u.abs_pos(), target_pos.abs_pos() ) );
         menu.addentry( -1, true, MENU_AUTOASSIGN, _( "Pour into an adjacent keg (%s)" ), dir );
         actions.emplace_back( [ &, target_pos]() {
-            target.pos = target_pos;
+            target.pos = target_pos.abs_pos();
             target.dest_opt = LD_KEG;
         } );
     }
@@ -260,7 +260,7 @@ auto get_liquid_target( item &liquid, const int radius, liquid_dest_opt &target 
         // infinite space and the liquid can not be used from there anyway.
         if( liquid.has_infinite_charges() && liquid.is_loaded() &&
             liquid.where() == item_location_type::map ) {
-            add_msg( m_info, _( "Clearing out the %s would take forever." ), here.name( liquid.bub_pos() ) );
+            add_msg( m_info, _( "Clearing out the %s would take forever." ), here.name( liquid.abs_pos() ) );
             return;
         }
 
@@ -270,10 +270,10 @@ auto get_liquid_target( item &liquid, const int radius, liquid_dest_opt &target 
         if( !target_pos_ ) {
             return;
         }
-        target.pos = *target_pos_;
+        target.pos = bub_to_abs( *target_pos_ );
 
         if( liquid.is_loaded() && liquid.where() == item_location_type::map &&
-            liquid.bub_pos() == target.pos ) {
+            liquid.abs_pos() == target.pos ) {
             add_msg( m_info, _( "That's where you took it from!" ) );
             return;
         }
@@ -301,10 +301,10 @@ auto get_liquid_target( item &liquid, const int radius, liquid_dest_opt &target 
             if( !target_pos_ ) {
                 return;
             }
-            target.pos = *target_pos_;
+            target.pos = bub_to_abs( *target_pos_ );
 
             if( liquid.is_loaded() && liquid.where() == item_location_type::map &&
-                liquid.bub_pos() == target.pos ) {
+                liquid.abs_pos() == target.pos ) {
                 add_msg( m_info, _( "That's where you took it from!" ) );
                 return;
             }
@@ -361,18 +361,18 @@ static auto perform_liquid_transfer( item &liquid,
             return { .handled = true, .continue_handling = false };
         case LD_KEG:
             liquid.attempt_split( 0, [&target]( detached_ptr<item> &&det ) {
-                return iexamine::pour_into_keg( target.pos, std::move( det ) );
+                return iexamine::pour_into_keg( abs_to_bub( target.pos ), std::move( det ) );
             } );
             g->u.mod_moves( -100 );
             return { .handled = true, .continue_handling = false };
         case LD_GROUND:
             if( target.amount > 0 && target.amount < liquid.charges ) {
                 liquid.attempt_split( target.amount, [&target, &here]( detached_ptr<item> &&det ) {
-                    here.add_item_or_charges( target.pos, std::move( det ) );
+                    here.add_item_or_charges( abs_to_bub( target.pos ), std::move( det ) );
                     return detached_ptr<item>();
                 } );
             } else {
-                here.add_item_or_charges( target.pos, liquid.detach() );
+                here.add_item_or_charges( abs_to_bub( target.pos ), liquid.detach() );
             }
             g->u.mod_moves( -100 );
             return { .handled = true, .continue_handling = false };
@@ -385,8 +385,8 @@ static auto perform_liquid_transfer( item &liquid,
 static auto perform_liquid_transfer( detached_ptr<item> &liquid,
                                      liquid_dest_opt &target ) -> liquid_transfer_result
 {
-    map &here = get_map();
     Character &you = get_player_character();
+    auto &here = you.get_mapbuffer();
     switch( target.dest_opt ) {
         case LD_CONSUME:
             liquid = you.consume_item( std::move( liquid ) );
@@ -409,7 +409,7 @@ static auto perform_liquid_transfer( detached_ptr<item> &liquid,
                 .continue_handling = static_cast<bool>( liquid ),
             };
         case LD_KEG:
-            liquid = iexamine::pour_into_keg( target.pos, std::move( liquid ) );
+            liquid = iexamine::pour_into_keg( abs_to_bub( target.pos ), std::move( liquid ) );
 
             you.mod_moves( -100 );
             return {
@@ -430,33 +430,34 @@ static auto perform_liquid_transfer( detached_ptr<item> &liquid,
             return { .handled = false, .continue_handling = false };
     }
 }
-static auto perform_liquid_transfer( const tripoint_bub_ms &pos,
+static auto perform_liquid_transfer( const tripoint_abs_ms &pos,
                                      liquid_dest_opt &target ) -> liquid_transfer_result
 {
-    map &here = get_map();
-    const tripoint_abs_ms src_abs = bub_to_abs( pos );
+    auto &map = get_map();
+    auto &here = map.get_mapbuffer();
+    const tripoint_bub_ms src_bub = abs_to_bub( pos );
     switch( target.dest_opt ) {
         case LD_CONSUME:
-            g->u.consume_item( here.water_from( pos ) );
+            g->u.consume_item( map.water_from( src_bub ) );
             return { .handled = true, .continue_handling = false };
         case LD_ITEM:
             assign_liquid_transfer(
-                LST_INFINITE_MAP, src_abs, -1,
+                LST_INFINITE_MAP, pos, -1,
                 LTT_CONTAINER, tripoint_abs_ms(), safe_reference<item>( target.it ) );
-            return true;
+            return { .handled = true, .continue_handling = false };
         case LD_VEH:
             assign_liquid_transfer(
-                LST_INFINITE_MAP, src_abs, -1,
+                LST_INFINITE_MAP, pos, -1,
                 LTT_VEHICLE, bub_to_abs( target.veh->bub_part_location( 0 ) ),
                 safe_reference<item>() );
-            return true;
+            return { .handled = true, .continue_handling = false };
         case LD_KEG:
         case LD_GROUND:
             assign_liquid_transfer(
-                LST_INFINITE_MAP, src_abs, -1,
-                LTT_MAP, bub_to_abs( target.pos ),
+                LST_INFINITE_MAP, pos, -1,
+                LTT_MAP, target.pos,
                 safe_reference<item>() );
-            return true;
+            return { .handled = true, .continue_handling = false };
         case LD_NULL:
         default:
             return { .handled = false, .continue_handling = false };
@@ -466,7 +467,7 @@ static auto perform_liquid_transfer( vehicle *veh, int part_id,
                                      liquid_dest_opt &target ) -> liquid_transfer_result
 {
     item &liquid = veh->part( part_id ).get_base().contents.back();
-    const tripoint_abs_ms src_abs = bub_to_abs( veh->bub_part_location( 0 ) );
+    const tripoint_abs_ms src_abs = veh->abs_part_location( 0 );
     switch( target.dest_opt ) {
         case LD_CONSUME:
             liquid.attempt_split( 0, []( detached_ptr<item> &&it ) {
@@ -477,20 +478,20 @@ static auto perform_liquid_transfer( vehicle *veh, int part_id,
             assign_liquid_transfer(
                 LST_VEHICLE, src_abs, part_id,
                 LTT_CONTAINER, tripoint_abs_ms(), safe_reference<item>( target.it ) );
-            return true;
+            return { .handled = true, .continue_handling = false };
         case LD_VEH:
             assign_liquid_transfer(
                 LST_VEHICLE, src_abs, part_id,
-                LTT_VEHICLE, bub_to_abs( target.veh->bub_part_location( 0 ) ),
+                LTT_VEHICLE, target.veh->abs_part_location( 0 ),
                 safe_reference<item>() );
-            return true;
+            return { .handled = true, .continue_handling = false };
         case LD_KEG:
         case LD_GROUND:
             assign_liquid_transfer(
                 LST_VEHICLE, src_abs, part_id,
-                LTT_MAP, bub_to_abs( target.pos ),
+                LTT_MAP, target.pos,
                 safe_reference<item>() );
-            return true;
+            return { .handled = true, .continue_handling = false };
         case LD_NULL:
         default:
             return { .handled = false, .continue_handling = false };
@@ -536,10 +537,11 @@ bool handle_liquid( item &liquid, const int radius )
     return false;
 }
 
-bool handle_liquid( const tripoint_bub_ms &pos, int radius )
+bool handle_liquid( const tripoint_abs_ms &pos, int radius )
 {
-    map &here = get_map();
-    detached_ptr<item> liquid = here.water_from( pos );
+    map &map = get_map();
+    auto &here = map.get_mapbuffer();
+    detached_ptr<item> liquid = map.water_from( abs_to_bub( pos ) );
     if( !liquid || liquid->is_null() || liquid->made_of( SOLID ) ) {
         debugmsg( "Tried to handle_liquid a non-liquid!" );
         // "canceled by the user" because we *can* not handle it.

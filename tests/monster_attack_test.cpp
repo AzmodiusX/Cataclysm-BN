@@ -226,12 +226,12 @@ TEST_CASE(
     clear_all_state();
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
     auto& target = get_avatar();
-    target.setpos(map_local_to_abs(get_map(), tripoint_bub_ms(61, 60, 0)));
-    auto& mon = spawn_test_monster("mon_test_special_attack_pair", tripoint_bub_ms(60, 60, 0));
+    target.setpos(test_origin + point_rel_ms(1, 0));
+    auto& mon = spawn_test_monster("mon_test_special_attack_pair", bub_test_origin());
     mon.friendly = 0;
     mon.anger = 100;
     mon.moves = 100;
-    mon.set_dest(target.bub_pos());
+    mon.set_dest(target.abs_pos());
     mon.set_special("alpha", 0);
     mon.set_special("beta", 0);
     REQUIRE(mon.attack_target() == &target);
@@ -305,12 +305,12 @@ TEST_CASE("the stock scheduler holds the same reentrancy guard", "[monster][spec
     auto test_type = mtype_id("mon_test_special_attack_pair").obj();
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
     auto& target = get_avatar();
-    target.setpos(map_local_to_abs(get_map(), tripoint_bub_ms(61, 60, 0)));
-    auto& mon = spawn_test_monster("mon_test_special_attack_pair", tripoint_bub_ms(60, 60, 0));
+    target.setpos(test_origin + point_rel_ms(1, 0));
+    auto& mon = spawn_test_monster("mon_test_special_attack_pair", bub_test_origin());
     mon.friendly = 0;
     mon.anger = 100;
     mon.moves = 100;
-    mon.set_dest(target.bub_pos());
+    mon.set_dest(target.abs_pos());
 
     test_type.special_attacks.clear();
     // Stands in for an on-hit callback reaching back into Lua while a stock attack runs.

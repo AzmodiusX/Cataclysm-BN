@@ -232,10 +232,10 @@ TEST_CASE("stunning techniques stun regardless of knockback", "[melee][martial_a
 
     const auto effect_stunned = efftype_id("stunned");
     auto& dude = g->u;
-    dude.setpos(dude_pos);
+    dude.setpos(test_origin);
 
     const auto check_stuns = [&dude, &effect_stunned](const matec_id& tec) {
-        auto& target = spawn_test_monster("mon_zombie", dude_pos + tripoint_rel_ms::east());
+        auto& target = spawn_test_monster("mon_zombie", bub_test_origin() + tripoint_rel_ms::east());
         REQUIRE(tec->stun_dur > 0);
         REQUIRE_FALSE(target.has_effect(effect_stunned));
 

@@ -11,7 +11,7 @@
 #include "line.h"
 #include "map/map.h"
 #include "map/mapdata.h"
-#include "map_memory.h"
+#include "map/map_memory.h"
 #include "monster.h"
 #include "mtype.h"
 #include "options.h"

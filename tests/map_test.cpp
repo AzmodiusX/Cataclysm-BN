@@ -1197,20 +1197,19 @@ TEST_CASE("auto_stair_travel_finds_unseen_loaded_stairs", "[map][stair][autotrav
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
     g->u.clear_map_memory();
 
-    const auto origin = tripoint_bub_ms(60, 60, 0);
-    const auto unseen_stairs = origin + tripoint_rel_ms::east() * 5;
+    const auto unseen_stairs = test_origin + tripoint_rel_ms::east() * 5;
     auto& you = g->u;
-    auto& here = get_map();
+    auto& here = you.get_mapbuffer();
 
-    you.setpos(origin);
+    you.setpos(test_origin);
     you.add_effect(effect_blind, 1_days, bodypart_str_id::NULL_ID());
-    here.ter_set(unseen_stairs, ter_id("t_stairs_up"));
+    here.set_ter(unseen_stairs, ter_id("t_stairs_up"));
 
     REQUIRE(!you.sees(unseen_stairs));
-    const auto found_stairs = g->find_local_stairs_leading_to(here, origin.z() + 1);
+    const auto found_stairs = g->find_local_stairs_leading_to(get_map(), test_origin.z() + 1);
 
     REQUIRE(found_stairs);
-    CHECK(*found_stairs == unseen_stairs);
+    CHECK(*found_stairs == abs_to_bub( unseen_stairs ));
 }
 
 TEST_CASE("auto_stair_travel_finds_ramp_transitions", "[map][stair][autotravel]") {
@@ -1253,22 +1252,22 @@ TEST_CASE("auto_stair_travel_route_continues_with_vertical_move", "[map][stair][
     clear_all_state();
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
 
-    const auto origin = tripoint_bub_ms(60, 60, 0);
-    const auto stairs = origin + tripoint_rel_ms::east();
+    const auto stairs = test_origin + tripoint_rel_ms::east();
     auto& you = g->u;
-    auto& here = get_map();
+    auto& here = you.get_mapbuffer();
 
-    you.setpos(origin);
-    here.ter_set(stairs, ter_id("t_stairs_up"));
+    you.setpos(test_origin);
+    here.set_ter(stairs, ter_id("t_stairs_up"));
+    auto settings = you.get_pathfinding_pair();
 
-    auto route = here.route(
-        you.bub_pos(), stairs, you.get_legacy_pathfinding_settings(), you.get_legacy_path_avoid());
+    auto route = Pathfinding::route(here,
+        you.abs_pos(), stairs, settings.first, settings.second);
     REQUIRE(!route.empty());
-    route.emplace_back(stairs.xy(), origin.z() + 1);
+    route.emplace_back(stairs.xy(), test_origin.z() + 1);
     you.set_destination(route);
 
     CHECK(you.get_next_auto_move_direction()
-          == get_movement_action_from_delta(stairs - origin, iso_rotate::yes));
+          == get_movement_action_from_delta(stairs - test_origin, iso_rotate::yes));
 
     you.setpos(stairs);
     CHECK(you.get_next_auto_move_direction() == ACTION_MOVE_UP);
@@ -2014,38 +2013,37 @@ TEST_CASE("bash_through_roof_can_destroy_multiple_times") {
 TEST_CASE("flammable_fields_can_be_ignited", "[map][field][fire]") {
     clear_all_state();
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
-    auto& here = get_map();
-    const auto pos = tripoint_bub_ms(60, 60, 0);
-    here.ter_set(pos, ter_str_id("t_rock_floor").id());
-    here.furn_set(pos, f_null);
+    auto& here = get_map().get_mapbuffer();
+    here.set_ter(test_origin, ter_str_id("t_rock_floor").id());
+    here.set_furn(test_origin, f_null);
     const auto fuel = field_type_id(
         GENERATE("fd_fuel", "fd_sticky_fuel", "fd_oil", "fd_alcohol_strong", "test_fd_flammable"));
     const auto inert = field_type_id(GENERATE("test_fd_nonflammable", "fd_alcohol"));
-    REQUIRE(here.add_field(pos, inert));
-    CHECK_FALSE(here.is_flammable(pos));
+    REQUIRE(here.add_field(test_origin, {.type = inert}));
+    CHECK_FALSE(here.is_flammable(test_origin));
     const auto intensity = GENERATE(1, 2, 3);
-    REQUIRE(here.add_field(pos, fuel, intensity));
-    CHECK(here.is_flammable(pos));
+    REQUIRE(here.add_field(test_origin, {.type = fuel, .intensity = intensity}));
+    CHECK(here.is_flammable(test_origin));
 
-    SECTION("firestarter") { firestarter_actor::resolve_firestarter_use(get_avatar(), pos); }
+    SECTION("firestarter") { firestarter_actor::resolve_firestarter_use(get_avatar(), test_origin); }
     SECTION("heat projectile") {
         auto shot = projectile{};
         shot.impact.add_damage(DT_HEAT, 1);
-        here.shoot(pos, pos, shot, false);
+        get_map().shoot(bub_test_origin(), bub_test_origin(), shot, false);
     }
     SECTION("mixed combustible fields") {
         const auto other_fuel =
             fuel == field_type_id("test_fd_flammable")
                 ? field_type_id("fd_fuel")
                 : field_type_id("test_fd_flammable");
-        REQUIRE(here.add_field(pos, other_fuel, intensity));
-        firestarter_actor::resolve_firestarter_use(get_avatar(), pos);
-        CHECK(here.get_field(pos, other_fuel) == nullptr);
+        REQUIRE(here.add_field(test_origin, {.type = other_fuel, .intensity = intensity}));
+        firestarter_actor::resolve_firestarter_use(get_avatar(), test_origin);
+        CHECK(here.get_field_entry(test_origin, other_fuel) == nullptr);
     }
 
-    CHECK(here.get_field(pos, fuel) == nullptr);
-    CHECK(here.get_field(pos, inert) != nullptr);
-    const auto* fire = here.get_field(pos, fd_fire);
+    CHECK(here.get_field_entry(test_origin, fuel) == nullptr);
+    CHECK(here.get_field_entry(test_origin, inert) != nullptr);
+    const auto* fire = here.get_field_entry(test_origin, fd_fire);
     REQUIRE(fire != nullptr);
     CHECK(fire->get_field_intensity() == std::max(2, intensity));
     CHECK(fire->get_field_age() == -10_minutes * intensity);

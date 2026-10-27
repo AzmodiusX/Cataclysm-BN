@@ -607,7 +607,7 @@ TEST_CASE("update_bodytemp keeps the body intact for a single step.", "[bodytemp
 
     SECTION("With worn clothing") { equip_clothing(dummy, heavy_clothing); }
 
-    dummy.update_bodytemp(get_map(), get_weather());
+    dummy.update_bodytemp(get_weather());
 
     const std::vector<bodypart_id> ids_after = dummy.get_all_body_parts(true);
     CHECK(ids_after == ids_before);

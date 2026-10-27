@@ -313,7 +313,7 @@ class lua_ispell_actor
 
         /** Returns false to block casting. */
         bool call_on_try_cast( Character &who, spell &sp ) const;
-        void call_on_cast( Character &who, spell &sp, tripoint_bub_ms &target_pos ) const;
+        void call_on_cast( Character &who, spell &sp, tripoint_abs_ms &target_pos ) const;
 };
 
 

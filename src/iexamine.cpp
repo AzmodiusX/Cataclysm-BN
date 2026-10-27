@@ -4837,7 +4837,7 @@ void iexamine::trap( player &p, const tripoint_bub_ms &examp )
 void iexamine::water_source( player &, const tripoint_bub_ms &examp )
 {
     // Routed to map::water_from to handle poison
-    liquid_handler::handle_liquid( examp );
+    liquid_handler::handle_liquid( bub_to_abs( examp ) );
 }
 
 //Note that these three functions are checked by pointer in map::water_from. Yes it's awful.

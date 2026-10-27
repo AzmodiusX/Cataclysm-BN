@@ -19,7 +19,7 @@ enum liquid_dest : int {
 
 struct liquid_dest_opt {
     liquid_dest dest_opt = LD_NULL;
-    tripoint_bub_ms pos;
+    tripoint_abs_ms pos;
     item *it = nullptr;
     vehicle *veh = nullptr;
     int amount = -1;
@@ -52,7 +52,7 @@ void handle_all_liquid( detached_ptr<item> &&liquid, int radius );
  */
 bool consume_liquid( item &liquid, int radius = 0 );
 bool consume_liquid( detached_ptr<item> &&liquid, int radius = 0 );
-bool consume_liquid( const tripoint_bub_ms &pos, int radius = 0 );
+bool consume_liquid( const tripoint_abs_ms &pos, int radius = 0 );
 bool consume_liquid( vehicle *veh, itype_id liquid, int radius = 0 );
 
 /**
@@ -71,7 +71,7 @@ bool handle_liquid( item &liquid, int radius = 0 );
 /**
  * Each of these variants may start a player activity.
  */
-bool handle_liquid( const tripoint_bub_ms &pos, int radius = 0 );
+bool handle_liquid( const tripoint_abs_ms &pos, int radius = 0 );
 bool handle_liquid( vehicle *veh, int part_id, int radius = 0 );
 } // namespace liquid_handler
 

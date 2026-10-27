@@ -986,7 +986,7 @@ bool lua_ispell_actor::call_on_try_cast( Character &who, spell &sp ) const
     return true;
 }
 
-void lua_ispell_actor::call_on_cast( Character &who, spell &sp, tripoint_bub_ms &target_pos ) const
+void lua_ispell_actor::call_on_cast( Character &who, spell &sp, tripoint_abs_ms &target_pos ) const
 {
     if( on_cast_func == sol::lua_nil ) {
         return;

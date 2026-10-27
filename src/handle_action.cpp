@@ -72,7 +72,7 @@
 #include "map/map.h"
 #include "map/map_selector.h"
 #include "map/mapdata.h"
-#include "map_memory.h"
+#include "map/map_memory.h"
 #include "mapsharing.h"
 #include "messages.h"
 #include "monster.h"

@@ -1880,7 +1880,7 @@ void Character::reach_attack( const tripoint_abs_ms &p )
         return;
     }
 
-    if( map_funcs::physical_floor_between( here, bub_pos(), p ) ) {
+    if( map_funcs::physical_floor_between( here.get_mapbuffer(), abs_pos(), p ) ) {
         add_msg_if_player( _( "There's a floor in the way!" ) );
         return;
     }

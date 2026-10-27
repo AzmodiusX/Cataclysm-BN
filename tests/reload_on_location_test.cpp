@@ -27,7 +27,8 @@ TEST_CASE("reload_on_vehicle_cargo", "[magazine][visitable][item][item_location]
     clear_all_state();
     move_player_out_of_the_way();
 
-    auto& here = get_map().get_mapbuffer();
+    auto &who = g->u;
+    auto& here = who.get_mapbuffer();
     const auto vehicle_center = test_origin + point_rel_ms(5, 5);
     const vproto_id car_id("car");
 
@@ -47,7 +48,7 @@ TEST_CASE("reload_on_vehicle_cargo", "[magazine][visitable][item][item_location]
 
     // Give the avatar a compatible source and position within reach...
     auto& ammo = who.i_add(item::spawn("38_special", calendar::start_of_cataclysm, 6));
-    who.setpos(veh->bub_part_location(part_num)); // Position avatar on cargo tile...
+    who.setpos(veh->abs_part_location(part_num)); // Position avatar on cargo tile...
     REQUIRE(gun.ammo_remaining() == 0);
     REQUIRE(gun.can_reload_with(ammo.typeId()));
     REQUIRE_FALSE(who.has_item(gun));

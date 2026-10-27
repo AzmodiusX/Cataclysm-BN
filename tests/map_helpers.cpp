@@ -17,7 +17,7 @@
 #include "map/submap.h"
 #include "map/submap_load_manager.h"
 #include "npc.h"
-#include "overmapbuffer.h"
+#include "overmap/overmapbuffer.h"
 #include "player_helpers.h"
 #include "simulated_island_helpers.h"
 #include "type_id.h"

@@ -37,7 +37,7 @@
 
 #include "dimension_info.h"
 #include "game_constants.h"
-#include "map_iterator.h"
+#include "map/map_iterator.h"
 #include "overmap/overmap.h"
 #include "overmap/overmap_special.h"
 #include "overmap/overmapbuffer_registry.h"

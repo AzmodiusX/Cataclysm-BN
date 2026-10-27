@@ -1417,6 +1417,7 @@ public:
     auto propagate_field(
         const tripoint_abs_ms& center, const field_type_id& type, int amount, int max_intensity = 0,
         mapbuffer_lookup_options options = {}) -> void;
+    auto spill_liquid_field(const tripoint_abs_ms& center, const item& liquid) -> void;
 
     // ----- Item mutations -----
 

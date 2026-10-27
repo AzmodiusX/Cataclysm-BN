@@ -79,13 +79,13 @@ TEST_CASE(
     clear_all_state();
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
     auto& target = get_avatar();
-    target.setpos(map_local_to_abs(get_map(), tripoint_bub_ms(65, 60, 0)));
-    auto& mon = spawn_test_monster("mon_test_special_attack", tripoint_bub_ms(60, 60, 0));
+    target.setpos(test_origin + point_rel_ms(5, 0));
+    auto& mon = spawn_test_monster("mon_test_special_attack", bub_test_origin());
     mon.set_special("test", 0);
     mon.friendly = 0;
     mon.anger = 100;
     mon.moves = 100;
-    mon.set_dest(target.bub_pos());
+    mon.set_dest(target.abs_pos());
     REQUIRE(mon.attack_target() == &target);
     auto lua = make_lua_state();
     lua["test_monster"] = &mon;
@@ -103,7 +103,7 @@ TEST_CASE(
     CHECK(mon.moves == 100);
     CHECK(mon.shortest_special_cooldown() == 0);
     target.setpos(map_local_to_abs(get_map(), tripoint_bub_ms(61, 60, 0)));
-    mon.set_dest(target.bub_pos());
+    mon.set_dest(target.abs_pos());
     const auto used = lua.safe_script(
         R"(
         assert(test_monster:use_special_attack("test"))
@@ -120,8 +120,8 @@ TEST_CASE(
     "Lua can enumerate special attacks and toggle them by ID", "[lua][monster][special_attack]") {
     clear_all_state();
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
-    get_avatar().setpos(map_local_to_abs(get_map(), tripoint_bub_ms(65, 60, 0)));
-    auto& mon = spawn_test_monster("mon_test_special_attack_pair", tripoint_bub_ms(60, 60, 0));
+    get_avatar().setpos(test_origin + point_rel_ms(5, 0));
+    auto& mon = spawn_test_monster("mon_test_special_attack_pair", bub_test_origin());
     mon.set_special("alpha", 0);
     mon.set_special("beta", 0);
     auto lua = make_lua_state();
@@ -161,14 +161,14 @@ TEST_CASE("Lua reads monster and monster type state", "[lua][monster]") {
     clear_all_state();
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
     auto& target = get_avatar();
-    target.setpos(map_local_to_abs(get_map(), tripoint_bub_ms(61, 60, 0)));
-    auto& mon = spawn_test_monster("mon_test_lua_read_bindings", tripoint_bub_ms(60, 60, 0));
+    target.setpos(test_origin + point_rel_ms(1, 0));
+    auto& mon = spawn_test_monster("mon_test_lua_read_bindings", bub_test_origin());
     mon.friendly = 0;
     mon.anger = 100;
     mon.moves = 100;
     mon.training_level = 2;
     mon.pet_bond_level = 3;
-    mon.set_dest(target.bub_pos());
+    mon.set_dest(target.abs_pos());
     REQUIRE(mon.attack_target() == &target);
     auto lua = make_lua_state();
     lua["test_monster"] = &mon;
@@ -256,14 +256,14 @@ TEST_CASE(
     REQUIRE(script.valid());
 
     auto& target = get_avatar();
-    target.setpos(map_local_to_abs(get_map(), tripoint_bub_ms(61, 60, 0)));
-    auto& mon = spawn_test_monster("mon_test_lua_attitude_recursion", tripoint_bub_ms(60, 60, 0));
+    target.setpos(test_origin + point_rel_ms(1, 0));
+    auto& mon = spawn_test_monster("mon_test_lua_attitude_recursion", bub_test_origin());
     mon.friendly = 0;
     mon.anger = 100;
     mon.morale = 100;
     mon.moves = 100;
     mon.set_special("test", 0);
-    mon.set_dest(target.bub_pos());
+    mon.set_dest(target.abs_pos());
 
     // Without the guard this never returns; it recurses until the stack overflows.
     // The guard reports the refused recursion, so capture it rather than failing the run.

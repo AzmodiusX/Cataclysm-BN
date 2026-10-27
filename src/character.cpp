@@ -6338,6 +6338,14 @@ struct BodyTemperatureModifiers {
     int vehicle_wind_speed = 0;
     units::temperature water_temperature;
     double total_windpower;
+
+    // Worn items are not split by bp, so using a map prevents having to iterate all worn items for each bp
+    std::map<bodypart_id, int> fire_armor_per_bp;
+    std::map<bodypart_id, std::vector<const item *>> clothing_map;
+    std::map<bodypart_id, std::vector<const item *>> clothing_map_bonus;
+    std::map<bodypart_id, int> warmth_per_bp;
+    std::map<bodypart_id, int> warmth_per_bp_bonus;
+    std::map<bodypart_id, int> wind_res_per_bp;
 };
 
 void Character::update_bodytemp( const weather_manager &weather )
@@ -6953,76 +6961,6 @@ void update_bodytemp_bps( Character &chr, BodyTemperatureModifiers &body_mods )
         // TODO: Remove temp_conv, it's only really for display, so should not be in Character
         bp_stats.set_temp_conv( bp_conv );
     }
-}
-
-
-void Character::update_bodytemp( const map &m, const weather_manager &weather )
-{
-    if( has_trait( trait_DEBUG_NOTEMP ) ) {
-        for( auto &pr : get_body() ) {
-            pr.second.set_temp_cur( BODYTEMP_NORM );
-            pr.second.set_temp_conv( BODYTEMP_NORM );
-        }
-        return;
-    }
-    const auto _bub_pos = bub_pos();
-    const w_point &weather_point = get_weather().get_precise();
-    auto body_mods = BodyTemperatureModifiers();
-    body_mods.ambient_temperature = weather.get_temperature( abs_pos() );
-    body_mods.ambient_norm = 19_c;
-    body_mods.sheltered = weather::is_sheltered( m, _bub_pos );
-    body_mods.air_humidity = get_local_humidity( weather_point.humidity, weather.weather_id,
-                             body_mods.sheltered );
-
-    body_mods.best_fire = get_heat_radiation( _bub_pos, true );
-    body_mods.has_pyromania = has_trait( trait_PYROMANIA );
-    body_mods.heat_radiation = get_heat_radiation( _bub_pos, false );
-    body_mods.lying_warmth = can_use_floor_warmth() ? floor_warmth( _bub_pos ) : 0_c_delta;
-
-    body_mods.is_in_sunlight = weather::is_in_sunlight( m, _bub_pos, weather.weather_id );
-    body_mods.sunlight_warmth = body_mods.is_in_sunlight
-                                ? ( weather.weather_id->sun_intensity == sun_intensity_type::high ? 2_c_delta : 1_c_delta )
-                                : 0_c_delta;
-
-    body_mods.mutation_heat_low = bodytemp_modifier_traits( true );
-    body_mods.mutation_heat_high = bodytemp_modifier_traits( false );
-    body_mods.mutation_heat_bonus = body_mods.mutation_heat_high - body_mods.mutation_heat_low;
-
-    const ter_id ter_at_pos = m.ter( bub_pos() );
-    body_mods.submerged = !in_vehicle && ter_at_pos->has_flag( TFLAG_DEEP_WATER );
-    body_mods.submerged_low = !in_vehicle && ( body_mods.submerged ||
-                              ter_at_pos->has_flag( TFLAG_SWIMMABLE ) );
-    const auto water_temperature_raw = units::to_millidegree_celsius(
-                                           weather.get_water_temperature( abs_pos() ) ) / 10;
-    // Rescale so that 0C is BODYTEMP legacy 0 and 30C is BODYTEMP_NORM.
-    body_mods.water_temperature = units::from_legacy_bodypart_temp( water_temperature_raw * 5 / 3 );
-
-    const optional_vpart_position vp = m.veh_at( _bub_pos );
-    if( vp ) {
-        body_mods.vehicle_wind_speed = std::lround( cmps_to_mps( std::abs( vp->vehicle().velocity ) ) *
-                                       2.23694 );
-    }
-    const oter_id &cur_om_ter = get_overmapbuffer( get_dimension() ).ter( abs_omt_pos() );
-    body_mods.total_windpower = get_local_windpower( weather.windspeed + body_mods.vehicle_wind_speed,
-                                cur_om_ter,
-                                abs_pos(),
-                                weather.winddirection, body_mods.sheltered );
-
-    equalize_temperature( *this );
-    set_clothing_map( *this, body_mods.clothing_map, body_mods.clothing_map_bonus );
-    set_bonus_clothing_map( *this, body_mods.clothing_map, body_mods.clothing_map_bonus );
-    body_mods.warmth_per_bp = warmth::from_clothing( body_mods.clothing_map );
-    body_mods.warmth_per_bp_bonus = warmth::bonus_from_clothing( body_mods.clothing_map_bonus );
-    for( const auto &pr : warmth::from_effects( *this ) ) {
-        body_mods.warmth_per_bp_bonus[pr.first] += pr.second;
-    }
-    body_mods.wind_res_per_bp = get_wind_resistance(
-                                    *this,
-                                    body_mods.clothing_map,
-                                    body_mods.clothing_map_bonus
-                                );
-
-    update_bodytemp_bps( *this, body_mods );
 }
 
 auto Character::get_part_temp_cur( const bodypart_id &id ) const -> units::temperature
