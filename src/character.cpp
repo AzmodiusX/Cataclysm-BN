@@ -12096,9 +12096,9 @@ void Character::place_corpse()
 
 void Character::place_corpse( const tripoint_abs_omt &om_target )
 {
-    const auto view = get_mapbuffer().get_abs_omt_view( om_target, { mapbuffer_lookup_mode::load_or_generate } );
+    const auto view = get_mapbuffer().resolve_abs_omt_view( om_target, { mapbuffer_lookup_policy::load_or_generate } );
     point_omt_ms omt_ms{ rng( 1, SEEX * 2 - 2 ), rng( 1, SEEX * 2 - 2 ) };
-    const auto sm = *view->get_submap_view( project_remain<coords::sm>( omt_ms ).quotient );
+    const auto sm = *view->submap_view_at( project_remain<coords::sm>( omt_ms ).quotient );
     auto sm_ms = project_remain<coords::sm>( omt_ms ).remainder;
     // This makes no sense at all. It may find a random tile without furniture, but
     // if the first try to find one fails, it will go through all tiles of the map
@@ -12123,7 +12123,7 @@ void Character::place_corpse( const tripoint_abs_omt &om_target )
     detached_ptr<item> body = item::make_corpse( mtype_id::NULL_ID(), calendar::turn, name );
     for( auto &itm : tmp ) {
         get_mapbuffer().add_item_or_charges( fin, std::move( itm ), {
-            .lookup = mapbuffer_lookup_mode::load_or_generate,
+            .lookup = mapbuffer_lookup_policy::load_or_generate,
         } );
     }
     for( const bionic &bio : get_bionic_collection() ) {
@@ -12132,7 +12132,7 @@ void Character::place_corpse( const tripoint_abs_omt &om_target )
         }
     }
     get_mapbuffer().add_item_or_charges( fin, std::move( body ), {
-        .lookup = mapbuffer_lookup_mode::load_or_generate,
+        .lookup = mapbuffer_lookup_policy::load_or_generate,
     } );
 }
 

@@ -1483,7 +1483,7 @@ void game::load_npcs()
                 }
                 const auto sm_loc = project_to<coords::sm>( temp->abs_pos() );
                 if( !contains_request( sm_loc.xy() ) ||
-                    buffer.get_submap( sm_loc ) == nullptr ||
+                    buffer.resolve_submap( sm_loc ) == nullptr ||
                     !place_npc_on_absolute_mapbuffer( *temp, buffer ) ) {
                     continue;
                 }
@@ -17078,7 +17078,7 @@ void avatar_moves( const avatar &u, const map &m, const tripoint_abs_ms &pos )
         mount_type = u.mounted_creature->type->id;
     }
     const auto terrain = MAPBUFFER_REGISTRY.get( m.get_bound_dimension() ).get_ter( pos,
-    { .mode = mapbuffer_lookup_mode::resident_only } ).value_or( t_null );
+    { .policy = mapbuffer_lookup_policy::resident_only } ).value_or( t_null );
     g->events().send<event_type::avatar_moves>( mount_type, terrain, u.get_movement_mode(),
             u.is_underwater(), pos.z() );
 }

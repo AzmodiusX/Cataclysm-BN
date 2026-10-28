@@ -5358,7 +5358,7 @@ auto vehicle::find_vehicle(const tripoint_abs_ms& where, mapbuffer& mbuf) -> veh
 
     // Nope. Load up its submap...
     auto proj = project_remain<coords::sm>(where);
-    auto sm = mbuf.lookup_submap(proj.quotient_tripoint);
+    auto sm = mbuf.load_submap_from_storage(proj.quotient_tripoint);
     if (sm == nullptr) { return nullptr; }
 
     for (auto& elem : sm->vehicles) {
@@ -7222,7 +7222,7 @@ auto vpart_reference::has_feature(const vpart_bitflags f) const -> bool {
 static auto is_sm_tile_over_water(const tripoint_abs_ms& pos) -> bool {
     const auto proj = project_remain<coords::sm>(pos);
     auto& mbuf = MAPBUFFER_REGISTRY.get(get_map().get_bound_dimension());
-    auto sm = mbuf.lookup_submap(proj.quotient_tripoint);
+    auto sm = mbuf.load_submap_from_storage(proj.quotient_tripoint);
     if (sm == nullptr) {
         debugmsg("is_sm_tile_over_water(): couldn't find submap %d,%d,%d",
                  proj.quotient_tripoint.x(), proj.quotient_tripoint.y(),
@@ -7238,7 +7238,7 @@ static auto is_sm_tile_outside(const tripoint_abs_ms& pos) -> bool {
     const auto proj = project_remain<coords::sm>(pos);
     auto& m = get_map();
     auto& mbuf = MAPBUFFER_REGISTRY.get(m.get_bound_dimension());
-    auto sm = mbuf.lookup_submap(proj.quotient_tripoint);
+    auto sm = mbuf.load_submap_from_storage(proj.quotient_tripoint);
     if (sm == nullptr) {
         debugmsg("is_sm_tile_over_water(): couldn't find submap %d,%d,%d",
                  proj.quotient_tripoint.x(), proj.quotient_tripoint.y(),

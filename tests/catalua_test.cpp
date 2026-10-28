@@ -1551,7 +1551,7 @@ TEST_CASE("lua_dimension_cleanup_preserves_portal_load_requests", "[lua]") {
     const auto release = on_out_of_scope([&]() { submap_loader.release_load(handle); });
     submap_loader.update();
     REQUIRE(submap_loader.is_loaded(dim, pos));
-    auto* const original_submap = MAPBUFFER_REGISTRY.get(dim).lookup_submap(pos);
+    auto* const original_submap = MAPBUFFER_REGISTRY.get(dim).load_submap_from_storage(pos);
     REQUIRE(original_submap != nullptr);
     {
         const auto restore_mapgen = restore_on_out_of_scope<bool>(disable_mapgen);
@@ -1572,7 +1572,7 @@ reset = gapi.reset_dimension(cleanup_dimension)
     submap_loader.update();
     CHECK(submap_loader.is_requested(dim, pos));
     CHECK(submap_loader.is_loaded(dim, pos));
-    CHECK(MAPBUFFER_REGISTRY.get(dim).lookup_submap(pos) == original_submap);
+    CHECK(MAPBUFFER_REGISTRY.get(dim).load_submap_from_storage(pos) == original_submap);
     submap_loader.release_load(handle);
     submap_loader.update();
     SECTION("delete after releasing portal") { CHECK(g->delete_dimension(dim)); }

@@ -60,12 +60,12 @@ static auto find_valid_teleporters_omt(const tripoint_abs_omt& omt_pt)
     // an OMT is SEEX * SEEY in size
     const auto sm_pt = project_to<coords::sm>(omt_pt.xy());
     mapbuffer& buf = get_map().get_mapbuffer();
-    auto omt_view = buf.get_abs_omt_view(omt_pt, {.mode = mapbuffer_lookup_mode::load_from_disk});
+    auto omt_view = buf.resolve_abs_omt_view(omt_pt, {.policy = mapbuffer_lookup_policy::load_from_disk});
 
     if (!omt_view || !omt_view->has_any_submap()) { return std::nullopt; }
 
     for (point_omt_sm submap_tile : point_range(point_omt_sm(0, 0), point_omt_sm(1, 1))) {
-        auto submap_view = omt_view->get_submap_view(submap_tile);
+        auto submap_view = omt_view->submap_view_at(submap_tile);
         if (!submap_view) { return std::nullopt; }
         for (point_sm_ms submap_map_square : submap_view->tiles()) {
             auto furn = submap_view->tile(submap_map_square).get_furn();
