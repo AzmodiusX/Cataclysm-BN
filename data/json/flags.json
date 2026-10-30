@@ -2001,7 +2001,8 @@
   {
     "id": "BUTCHERY_ROPE",
     "type": "json_flag",
-    "context": [  ]
+    "context": [  ],
+    "info": "This item can be used as a <good>butchery rope</good>
   },
   {
     "id": "NO_STERILE",
