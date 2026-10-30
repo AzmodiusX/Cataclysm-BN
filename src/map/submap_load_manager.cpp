@@ -1036,8 +1036,7 @@ auto submap_load_manager::is_simulated(const dimension_id& dim_id, const point_a
 
 auto submap_load_manager::is_loaded(const dimension_id& dim_id, const point_abs_sm& pos) const
     -> bool {
-    return MAPBUFFER_REGISTRY.get(dim_id).find_resident_submap(tripoint_abs_sm{pos, 0})
-        != nullptr;
+    return MAPBUFFER_REGISTRY.get(dim_id).find_resident_submap(tripoint_abs_sm{pos, 0}) != nullptr;
 }
 
 auto submap_load_manager::simulated_submaps(const dimension_id& dim_id) const

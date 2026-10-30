@@ -16,7 +16,8 @@
 static auto find_adjacent_monster(const tripoint_abs_ms& pos_abs) -> monster* { // *NOPAD*
     tripoint_abs_ms target_abs = pos_abs;
     for (target_abs.x() = pos_abs.x() - 1; target_abs.x() <= pos_abs.x() + 1; target_abs.x()++) {
-        for (target_abs.y() = pos_abs.y() - 1; target_abs.y() <= pos_abs.y() + 1; target_abs.y()++) {
+        for (target_abs.y() = pos_abs.y() - 1; target_abs.y() <= pos_abs.y() + 1;
+             target_abs.y()++) {
             if (target_abs == pos_abs) { continue; }
             if (monster* const candidate = g->critter_at<monster>(abs_to_bub(target_abs))) {
                 return candidate;

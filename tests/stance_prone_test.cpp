@@ -18,7 +18,7 @@
 TEST_CASE("prone_stance_movement_costs", "[stance][prone][movement]") {
     clear_all_state();
     avatar& shooter = g->u;
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
 
     GIVEN("character standing") {
         shooter.set_movement_mode(character_movemode::CMM_WALK);
@@ -94,7 +94,7 @@ TEST_CASE("prone_stance_movement_costs", "[stance][prone][movement]") {
 TEST_CASE("prone_stance_ranged_effects", "[stance][prone][ranged]") {
     clear_all_state();
     avatar& shooter = g->u;
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
     build_test_map(ter_id("t_dirt"));
 
     GIVEN("a rifle with bipod") {

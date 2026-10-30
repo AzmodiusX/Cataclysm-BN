@@ -669,8 +669,8 @@ TEST_CASE("Inventory letter test", "[invlet]") {
     player& dummy = get_avatar();
     const auto spot_abs = test_origin;
     dummy.setpos(spot_abs);
-    get_map().ter_set( abs_to_bub( spot_abs ), ter_id("t_dirt") );
-    get_map().furn_set( abs_to_bub( spot_abs ), furn_id("f_null") );
+    get_map().ter_set(abs_to_bub(spot_abs), ter_id("t_dirt"));
+    get_map().furn_set(abs_to_bub(spot_abs), furn_id("f_null"));
     if (!dummy.has_trait(trait_debug_storage)) { dummy.set_mutation(trait_debug_storage); }
 
     invlet_test_autoletter_off("Picking up items from the ground", dummy, GROUND, INVENTORY);

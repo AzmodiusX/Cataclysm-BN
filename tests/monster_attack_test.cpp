@@ -34,12 +34,12 @@ auto setup_shriek_stun_test() -> shriek_stun_setup {
     clear_all_state();
 
     auto& target = get_avatar();
-    const auto target_abs = test_origin + tripoint_rel_ms( 2, 0, 0 );
-    target.setpos( target_abs );
-    const auto screecher_pos_abs = target_abs - tripoint_rel_ms( 2, 0, 0 );
+    const auto target_abs = test_origin + tripoint_rel_ms(2, 0, 0);
+    target.setpos(target_abs);
+    const auto screecher_pos_abs = target_abs - tripoint_rel_ms(2, 0, 0);
 
-    auto& screecher = spawn_test_monster("mon_zombie_screecher", abs_to_bub( screecher_pos_abs ) );
-    screecher.set_dest( abs_to_bub( target_abs ) );
+    auto& screecher = spawn_test_monster("mon_zombie_screecher", abs_to_bub(screecher_pos_abs));
+    screecher.set_dest(abs_to_bub(target_abs));
     screecher.add_effect(effect_shrieking, 1_minutes);
 
     return {.screecher = screecher, .target = target};
@@ -224,8 +224,8 @@ TEST_CASE(
     clear_all_state();
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
     auto& target = get_avatar();
-    const auto target_abs = test_origin + tripoint_rel_ms( 1, 0, 0 );
-    target.setpos( target_abs );
+    const auto target_abs = test_origin + tripoint_rel_ms(1, 0, 0);
+    target.setpos(target_abs);
     auto& mon = spawn_test_monster("mon_test_special_attack_pair", bub_test_origin());
     mon.friendly = 0;
     mon.anger = 100;
@@ -304,8 +304,8 @@ TEST_CASE("the stock scheduler holds the same reentrancy guard", "[monster][spec
     auto test_type = mtype_id("mon_test_special_attack_pair").obj();
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
     auto& target = get_avatar();
-    const auto target_abs = test_origin + tripoint_rel_ms( 1, 0, 0 );
-    target.setpos( target_abs );
+    const auto target_abs = test_origin + tripoint_rel_ms(1, 0, 0);
+    target.setpos(target_abs);
     auto& mon = spawn_test_monster("mon_test_special_attack_pair", bub_test_origin());
     mon.friendly = 0;
     mon.anger = 100;

@@ -77,10 +77,10 @@ auto make_cargo_benchmark_fixture(const cargo_benchmark_options& opts) -> cargo_
 
     auto& u = get_avatar();
     const auto vehicle_pos_abs = test_origin + tripoint_rel_ms(10, 10, 0);
-    u.setpos( vehicle_pos_abs );
+    u.setpos(vehicle_pos_abs);
 
     vehicle* const veh =
-        get_map().add_vehicle(vproto_id("aapc-mg"), abs_to_bub( vehicle_pos_abs ), 0_degrees, 100, 0);
+        get_map().add_vehicle(vproto_id("aapc-mg"), abs_to_bub(vehicle_pos_abs), 0_degrees, 100, 0);
     REQUIRE(veh != nullptr);
     veh->update_time(calendar::turn_zero, false);
 
@@ -115,11 +115,10 @@ auto make_solar_benchmark_fixture(const solar_benchmark_options& opts) -> solar_
 
     auto& u = get_avatar();
     const auto vehicle_pos_abs = test_origin + tripoint_rel_ms(10, 10, 0);
-    u.setpos( vehicle_pos_abs );
+    u.setpos(vehicle_pos_abs);
 
-    vehicle* const veh =
-        get_map().add_vehicle(vproto_id("none"), abs_to_bub( vehicle_pos_abs ), 0_degrees, 100, 0,
-                              false);
+    vehicle* const veh = get_map().add_vehicle(
+        vproto_id("none"), abs_to_bub(vehicle_pos_abs), 0_degrees, 100, 0, false);
     REQUIRE(veh != nullptr);
 
     for (int i = 0; i < opts.solar_panel_count; ++i) {

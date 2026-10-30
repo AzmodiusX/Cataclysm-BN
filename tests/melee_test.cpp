@@ -87,9 +87,7 @@ static void check_near(float prob, const float expected, const float tolerance) 
 
 static const int num_iters = 10000;
 
-static auto dude_pos() -> tripoint_bub_ms {
-    return bub_test_origin();
-}
+static auto dude_pos() -> tripoint_bub_ms { return bub_test_origin(); }
 
 TEST_CASE("Character attacking a zombie", "[.melee]") {
     monster zed(mtype_id("mon_zombie"));

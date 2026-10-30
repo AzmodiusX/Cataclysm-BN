@@ -20,7 +20,7 @@
 /** food items are counted by charges */
 static auto get_single_food_item(const tripoint_abs_ms& pos_abs) -> const item& {
     map& here = get_map();
-    const auto& items = here.i_at( abs_to_bub( pos_abs ) );
+    const auto& items = here.i_at(abs_to_bub(pos_abs));
     CHECK(items.size() == 1);
 
     return **items.begin();
@@ -46,7 +46,7 @@ TEST_CASE("auto_consume_priority", "[auto_consume][food][zone]") {
     auto place_items =
         [&](const std::vector<std::pair<item*, tripoint_abs_ms>>& item_pairs) -> void {
         for (const auto& [item, pos] : item_pairs) {
-            here.add_item_or_charges( abs_to_bub( pos ), item::spawn(*item) );
+            here.add_item_or_charges(abs_to_bub(pos), item::spawn(*item));
         }
     };
 
@@ -65,7 +65,7 @@ TEST_CASE("auto_consume_priority", "[auto_consume][food][zone]") {
             for (const auto& [pos, count] : expected) {
                 if (count == 0) {
                     INFO("expected empty at " << pos);
-                    CHECK(here.i_at( abs_to_bub( pos ) ).empty());
+                    CHECK(here.i_at(abs_to_bub(pos)).empty());
                 } else {
                     INFO("expected " << count << " at " << pos);
                     CHECK(get_single_food_item(pos).count() == count);

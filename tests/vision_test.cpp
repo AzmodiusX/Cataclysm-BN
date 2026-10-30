@@ -1,9 +1,9 @@
 #include "../src/map/map.h"
 #include "../src/vehicle/vehicle_part.h"
 #include "../src/vehicle/vpart_position.h"
+#include "avatar.h"
 #include "calendar.h"
 #include "catch/catch.hpp"
-#include "avatar.h"
 #include "character.h"
 #include "coordinates.h"
 #include "game.h"
@@ -55,7 +55,7 @@ static void full_map_test(
     const ter_id t_open_air("t_open_air");
 
     Character& player_character = get_player_character();
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
     get_weather().weather_id = weather_type_id("clear");
     g->reset_light_level();
 

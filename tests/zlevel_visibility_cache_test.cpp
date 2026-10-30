@@ -24,7 +24,7 @@ TEST_CASE("solar_cache_uses_date_sensitive_hour", "[vision][zlevel][sun]") {
     const auto one_season = calendar::season_length();
     const auto summer_after_sunrise = calendar::turn_zero + one_season + 5_hours + 30_minutes;
     const auto winter_before_sunrise = calendar::turn_zero + one_season * 3 + 5_hours + 30_minutes;
-    const auto sample_abs = test_origin_at_z( OVERMAP_HEIGHT );
+    const auto sample_abs = test_origin_at_z(OVERMAP_HEIGHT);
 
     REQUIRE(time_past_midnight(summer_after_sunrise) == time_past_midnight(winter_before_sunrise));
     REQUIRE(summer_after_sunrise > sunrise(summer_after_sunrise));
@@ -33,20 +33,20 @@ TEST_CASE("solar_cache_uses_date_sensitive_hour", "[vision][zlevel][sun]") {
 
     calendar::turn = summer_after_sunrise;
     g->reset_light_level();
-    here.invalidate_map_cache( sample_abs.z() );
-    here.build_map_cache( sample_abs.z() );
+    here.invalidate_map_cache(sample_abs.z());
+    here.build_map_cache(sample_abs.z());
 
-    const auto& summer_cache = here.access_cache( sample_abs.z() );
-    const auto sample_idx = static_cast<size_t>(summer_cache.idx(
-        abs_to_bub( sample_abs ).x(), abs_to_bub( sample_abs ).y()));
+    const auto& summer_cache = here.access_cache(sample_abs.z());
+    const auto sample_idx = static_cast<size_t>(
+        summer_cache.idx(abs_to_bub(sample_abs).x(), abs_to_bub(sample_abs).y()));
     const auto summer_light = summer_cache.lm[sample_idx];
     REQUIRE(summer_light > LIGHT_AMBIENT_LIT);
 
     calendar::turn = winter_before_sunrise;
     g->reset_light_level();
-    here.build_map_cache( sample_abs.z() );
+    here.build_map_cache(sample_abs.z());
 
-    const auto& winter_cache = here.access_cache( sample_abs.z() );
+    const auto& winter_cache = here.access_cache(sample_abs.z());
     CHECK(winter_cache.lm[sample_idx] < summer_light);
     CHECK(winter_cache.lm[sample_idx] < LIGHT_AMBIENT_LIT);
 }
@@ -60,7 +60,7 @@ TEST_CASE("opening_floor_invalidates_below_seen_cache", "[vision][zlevel]") {
     const ter_id t_open_air("t_open_air");
 
     // Place the player on z=1 so we have a meaningful "below".
-    g->u.setpos( test_origin_at_z( 1 ) );
+    g->u.setpos(test_origin_at_z(1));
 
     const auto hole_pos = g->u.bub_pos() + tripoint_rel_ms::east();
 
@@ -89,7 +89,7 @@ TEST_CASE("solid_floor_blocks_directly_below_visibility", "[vision][zlevel]") {
 
     const ter_id t_floor("t_floor");
 
-    g->u.setpos( test_origin_at_z( 1 ) );
+    g->u.setpos(test_origin_at_z(1));
 
     calendar::turn = calendar::turn_zero + 12_hours;
     g->reset_light_level();
@@ -119,7 +119,7 @@ TEST_CASE("opening_floor_rebuilds_below_visibility", "[vision][zlevel]") {
     const ter_id t_floor("t_floor");
     const ter_id t_open_air("t_open_air");
 
-    g->u.setpos( test_origin_at_z( 1 ) );
+    g->u.setpos(test_origin_at_z(1));
 
     calendar::turn = calendar::turn_zero + 12_hours;
     g->reset_light_level();
@@ -131,8 +131,8 @@ TEST_CASE("opening_floor_rebuilds_below_visibility", "[vision][zlevel]") {
 
     here.invalidate_map_cache(hole_pos.z());
     here.invalidate_map_cache(hole_pos.z() - 1);
-    here.build_map_cache( hole_pos.z() );
-    here.update_visibility_cache( hole_pos.z() );
+    here.build_map_cache(hole_pos.z());
+    here.update_visibility_cache(hole_pos.z());
 
     const level_cache& below_cache = here.access_cache(hole_pos.z() - 1);
 

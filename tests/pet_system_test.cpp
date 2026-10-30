@@ -28,9 +28,7 @@ static const skill_id skill_survival("survival");
 
 // A position well away from the player's test location so
 // the monster's line-of-sight checks do not interfere with tests.
-static auto mon_pos() -> tripoint_bub_ms {
-    return bub_test_origin() + tripoint_rel_ms(10, 10, 0);
-}
+static auto mon_pos() -> tripoint_bub_ms { return bub_test_origin() + tripoint_rel_ms(10, 10, 0); }
 
 // -----------------------------------------------------------------------
 // make_pet / is_pet

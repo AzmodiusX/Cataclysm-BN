@@ -1858,10 +1858,10 @@ void map::board_vehicle(const tripoint_bub_ms& pos, Character* who) {
     vp->part().passenger_id = who->getID();
     vp->vehicle().invalidate_mass();
 
-    if( player *const passenger = who->as_player(); passenger == &g->u ) {
-        passenger->set_internal_position( map_local_to_abs( *this, pos ) );
+    if (player* const passenger = who->as_player(); passenger == &g->u) {
+        passenger->set_internal_position(map_local_to_abs(*this, pos));
     } else {
-        who->setpos( pos );
+        who->setpos(pos);
     }
     who->in_vehicle = true;
 }
@@ -2005,10 +2005,10 @@ auto map::displace_vehicle(vehicle& veh, const tripoint_rel_ms& dp) -> bool {
                 z_change = psgp.z() != part_pos.z();
             }
 
-            if( player *const passenger = psg->as_player(); passenger == &g->u ) {
-                passenger->set_internal_position( map_local_to_abs( *this, psgp ) );
+            if (player* const passenger = psg->as_player(); passenger == &g->u) {
+                passenger->set_internal_position(map_local_to_abs(*this, psgp));
             } else {
-                psg->setpos( psgp );
+                psg->setpos(psgp);
             }
             r.moved = true;
         }
@@ -8349,8 +8349,7 @@ auto map::build_floor_cache(const int zlev) -> bool {
             continue;
         }
         const auto sm_pos = tripoint_bub_sm(p, zlev);
-        submap* cur_submap = get_mapbuffer().find_resident_submap(
-            map_local_to_abs(*this, sm_pos));
+        submap* cur_submap = get_mapbuffer().find_resident_submap(map_local_to_abs(*this, sm_pos));
         if (cur_submap == nullptr) {
             // Null expected for circle corners and bounded-dimension edges.
             continue;

@@ -32,22 +32,21 @@ TEST_CASE("rope_ladder_spans_full_column_in_rope_cache", "[vehicle][ladder][zlev
     REQUIRE(ladder >= 0);
 
     here.add_vehicle_to_cache(veh);
-    here.build_map_cache( test_origin.z(), true );
+    here.build_map_cache(test_origin.z(), true);
 
-    const auto top_abs = veh->abs_part_location( ladder );
+    const auto top_abs = veh->abs_part_location(ladder);
     const auto len = veh->part(ladder).info().ladder_length();
     REQUIRE(len == 3);
 
     SECTION("rope is present from the part down to ladder_length below it") {
         // Top tile: needed so a boarded player can climb DOWN.
-        CHECK(here.has_rope_at( abs_to_bub( top_abs ) ));
+        CHECK(here.has_rope_at(abs_to_bub(top_abs)));
         // Hanging rope: needed to climb UP from the ground and to render the rope.
         for (const auto dz : std::views::iota(1, len + 1)) {
-            CHECK(here.has_rope_at( abs_to_bub( top_abs + tripoint_rel_ms( 0, 0, -dz ) ) ));
+            CHECK(here.has_rope_at(abs_to_bub(top_abs + tripoint_rel_ms(0, 0, -dz))));
         }
         // One tile past the ladder's reach must NOT report rope.
-        CHECK_FALSE( here.has_rope_at(
-                        abs_to_bub( top_abs + tripoint_rel_ms( 0, 0, -( len + 1 ) ) ) ) );
+        CHECK_FALSE(here.has_rope_at(abs_to_bub(top_abs + tripoint_rel_ms(0, 0, -(len + 1)))));
     }
 
     SECTION("removing the ladder clears the whole column") {
@@ -56,8 +55,7 @@ TEST_CASE("rope_ladder_spans_full_column_in_rope_cache", "[vehicle][ladder][zlev
         veh->remove_part(ladder);
         veh->part_removal_cleanup();
         for (const auto dz : std::views::iota(0, len + 1)) {
-            CHECK_FALSE( here.has_rope_at(
-                            abs_to_bub( top_abs + tripoint_rel_ms( 0, 0, -dz ) ) ) );
+            CHECK_FALSE(here.has_rope_at(abs_to_bub(top_abs + tripoint_rel_ms(0, 0, -dz))));
         }
     }
 }

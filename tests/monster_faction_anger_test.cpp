@@ -15,8 +15,8 @@
 TEST_CASE("monster_faction_attitude_to_npc_faction", "[monster][faction][npc]") {
     clear_all_state();
 
-    const auto pos_abs = test_origin + tripoint_rel_ms( 5, 5, 0 );
-    auto& turret = spawn_test_monster( "mon_robofac_turret_light", abs_to_bub( pos_abs ) );
+    const auto pos_abs = test_origin + tripoint_rel_ms(5, 5, 0);
+    auto& turret = spawn_test_monster("mon_robofac_turret_light", abs_to_bub(pos_abs));
     auto guard = npc();
     guard.set_fac(faction_id("robofac"));
 
@@ -29,8 +29,8 @@ TEST_CASE("unauthorized_robofac_turrets_attack_player", "[monster][faction]") {
 
     auto& you = get_avatar();
     you.remove_value("npctalk_var_dialogue_intercom_completed_robofac_intercom_3");
-    const auto turret_pos_abs = test_origin + tripoint_rel_ms( 5, 5, 0 );
-    auto& turret = spawn_test_monster( "mon_robofac_turret_light", abs_to_bub( turret_pos_abs ) );
+    const auto turret_pos_abs = test_origin + tripoint_rel_ms(5, 5, 0);
+    auto& turret = spawn_test_monster("mon_robofac_turret_light", abs_to_bub(turret_pos_abs));
     move_player_out_of_the_way();
 
     CHECK(turret.attitude(&you) == MATT_ATTACK);
@@ -39,12 +39,12 @@ TEST_CASE("unauthorized_robofac_turrets_attack_player", "[monster][faction]") {
 TEST_CASE("authorized_robofac_turrets_use_faction_attitude", "[monster][faction][npc]") {
     clear_all_state();
 
-    const auto robofac_pos_abs = test_origin + tripoint_rel_ms( 5, 5, 0 );
-    const auto authorized_pos_abs = test_origin + tripoint_rel_ms( 7, 5, 0 );
-    auto& robofac_turret = spawn_test_monster( "mon_robofac_turret_light",
-                                               abs_to_bub( robofac_pos_abs ) );
-    auto& authorized_turret = spawn_test_monster( "mon_robofac_turret_light",
-                                                  abs_to_bub( authorized_pos_abs ) );
+    const auto robofac_pos_abs = test_origin + tripoint_rel_ms(5, 5, 0);
+    const auto authorized_pos_abs = test_origin + tripoint_rel_ms(7, 5, 0);
+    auto& robofac_turret =
+        spawn_test_monster("mon_robofac_turret_light", abs_to_bub(robofac_pos_abs));
+    auto& authorized_turret =
+        spawn_test_monster("mon_robofac_turret_light", abs_to_bub(authorized_pos_abs));
     authorized_turret.faction = mfaction_id("robofac_authorized");
     authorized_turret.friendly = 0;
 
@@ -64,18 +64,16 @@ TEST_CASE("authorized_robofac_turrets_use_faction_attitude", "[monster][faction]
 TEST_CASE("authorized_robofac_turrets_alert_visible_security", "[monster][faction][npc]") {
     clear_all_state();
 
-    const auto attacked_pos_abs = test_origin + tripoint_rel_ms( 10, 10, 0 );
-    const auto east_pos_abs = test_origin + tripoint_rel_ms( 12, 10, 0 );
-    const auto south_pos_abs = test_origin + tripoint_rel_ms( 10, 12, 0 );
-    const auto southeast_pos_abs = test_origin + tripoint_rel_ms( 12, 12, 0 );
-    auto& attacked_turret = spawn_test_monster( "mon_robofac_turret_light",
-                                                abs_to_bub( attacked_pos_abs ) );
-    auto& east_turret = spawn_test_monster( "mon_robofac_turret_light",
-                                            abs_to_bub( east_pos_abs ) );
-    auto& south_turret = spawn_test_monster( "mon_robofac_turret_light",
-                                             abs_to_bub( south_pos_abs ) );
-    auto& southeast_turret = spawn_test_monster( "mon_robofac_turret_light",
-                                                 abs_to_bub( southeast_pos_abs ) );
+    const auto attacked_pos_abs = test_origin + tripoint_rel_ms(10, 10, 0);
+    const auto east_pos_abs = test_origin + tripoint_rel_ms(12, 10, 0);
+    const auto south_pos_abs = test_origin + tripoint_rel_ms(10, 12, 0);
+    const auto southeast_pos_abs = test_origin + tripoint_rel_ms(12, 12, 0);
+    auto& attacked_turret =
+        spawn_test_monster("mon_robofac_turret_light", abs_to_bub(attacked_pos_abs));
+    auto& east_turret = spawn_test_monster("mon_robofac_turret_light", abs_to_bub(east_pos_abs));
+    auto& south_turret = spawn_test_monster("mon_robofac_turret_light", abs_to_bub(south_pos_abs));
+    auto& southeast_turret =
+        spawn_test_monster("mon_robofac_turret_light", abs_to_bub(southeast_pos_abs));
 
     for (monster* security : {&attacked_turret, &east_turret, &south_turret, &southeast_turret}) {
         security->faction = mfaction_id("robofac_authorized");
@@ -106,10 +104,10 @@ TEST_CASE("authorized_robofac_turrets_alert_visible_security", "[monster][factio
 TEST_CASE("authorized_robofac_turrets_defend_hub_guards", "[monster][faction][npc]") {
     clear_all_state();
 
-    const auto turret_pos_abs = test_origin + tripoint_rel_ms( 5, 5, 0 );
-    const auto guard_pos_abs = test_origin + tripoint_rel_ms( 6, 5, 0 );
-    auto& authorized_turret = spawn_test_monster( "mon_robofac_turret_light",
-                                                  abs_to_bub( turret_pos_abs ) );
+    const auto turret_pos_abs = test_origin + tripoint_rel_ms(5, 5, 0);
+    const auto guard_pos_abs = test_origin + tripoint_rel_ms(6, 5, 0);
+    auto& authorized_turret =
+        spawn_test_monster("mon_robofac_turret_light", abs_to_bub(turret_pos_abs));
     authorized_turret.faction = mfaction_id("robofac_authorized");
     authorized_turret.friendly = 0;
 
@@ -117,7 +115,7 @@ TEST_CASE("authorized_robofac_turrets_defend_hub_guards", "[monster][faction][np
     guard.set_fake(true);
     guard.set_fac(faction_id("robofac_auxiliaries"));
     guard.set_attitude(NPCATT_NULL);
-    guard.setpos( guard_pos_abs );
+    guard.setpos(guard_pos_abs);
 
     auto& you = get_avatar();
     CHECK(authorized_turret.attitude(&you) == MATT_FRIEND);
@@ -142,11 +140,11 @@ TEST_CASE("authorized_robofac_turrets_defend_hub_guards", "[monster][faction][np
 TEST_CASE("monster_faction_memory_anger", "[monster][faction][anger]") {
     clear_all_state();
 
-    const auto tank_pos_abs = test_origin + tripoint_rel_ms( 5, 5, 0 );
-    const auto hazmat_pos_abs = test_origin + tripoint_rel_ms( 7, 5, 0 );
+    const auto tank_pos_abs = test_origin + tripoint_rel_ms(5, 5, 0);
+    const auto hazmat_pos_abs = test_origin + tripoint_rel_ms(7, 5, 0);
 
-    monster& tank = spawn_test_monster( "mon_tankbot", abs_to_bub( tank_pos_abs ) );
-    monster& hazmat = spawn_test_monster( "mon_eyebot", abs_to_bub( hazmat_pos_abs ) );
+    monster& tank = spawn_test_monster("mon_tankbot", abs_to_bub(tank_pos_abs));
+    monster& hazmat = spawn_test_monster("mon_eyebot", abs_to_bub(hazmat_pos_abs));
 
     avatar& p = get_avatar();
     move_player_out_of_the_way();
@@ -183,11 +181,11 @@ TEST_CASE("monster_faction_memory_anger", "[monster][faction][anger]") {
 TEST_CASE("monster_faction_memory_zombie_attacks_tank", "[monster][faction][anger]") {
     clear_all_state();
 
-    const auto tank_pos_abs = test_origin + tripoint_rel_ms( 5, 5, 0 );
-    const auto zombie_pos_abs = test_origin + tripoint_rel_ms( 7, 5, 0 );
+    const auto tank_pos_abs = test_origin + tripoint_rel_ms(5, 5, 0);
+    const auto zombie_pos_abs = test_origin + tripoint_rel_ms(7, 5, 0);
 
-    monster& tank = spawn_test_monster( "mon_tankbot", abs_to_bub( tank_pos_abs ) );
-    monster& zombie = spawn_test_monster( "mon_zombie", abs_to_bub( zombie_pos_abs ) );
+    monster& tank = spawn_test_monster("mon_tankbot", abs_to_bub(tank_pos_abs));
+    monster& zombie = spawn_test_monster("mon_zombie", abs_to_bub(zombie_pos_abs));
 
     avatar& p = get_avatar();
     move_player_out_of_the_way();
@@ -219,8 +217,8 @@ TEST_CASE("monster_faction_memory_zombie_attacks_tank", "[monster][faction][ange
 TEST_CASE("generic_npc_attitude_uses_monster_faction_relations", "[monster][faction][npc]") {
     clear_all_state();
 
-    const auto pos_abs = test_origin + tripoint_rel_ms( 5, 5, 0 );
-    auto& critter = spawn_test_monster( "mon_zombie", abs_to_bub( pos_abs ) );
+    const auto pos_abs = test_origin + tripoint_rel_ms(5, 5, 0);
+    auto& critter = spawn_test_monster("mon_zombie", abs_to_bub(pos_abs));
     critter.friendly = 0;
     critter.anger = 0;
     critter.morale = 0;
@@ -245,13 +243,13 @@ TEST_CASE("generic_npc_attitude_uses_monster_faction_relations", "[monster][fact
 TEST_CASE("monster_faction_memory_friend_attacked", "[monster][faction][anger]") {
     clear_all_state();
 
-    const auto tank1_pos_abs = test_origin + tripoint_rel_ms( 5, 5, 0 );
-    const auto tank2_pos_abs = test_origin + tripoint_rel_ms( 6, 5, 0 );
-    const auto zombie_pos_abs = test_origin + tripoint_rel_ms( 7, 5, 0 );
+    const auto tank1_pos_abs = test_origin + tripoint_rel_ms(5, 5, 0);
+    const auto tank2_pos_abs = test_origin + tripoint_rel_ms(6, 5, 0);
+    const auto zombie_pos_abs = test_origin + tripoint_rel_ms(7, 5, 0);
 
-    monster& tank1 = spawn_test_monster( "mon_tankbot", abs_to_bub( tank1_pos_abs ) );
-    monster& tank2 = spawn_test_monster( "mon_tankbot", abs_to_bub( tank2_pos_abs ) );
-    monster& zombie = spawn_test_monster( "mon_zombie", abs_to_bub( zombie_pos_abs ) );
+    monster& tank1 = spawn_test_monster("mon_tankbot", abs_to_bub(tank1_pos_abs));
+    monster& tank2 = spawn_test_monster("mon_tankbot", abs_to_bub(tank2_pos_abs));
+    monster& zombie = spawn_test_monster("mon_zombie", abs_to_bub(zombie_pos_abs));
 
     avatar& p = get_avatar();
     move_player_out_of_the_way();

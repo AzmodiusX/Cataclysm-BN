@@ -232,11 +232,13 @@ auto move_player( player &p, const int /*movez*/ ) -> void
 
     // yes, this is inefficient, but i'm lazy
     elevator::find_elevators_nearby( p.bub_pos() )
-    .transform( [&]( const tripoint_bub_ms &pos ) -> point_rel_sm {
+    .transform( [&]( const tripoint_bub_ms & pos ) -> point_rel_sm {
         const auto origin_before = here.get_abs_sub();
-        if( &p == &g->u ) {
+        if( &p == &g->u )
+        {
             p.set_internal_position( bub_to_abs( pos ) );
-        } else {
+        } else
+        {
             p.setpos( pos );
         }
         return here.get_abs_sub() - origin_before;

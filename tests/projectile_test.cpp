@@ -42,7 +42,7 @@ static auto projectile_end_point(
 
 static auto centered_projectile_test_pos(const int dx, const int dy, const int z = 0)
     -> tripoint_abs_ms {
-    return test_origin + tripoint_rel_ms( g_half_mapsize_x + dx, g_half_mapsize_y + dy, z );
+    return test_origin + tripoint_rel_ms(g_half_mapsize_x + dx, g_half_mapsize_y + dy, z);
 }
 
 static auto clear_projectile_test_line(
@@ -53,7 +53,7 @@ static auto clear_projectile_test_line(
     const auto min_x = std::min(from_abs.x(), to_abs.x());
     const auto max_x = std::max(from_abs.x(), to_abs.x());
     for (const auto x : std::views::iota(min_x, max_x + 1)) {
-        const auto pt = abs_to_bub( tripoint_abs_ms( x, from_abs.y(), from_abs.z() ) );
+        const auto pt = abs_to_bub(tripoint_abs_ms(x, from_abs.y(), from_abs.z()));
         REQUIRE(here.inbounds(pt));
         here.ter_set(pt, ter_id("t_dirt"));
         here.furn_set(pt, furn_id("f_null"));
@@ -63,17 +63,16 @@ static auto clear_projectile_test_line(
 TEST_CASE("projectiles_through_obstacles", "[projectile]") {
     clear_all_state();
     // Move the player out of the way of the test area
-    get_avatar().setpos( test_origin + tripoint_rel_ms( 2, 2, 0 ) );
+    get_avatar().setpos(test_origin + tripoint_rel_ms(2, 2, 0));
 
     map& here = get_map();
     // Ensure that a projectile fired from a gun can pass through a wall
     // First, set up a test area - three tiles in a row
     // One on either side clear, with a wooden wall in the middle
     const auto range_origin_abs = test_origin;
-    std::vector<tripoint_bub_ms> range = {
-        abs_to_bub( range_origin_abs ),
-        abs_to_bub( range_origin_abs + tripoint_rel_ms( 1, 0, 0 ) ),
-        abs_to_bub( range_origin_abs + tripoint_rel_ms( 2, 0, 0 ) )};
+    std::vector<tripoint_bub_ms> range =
+        {abs_to_bub(range_origin_abs), abs_to_bub(range_origin_abs + tripoint_rel_ms(1, 0, 0)),
+         abs_to_bub(range_origin_abs + tripoint_rel_ms(2, 0, 0))};
     for (const tripoint_bub_ms& pt : range) {
         REQUIRE(here.inbounds(pt));
         here.ter_set(pt, ter_id("t_dirt"));
@@ -109,17 +108,16 @@ TEST_CASE("projectiles_stop_at_reality_bubble_edge", "[projectile][ballistics]")
     clear_all_state();
 
     auto& shooter = get_avatar();
-    const auto shooter_pos_abs = test_origin + tripoint_rel_ms( 2, 2, 0 );
-    const auto target_pos_abs = test_origin + tripoint_rel_ms( -1, 2, 0 );
-    shooter.setpos( shooter_pos_abs );
+    const auto shooter_pos_abs = test_origin + tripoint_rel_ms(2, 2, 0);
+    const auto target_pos_abs = test_origin + tripoint_rel_ms(-1, 2, 0);
+    shooter.setpos(shooter_pos_abs);
 
     auto& here = get_map();
-    const auto shooter_pos = abs_to_bub( shooter_pos_abs );
-    const auto target_pos = abs_to_bub( target_pos_abs );
+    const auto shooter_pos = abs_to_bub(shooter_pos_abs);
+    const auto target_pos = abs_to_bub(target_pos_abs);
     const auto clear_points = std::vector<tripoint_bub_ms>{
-        shooter_pos,
-        bub_test_origin() + tripoint_rel_ms( 1, 2, 0 ),
-        bub_test_origin() + tripoint_rel_ms( 0, 2, 0 )};
+        shooter_pos, bub_test_origin() + tripoint_rel_ms(1, 2, 0),
+        bub_test_origin() + tripoint_rel_ms(0, 2, 0)};
 
     for (const auto& pt : clear_points) {
         REQUIRE(here.inbounds(pt));
@@ -148,13 +146,13 @@ TEST_CASE("projectiles_stop_at_z_bounds", "[projectile][ballistics]") {
     clear_all_state();
 
     auto& shooter = get_avatar();
-    const auto shooter_pos_abs = test_origin + tripoint_rel_ms( 2, 2, OVERMAP_HEIGHT );
-    const auto target_pos_abs = test_origin + tripoint_rel_ms( 2, 2, OVERMAP_HEIGHT + 1 );
-    shooter.setpos( shooter_pos_abs );
+    const auto shooter_pos_abs = test_origin + tripoint_rel_ms(2, 2, OVERMAP_HEIGHT);
+    const auto target_pos_abs = test_origin + tripoint_rel_ms(2, 2, OVERMAP_HEIGHT + 1);
+    shooter.setpos(shooter_pos_abs);
 
     auto& here = get_map();
-    const auto shooter_pos = abs_to_bub( shooter_pos_abs );
-    const auto target_pos = abs_to_bub( target_pos_abs );
+    const auto shooter_pos = abs_to_bub(shooter_pos_abs);
+    const auto target_pos = abs_to_bub(target_pos_abs);
 
     REQUIRE(here.inbounds(shooter_pos));
     here.ter_set(shooter_pos, ter_id("t_dirt"));
@@ -188,10 +186,10 @@ TEST_CASE("adjacent_friendly_fire_prevention", "[projectile][ballistics]") {
     const auto friendly_pos_abs = centered_projectile_test_pos(1, 0);
     const auto target_pos_abs = centered_projectile_test_pos(5, 0);
     auto& shooter = get_avatar();
-    shooter.setpos( shooter_pos_abs );
-    const auto shooter_pos = abs_to_bub( shooter_pos_abs );
-    const auto friendly_pos = abs_to_bub( friendly_pos_abs );
-    const auto target_pos = abs_to_bub( target_pos_abs );
+    shooter.setpos(shooter_pos_abs);
+    const auto shooter_pos = abs_to_bub(shooter_pos_abs);
+    const auto friendly_pos = abs_to_bub(friendly_pos_abs);
+    const auto target_pos = abs_to_bub(target_pos_abs);
 
     clear_projectile_test_line(here, shooter_pos_abs, target_pos_abs);
 
@@ -241,10 +239,10 @@ TEST_CASE("npc_adjacent_friendly_fire_prevention", "[projectile][ballistics]") {
     const auto friendly_pos_abs = centered_projectile_test_pos(1, 0);
     const auto target_pos_abs = centered_projectile_test_pos(5, 0);
 
-    get_avatar().setpos( centered_projectile_test_pos( 0, 2 ) );
-    const auto shooter_pos = abs_to_bub( shooter_pos_abs );
-    const auto friendly_pos = abs_to_bub( friendly_pos_abs );
-    const auto target_pos = abs_to_bub( target_pos_abs );
+    get_avatar().setpos(centered_projectile_test_pos(0, 2));
+    const auto shooter_pos = abs_to_bub(shooter_pos_abs);
+    const auto friendly_pos = abs_to_bub(friendly_pos_abs);
+    const auto target_pos = abs_to_bub(target_pos_abs);
     clear_projectile_test_line(here, shooter_pos_abs, target_pos_abs);
 
     // Move player out of the way before NPCs are spawned.
@@ -301,10 +299,10 @@ TEST_CASE("npc_protects_adjacent_player", "[projectile][ballistics]") {
     const auto player_pos_abs = centered_projectile_test_pos(1, 0);
     const auto target_pos_abs = centered_projectile_test_pos(5, 0);
     auto& player = get_avatar();
-    player.setpos( player_pos_abs );
-    const auto shooter_pos = abs_to_bub( shooter_pos_abs );
-    const auto player_pos = abs_to_bub( player_pos_abs );
-    const auto target_pos = abs_to_bub( target_pos_abs );
+    player.setpos(player_pos_abs);
+    const auto shooter_pos = abs_to_bub(shooter_pos_abs);
+    const auto player_pos = abs_to_bub(player_pos_abs);
+    const auto target_pos = abs_to_bub(target_pos_abs);
 
     clear_projectile_test_line(here, shooter_pos_abs, target_pos_abs);
 
@@ -356,10 +354,10 @@ TEST_CASE("monster_adjacent_ally_fire_prevention", "[projectile][ballistics]") {
     const auto shooter_pos_abs = centered_projectile_test_pos(0, 0);
     const auto ally_pos_abs = centered_projectile_test_pos(1, 0);
     const auto target_pos_abs = centered_projectile_test_pos(5, 0);
-    get_avatar().setpos( centered_projectile_test_pos( 0, 2 ) );
-    const auto shooter_pos = abs_to_bub( shooter_pos_abs );
-    const auto ally_pos = abs_to_bub( ally_pos_abs );
-    const auto target_pos = abs_to_bub( target_pos_abs );
+    get_avatar().setpos(centered_projectile_test_pos(0, 2));
+    const auto shooter_pos = abs_to_bub(shooter_pos_abs);
+    const auto ally_pos = abs_to_bub(ally_pos_abs);
+    const auto target_pos = abs_to_bub(target_pos_abs);
 
     clear_projectile_test_line(here, shooter_pos_abs, target_pos_abs);
 
@@ -404,10 +402,10 @@ TEST_CASE("hostile_npc_adjacent_ally_fire_prevention", "[projectile][ballistics]
     const auto shooter_pos_abs = centered_projectile_test_pos(0, 0);
     const auto ally_pos_abs = centered_projectile_test_pos(1, 0);
     const auto target_pos_abs = centered_projectile_test_pos(5, 0);
-    get_avatar().setpos( centered_projectile_test_pos( 0, 2 ) );
-    const auto shooter_pos = abs_to_bub( shooter_pos_abs );
-    const auto ally_pos = abs_to_bub( ally_pos_abs );
-    const auto target_pos = abs_to_bub( target_pos_abs );
+    get_avatar().setpos(centered_projectile_test_pos(0, 2));
+    const auto shooter_pos = abs_to_bub(shooter_pos_abs);
+    const auto ally_pos = abs_to_bub(ally_pos_abs);
+    const auto target_pos = abs_to_bub(target_pos_abs);
 
     clear_projectile_test_line(here, shooter_pos_abs, target_pos_abs);
 
@@ -463,10 +461,10 @@ TEST_CASE("friendly_monster_iff_respects_adjacent_player", "[projectile][monster
     const auto player_pos_abs = centered_projectile_test_pos(1, 0);
     const auto hostile_pos_abs = centered_projectile_test_pos(2, 0);
     auto& player = get_avatar();
-    player.setpos( player_pos_abs );
-    const auto monster_pos = abs_to_bub( monster_pos_abs );
-    const auto player_pos = abs_to_bub( player_pos_abs );
-    const auto hostile_pos = abs_to_bub( hostile_pos_abs );
+    player.setpos(player_pos_abs);
+    const auto monster_pos = abs_to_bub(monster_pos_abs);
+    const auto player_pos = abs_to_bub(player_pos_abs);
+    const auto hostile_pos = abs_to_bub(hostile_pos_abs);
 
     clear_projectile_test_line(here, monster_pos_abs, hostile_pos_abs);
 

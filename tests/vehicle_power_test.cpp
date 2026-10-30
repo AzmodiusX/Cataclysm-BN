@@ -38,10 +38,9 @@ TEST_CASE("vehicle power with reactor and solar panels", "[vehicle][power]") {
     map& here = get_map();
 
     SECTION("vehicle with reactor") {
-        const auto reactor_origin_abs = test_origin + tripoint_rel_ms( 10, 10, 0 );
-        vehicle* veh_ptr =
-            here.add_vehicle( vproto_id("reactor_test"), abs_to_bub( reactor_origin_abs ),
-                              0_degrees, 0, 0 );
+        const auto reactor_origin_abs = test_origin + tripoint_rel_ms(10, 10, 0);
+        vehicle* veh_ptr = here.add_vehicle(
+            vproto_id("reactor_test"), abs_to_bub(reactor_origin_abs), 0_degrees, 0, 0);
         REQUIRE(veh_ptr != nullptr);
 
         REQUIRE(!veh_ptr->reactors.empty());
@@ -69,9 +68,9 @@ TEST_CASE("vehicle power with reactor and solar panels", "[vehicle][power]") {
     }
 
     SECTION("vehicle with reactor and perpetual plutonium generator") {
-        const auto reactor_origin_abs = test_origin + tripoint_rel_ms( 15, 15, 0 );
+        const auto reactor_origin_abs = test_origin + tripoint_rel_ms(15, 15, 0);
         auto* veh_ptr = here.add_vehicle(
-            vproto_id("reactor_plutonium_generator_test"), abs_to_bub( reactor_origin_abs ),
+            vproto_id("reactor_plutonium_generator_test"), abs_to_bub(reactor_origin_abs),
             0_degrees, 0, 0);
         REQUIRE(veh_ptr != nullptr);
 
@@ -129,10 +128,10 @@ TEST_CASE("vehicle power with reactor and solar panels", "[vehicle][power]") {
     }
 
     SECTION("vehicle with perpetual plutonium generator") {
-        const auto plut_generator_origin_abs = test_origin + tripoint_rel_ms( 20, 20, 0 );
+        const auto plut_generator_origin_abs = test_origin + tripoint_rel_ms(20, 20, 0);
         auto* veh_ptr = here.add_vehicle(
-            vproto_id("plutonium_generator_test"), abs_to_bub( plut_generator_origin_abs ),
-            0_degrees, 0, 0);
+            vproto_id("plutonium_generator_test"), abs_to_bub(plut_generator_origin_abs), 0_degrees,
+            0, 0);
         REQUIRE(veh_ptr != nullptr);
 
         namespace ranges = std::ranges;
@@ -170,10 +169,9 @@ TEST_CASE("vehicle power with reactor and solar panels", "[vehicle][power]") {
     }
 
     SECTION("vehicle with solar panels") {
-        const auto solar_origin_abs = test_origin + tripoint_rel_ms( 5, 5, 0 );
-        vehicle* veh_ptr =
-            here.add_vehicle( vproto_id("solar_panel_test"), abs_to_bub( solar_origin_abs ),
-                              0_degrees, 0, 0);
+        const auto solar_origin_abs = test_origin + tripoint_rel_ms(5, 5, 0);
+        vehicle* veh_ptr = here.add_vehicle(
+            vproto_id("solar_panel_test"), abs_to_bub(solar_origin_abs), 0_degrees, 0, 0);
         REQUIRE(veh_ptr != nullptr);
 
         GIVEN("it is 3 hours after sunrise, with sunny weather") {
@@ -235,9 +233,9 @@ TEST_CASE("maximum reverse velocity", "[vehicle][power][reverse]") {
     map& here = get_map();
 
     GIVEN("a scooter with combustion engine and charged battery") {
-        const auto origin_abs = test_origin + tripoint_rel_ms( 10, 0, 0 );
-        vehicle* veh_ptr = here.add_vehicle( vproto_id("scooter_test"), abs_to_bub( origin_abs ),
-                                             0_degrees, 0, 0);
+        const auto origin_abs = test_origin + tripoint_rel_ms(10, 0, 0);
+        vehicle* veh_ptr =
+            here.add_vehicle(vproto_id("scooter_test"), abs_to_bub(origin_abs), 0_degrees, 0, 0);
         REQUIRE(veh_ptr != nullptr);
         veh_ptr->charge_battery(600);
         REQUIRE(veh_ptr->fuel_left(fuel_type_battery) == 600);
@@ -260,10 +258,9 @@ TEST_CASE("maximum reverse velocity", "[vehicle][power][reverse]") {
     }
 
     GIVEN("a scooter with an electric motor and charged battery") {
-        const auto origin_abs = test_origin + tripoint_rel_ms( 15, 0, 0 );
-        vehicle* veh_ptr =
-            here.add_vehicle( vproto_id("scooter_electric_test"), abs_to_bub( origin_abs ),
-                             0_degrees, 0, 0);
+        const auto origin_abs = test_origin + tripoint_rel_ms(15, 0, 0);
+        vehicle* veh_ptr = here.add_vehicle(
+            vproto_id("scooter_electric_test"), abs_to_bub(origin_abs), 0_degrees, 0, 0);
         REQUIRE(veh_ptr != nullptr);
         veh_ptr->charge_battery(5000);
         REQUIRE(veh_ptr->fuel_left(fuel_type_battery) == 5000);
@@ -291,10 +288,9 @@ TEST_CASE("Vehicle charging station", "[vehicle][power]") {
     build_test_map(ter_id("t_pavement"));
 
     GIVEN("Vehicle with a charged battery and an active recharging station on a box") {
-        const auto vehicle_origin_abs = test_origin + tripoint_rel_ms( 10, 10, 0 );
-        vehicle* veh_ptr =
-            g->m.add_vehicle( vproto_id("recharge_test"), abs_to_bub( vehicle_origin_abs ),
-                              0_degrees, 100, 0);
+        const auto vehicle_origin_abs = test_origin + tripoint_rel_ms(10, 10, 0);
+        vehicle* veh_ptr = g->m.add_vehicle(
+            vproto_id("recharge_test"), abs_to_bub(vehicle_origin_abs), 0_degrees, 100, 0);
         REQUIRE(veh_ptr != nullptr);
         REQUIRE(veh_ptr->fuel_left(fuel_type_battery) > 1000);
         veh_ptr->update_time(calendar::turn_zero, false);
@@ -303,9 +299,8 @@ TEST_CASE("Vehicle charging station", "[vehicle][power]") {
         REQUIRE(cargo_part_index >= 0);
         vehicle_part& cargo_part = veh_ptr->part(cargo_part_index);
 
-        auto chargers =
-            veh_ptr->get_parts_at( abs_to_bub( vehicle_origin_abs ), "RECHARGE",
-                                   part_status_flag::available );
+        auto chargers = veh_ptr->get_parts_at(
+            abs_to_bub(vehicle_origin_abs), "RECHARGE", part_status_flag::available);
         REQUIRE(chargers.size() == 1);
         chargers.front()->enabled = true;
 
@@ -383,10 +378,8 @@ TEST_CASE("vehicle battery buckets tolerate overfull batteries", "[vehicle][powe
     clear_all_state();
     build_test_map(ter_id("t_pavement"));
 
-    vehicle* const veh_ptr =
-        get_map().add_vehicle( vproto_id("none"),
-                               bub_test_origin() + tripoint_rel_ms( 10, 10, 0 ),
-                               0_degrees, 0, 0);
+    vehicle* const veh_ptr = get_map().add_vehicle(
+        vproto_id("none"), bub_test_origin() + tripoint_rel_ms(10, 10, 0), 0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     const auto battery_part =

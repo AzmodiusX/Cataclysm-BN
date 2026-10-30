@@ -301,7 +301,7 @@ TEST_CASE("crafting_with_a_companion", "[.]") {
 static void prep_craft(
     const recipe_id& rid, std::vector<detached_ptr<item>>& tools, bool expect_craftable) {
     clear_avatar();
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
     g->u.wear_item(item::spawn("backpack"), false);
     for (detached_ptr<item>& gear : tools) { g->u.i_add(std::move(gear)); }
 
@@ -923,7 +923,7 @@ TEST_CASE("oven electric grid", "[crafting][overmap][grids][slow]") {
     clear_all_state();
     map& m = get_map();
     avatar& u = get_avatar();
-    u.setpos( test_origin );
+    u.setpos(test_origin);
     const auto start_pos_abs = test_origin;
     clear_avatar();
     GIVEN("player is near an oven on an electric grid with a battery on it") {
@@ -931,8 +931,8 @@ TEST_CASE("oven electric grid", "[crafting][overmap][grids][slow]") {
         auto om = ACTIVE_OVERMAP_BUFFER.get_om_global(u.abs_omt_pos());
         om.om->set_electric_grid_connections(om.local, {});
 
-        m.furn_set( abs_to_bub( start_pos_abs + point( 10, 0 ) ), furn_str_id("f_battery") );
-        m.furn_set( abs_to_bub( start_pos_abs + point_east ), furn_str_id("f_oven") );
+        m.furn_set(abs_to_bub(start_pos_abs + point(10, 0)), furn_str_id("f_battery"));
+        m.furn_set(abs_to_bub(start_pos_abs + point_east), furn_str_id("f_oven"));
 
         distribution_grid_tracker& grid_tracker = get_distribution_grid_tracker();
         distribution_grid& grid = grid_tracker.grid_at(start_pos_abs + point(10, 0));
@@ -1095,8 +1095,7 @@ auto make_vehicle_craft_fixture(const vehicle_craft_fixture_options& opts)
     auto& you = get_avatar();
     auto& here = get_map();
     const auto vehicle_pos_abs = test_origin;
-    auto* veh =
-        here.add_vehicle(vproto_id("none"), abs_to_bub( vehicle_pos_abs ), 0_degrees, 0, 0);
+    auto* veh = here.add_vehicle(vproto_id("none"), abs_to_bub(vehicle_pos_abs), 0_degrees, 0, 0);
     REQUIRE(veh != nullptr);
 
     const auto work_part = install_part_on_frame(*veh, tripoint_mnt_veh::zero(), opts.work_part);
@@ -1114,11 +1113,11 @@ auto make_vehicle_craft_fixture(const vehicle_craft_fixture_options& opts)
 
     here.add_vehicle_to_cache(veh);
     here.build_map_cache(vehicle_pos_abs.z(), true);
-    REQUIRE(here.veh_at( abs_to_bub( vehicle_pos_abs ) ));
+    REQUIRE(here.veh_at(abs_to_bub(vehicle_pos_abs)));
 
-    const auto stand_pos_abs = vehicle_pos_abs + tripoint_rel_ms( 0, 1, 0 );
-    you.setpos( stand_pos_abs );
-    REQUIRE_FALSE(here.veh_at( abs_to_bub( stand_pos_abs ) ));
+    const auto stand_pos_abs = vehicle_pos_abs + tripoint_rel_ms(0, 1, 0);
+    you.setpos(stand_pos_abs);
+    REQUIRE_FALSE(here.veh_at(abs_to_bub(stand_pos_abs)));
 
     return vehicle_craft_fixture{
         .you = &you,
@@ -1180,7 +1179,7 @@ auto find_cooked_meat_result(const vehicle_craft_fixture& fixture) -> item* {
 
     for (const auto& p : {fixture.vehicle_pos, fixture.stand_pos}) {
         if (result != nullptr) { break; }
-        for (auto* it : fixture.here->i_at( abs_to_bub( p ) )) {
+        for (auto* it : fixture.here->i_at(abs_to_bub(p))) {
             if (it->typeId() == itype_id("meat_cooked")) {
                 result = it;
                 break;
@@ -1209,7 +1208,7 @@ auto craft_cooked_meat_at_vehicle(const vehicle_craft_fixture& fixture) -> item*
     you.invalidate_crafting_inventory();
     REQUIRE(you.crafting_inventory().has_components(itype_id("meat"), 1));
 
-    you.make_craft(rid, 1, abs_to_bub( fixture.vehicle_pos ));
+    you.make_craft(rid, 1, abs_to_bub(fixture.vehicle_pos));
     REQUIRE(you.activity);
     auto guard = 0;
     while (you.activity && you.activity->id() == activity_id("ACT_CRAFT")) {

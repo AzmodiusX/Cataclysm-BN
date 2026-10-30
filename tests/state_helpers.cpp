@@ -47,9 +47,7 @@ auto clear_states(const enum_bitset<test_state>& states) -> void {
         // A test may move the map object without moving the player across a submap
         // boundary.  Restore the expected map origin before the next test converts
         // its absolute fixtures to a legacy map-space API.
-        if (g->m.get_abs_sub() != test_map_origin()) {
-            g->load_map( test_map_origin(), false );
-        }
+        if (g->m.get_abs_sub() != test_map_origin()) { g->load_map(test_map_origin(), false); }
         clear_map();
     } else {
         if (normalized_states.test(state::npc)) { clear_npcs(); }

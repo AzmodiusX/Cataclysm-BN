@@ -35,9 +35,9 @@ TEST_CASE("Monster losing grabbing effect", "[player][melee][grab]") {
     const auto mon_pos_abs = dummy.abs_pos() + tripoint_rel_ms::north();
 
     // Grabbed by a monster
-    monster* zed = g->place_critter_at( mtype_id("debug_mon"), abs_to_bub( mon_pos_abs ) );
+    monster* zed = g->place_critter_at(mtype_id("debug_mon"), abs_to_bub(mon_pos_abs));
 
-    REQUIRE(g->critter_at<monster>( abs_to_bub( mon_pos_abs ) ));
+    REQUIRE(g->critter_at<monster>(abs_to_bub(mon_pos_abs)));
 
     // Get grabbed
     dummy.add_effect(efftype_id("grabbed"), 1_minutes);
@@ -86,21 +86,21 @@ TEST_CASE("Avatar drags manually grabbed monster while moving", "[player][melee]
     const auto effect_grabbing = efftype_id("grabbing");
     const auto avatar_start_abs = dummy.abs_pos();
     const auto monster_start_abs = avatar_start_abs + tripoint_rel_ms::north();
-    auto& zed = spawn_test_monster("debug_mon", abs_to_bub( monster_start_abs ));
+    auto& zed = spawn_test_monster("debug_mon", abs_to_bub(monster_start_abs));
 
     dummy.add_effect(effect_grabbing, 1_days, body_part_torso);
     zed.add_effect(effect_grabbed, 1_days);
 
     REQUIRE(dummy.has_effect(effect_grabbing));
     REQUIRE(zed.has_effect(effect_grabbed));
-    REQUIRE(g->critter_at<monster>( abs_to_bub( monster_start_abs ) ) == &zed);
+    REQUIRE(g->critter_at<monster>(abs_to_bub(monster_start_abs)) == &zed);
 
     const auto avatar_destination_abs = avatar_start_abs + tripoint_rel_ms::east();
-    REQUIRE(g->walk_move( avatar_destination_abs, false ));
+    REQUIRE(g->walk_move(avatar_destination_abs, false));
 
     CHECK(dummy.abs_pos() == avatar_destination_abs);
     CHECK(zed.abs_pos() == avatar_start_abs);
-    CHECK(g->critter_at<monster>( abs_to_bub( avatar_start_abs ) ) == &zed);
+    CHECK(g->critter_at<monster>(abs_to_bub(avatar_start_abs)) == &zed);
 }
 
 TEST_CASE("Manually grabbed monster cannot walk away", "[player][melee][grab]") {
@@ -114,15 +114,15 @@ TEST_CASE("Manually grabbed monster cannot walk away", "[player][melee][grab]") 
     const auto avatar_start_abs = dummy.abs_pos();
     const auto monster_start_abs = avatar_start_abs + tripoint_rel_ms::north();
     const auto monster_destination_abs = monster_start_abs + tripoint_rel_ms::north();
-    auto& zed = spawn_test_monster("debug_mon", abs_to_bub( monster_start_abs ));
+    auto& zed = spawn_test_monster("debug_mon", abs_to_bub(monster_start_abs));
 
     dummy.add_effect(effect_grabbing, 1_days, body_part_torso);
     zed.add_effect(effect_grabbed, 1_days);
 
     REQUIRE(zed.has_effect(effect_grabbed));
-    CHECK_FALSE(zed.can_move_to( abs_to_bub( monster_destination_abs ) ));
-    CHECK(zed.can_move_to( abs_to_bub( monster_start_abs ) ));
-    CHECK_FALSE(zed.move_to( abs_to_bub( monster_destination_abs ) ));
+    CHECK_FALSE(zed.can_move_to(abs_to_bub(monster_destination_abs)));
+    CHECK(zed.can_move_to(abs_to_bub(monster_start_abs)));
+    CHECK_FALSE(zed.move_to(abs_to_bub(monster_destination_abs)));
     CHECK(zed.abs_pos() == monster_start_abs);
 }
 
@@ -137,32 +137,29 @@ TEST_CASE(
 
     const auto avatar_start_abs = dummy.abs_pos();
     const auto monster_start_abs = avatar_start_abs + tripoint_rel_ms::north();
-    auto& zed = spawn_test_monster("debug_mon", abs_to_bub( monster_start_abs ));
+    auto& zed = spawn_test_monster("debug_mon", abs_to_bub(monster_start_abs));
     dummy.add_effect(efftype_id("grabbing"), 1_days, body_part_torso);
     zed.add_effect(efftype_id("grabbed"), 1_days);
     auto remains_adjacent = false;
 
-    SECTION("Avatar teleports away") {
-        dummy.setpos( avatar_start_abs + tripoint_rel_ms::south() );
-    }
+    SECTION("Avatar teleports away") { dummy.setpos(avatar_start_abs + tripoint_rel_ms::south()); }
     SECTION("Avatar moves to another z-level") {
-        get_map().ter_set( abs_to_bub( avatar_start_abs + tripoint_rel_ms::above() ),
-                           ter_id( "t_floor" ) );
-        dummy.setpos( avatar_start_abs + tripoint_rel_ms::above() );
-        REQUIRE( dummy.abs_pos() == avatar_start_abs + tripoint_rel_ms::above() );
+        get_map()
+            .ter_set(abs_to_bub(avatar_start_abs + tripoint_rel_ms::above()), ter_id("t_floor"));
+        dummy.setpos(avatar_start_abs + tripoint_rel_ms::above());
+        REQUIRE(dummy.abs_pos() == avatar_start_abs + tripoint_rel_ms::above());
     }
     SECTION("Monster is knocked away") {
         auto trajectory = std::vector<tripoint_bub_ms>{
-            abs_to_bub( monster_start_abs ),
-            abs_to_bub( monster_start_abs + tripoint_rel_ms::north() ),
-            abs_to_bub( monster_start_abs + tripoint_rel_ms::north() + tripoint_rel_ms::north() )};
+            abs_to_bub(monster_start_abs), abs_to_bub(monster_start_abs + tripoint_rel_ms::north()),
+            abs_to_bub(monster_start_abs + tripoint_rel_ms::north() + tripoint_rel_ms::north())};
         g->knockback(trajectory, 0, 0, &dummy);
-        REQUIRE(zed.abs_pos() == monster_start_abs + tripoint_rel_ms::north() +
-                 tripoint_rel_ms::north());
+        REQUIRE(zed.abs_pos()
+                == monster_start_abs + tripoint_rel_ms::north() + tripoint_rel_ms::north());
     }
     SECTION("Cardinally adjacent grab persists") { remains_adjacent = true; }
     SECTION("Diagonally adjacent grab persists") {
-        dummy.setpos( avatar_start_abs + tripoint_rel_ms::east() );
+        dummy.setpos(avatar_start_abs + tripoint_rel_ms::east());
         remains_adjacent = true;
     }
 
@@ -185,9 +182,9 @@ TEST_CASE("Crowd crush does not drain breath when disabled", "[player][melee][gr
     dummy.add_effect(effect_grabbed, 1_days, body_part_torso);
     dummy.oxygen = 30;
 
-    for (const auto& offset : { tripoint_rel_ms::north(), tripoint_rel_ms::south(),
-                                tripoint_rel_ms::east() }) {
-        auto& zed = spawn_test_monster( "debug_mon", abs_to_bub( avatar_start_abs + offset ) );
+    for (const auto& offset :
+         {tripoint_rel_ms::north(), tripoint_rel_ms::south(), tripoint_rel_ms::east()}) {
+        auto& zed = spawn_test_monster("debug_mon", abs_to_bub(avatar_start_abs + offset));
         zed.add_effect(effect_grabbing, 1_days);
     }
 
@@ -209,9 +206,9 @@ TEST_CASE("Crowd crush drains breath while grabbed", "[player][melee][grab]") {
     dummy.add_effect(effect_grabbed, 1_days, body_part_torso);
     dummy.oxygen = 30;
 
-    for (const auto& offset : { tripoint_rel_ms::north(), tripoint_rel_ms::south(),
-                                tripoint_rel_ms::east() }) {
-        auto& zed = spawn_test_monster( "debug_mon", abs_to_bub( avatar_start_abs + offset ) );
+    for (const auto& offset :
+         {tripoint_rel_ms::north(), tripoint_rel_ms::south(), tripoint_rel_ms::east()}) {
+        auto& zed = spawn_test_monster("debug_mon", abs_to_bub(avatar_start_abs + offset));
         zed.add_effect(effect_grabbing, 1_days);
     }
 

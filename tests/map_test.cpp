@@ -73,7 +73,7 @@ auto reset_jumping_player(player& you, const tripoint_abs_ms& origin, const int 
 }
 
 auto spawn_window_jump_npc(const tripoint_abs_ms& origin, const int dexterity) -> npc& {
-    g->u.setpos( origin + tripoint_rel_ms::south() );
+    g->u.setpos(origin + tripoint_rel_ms::south());
     auto& jumper = spawn_npc(abs_to_bub(origin), "test_talker");
     reset_jumping_player(jumper, origin, dexterity);
     return jumper;
@@ -89,11 +89,11 @@ auto setup_adjacent_pit_move(const ter_id& origin_terrain, const ter_id& destina
     clear_all_state();
     auto& here = get_map();
     const auto destination = test_origin + tripoint_rel_ms::east();
-    g->u.setpos( test_origin );
-    here.ter_set( bub_test_origin(), origin_terrain );
-    here.ter_set( abs_to_bub( destination ), destination_terrain );
-    g->u.add_known_trap( bub_test_origin(), here.tr_at( bub_test_origin() ) );
-    g->u.add_known_trap( abs_to_bub( destination ), here.tr_at( abs_to_bub( destination ) ) );
+    g->u.setpos(test_origin);
+    here.ter_set(bub_test_origin(), origin_terrain);
+    here.ter_set(abs_to_bub(destination), destination_terrain);
+    g->u.add_known_trap(bub_test_origin(), here.tr_at(bub_test_origin()));
+    g->u.add_known_trap(abs_to_bub(destination), here.tr_at(abs_to_bub(destination)));
     g->u.add_effect(effect_in_pit, 1_turns, bodypart_str_id::NULL_ID());
     g->u.str_cur = 0;
     g->u.dex_cur = 0;
@@ -214,7 +214,7 @@ TEST_CASE("moving_between_adjacent_pit_traps") {
         const auto positions = setup_adjacent_pit_move(ter_id("t_pit"));
         const auto hp_before = g->u.get_hp();
 
-        CHECK(g->get_dangerous_tile( abs_to_bub( positions.destination ) ).empty());
+        CHECK(g->get_dangerous_tile(abs_to_bub(positions.destination)).empty());
         REQUIRE(avatar_action::move(tripoint_rel_ms::east()));
 
         CHECK(g->u.abs_pos() == positions.destination);
@@ -227,7 +227,7 @@ TEST_CASE("moving_between_adjacent_pit_traps") {
         const auto dangerous_prompt = override_option("DANGEROUS_TERRAIN_WARNING_PROMPT", "IGNORE");
         const auto hp_before = g->u.get_hp();
 
-        CHECK_FALSE(g->get_dangerous_tile( abs_to_bub( positions.destination ) ).empty());
+        CHECK_FALSE(g->get_dangerous_tile(abs_to_bub(positions.destination)).empty());
         REQUIRE(avatar_action::move(tripoint_rel_ms::east()));
 
         CHECK(g->u.abs_pos() == positions.destination);
@@ -239,7 +239,7 @@ TEST_CASE("moving_between_adjacent_pit_traps") {
         const auto dangerous_prompt = override_option("DANGEROUS_TERRAIN_WARNING_PROMPT", "IGNORE");
         const auto hp_before = g->u.get_hp();
 
-        CHECK_FALSE(g->get_dangerous_tile( abs_to_bub( positions.destination ) ).empty());
+        CHECK_FALSE(g->get_dangerous_tile(abs_to_bub(positions.destination)).empty());
         REQUIRE(avatar_action::move(tripoint_rel_ms::east()));
 
         CHECK(g->u.abs_pos() == positions.destination);
@@ -250,7 +250,7 @@ TEST_CASE("moving_between_adjacent_pit_traps") {
         const auto positions = setup_adjacent_pit_move(ter_id("t_pit_glass"), ter_id("t_pit"));
         const auto hp_before = g->u.get_hp();
 
-        CHECK(g->get_dangerous_tile( abs_to_bub( positions.destination ) ).empty());
+        CHECK(g->get_dangerous_tile(abs_to_bub(positions.destination)).empty());
         REQUIRE(avatar_action::move(tripoint_rel_ms::east()));
 
         CHECK(g->u.abs_pos() == positions.destination);
@@ -261,11 +261,11 @@ TEST_CASE("moving_between_adjacent_pit_traps") {
     SECTION("different pit trap movement remains dangerous") {
         const auto positions = setup_adjacent_pit_move(ter_id("t_pit"));
         auto& here = get_map();
-        here.ter_set( abs_to_bub( positions.destination ), ter_id("t_pit_spiked") );
-        g->u.add_known_trap( abs_to_bub( positions.destination ),
-                             here.tr_at( abs_to_bub( positions.destination ) ) );
+        here.ter_set(abs_to_bub(positions.destination), ter_id("t_pit_spiked"));
+        g->u.add_known_trap(
+            abs_to_bub(positions.destination), here.tr_at(abs_to_bub(positions.destination)));
 
-        CHECK_FALSE(g->get_dangerous_tile( abs_to_bub( positions.destination ) ).empty());
+        CHECK_FALSE(g->get_dangerous_tile(abs_to_bub(positions.destination)).empty());
     }
 }
 
@@ -274,19 +274,19 @@ TEST_CASE("moving through a sharp window frame can cause bleeding") {
 
     auto& here = get_map();
     const auto destination = test_origin + tripoint_rel_ms::east();
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
     const auto dangerous_prompt = override_option("DANGEROUS_TERRAIN_WARNING_PROMPT", "IGNORE");
-    here.ter_set( bub_test_origin(), ter_id( "t_floor" ) );
-    here.furn_set( bub_test_origin(), furn_id( "f_null" ) );
-    here.ter_set( abs_to_bub( destination ), ter_id( "t_window_frame" ) );
-    here.furn_set( abs_to_bub( destination ), furn_id( "f_null" ) );
+    here.ter_set(bub_test_origin(), ter_id("t_floor"));
+    here.furn_set(bub_test_origin(), furn_id("f_null"));
+    here.ter_set(abs_to_bub(destination), ter_id("t_window_frame"));
+    here.furn_set(abs_to_bub(destination), furn_id("f_null"));
 
     auto started_bleeding = false;
     for (const auto attempt : std::views::iota(0, 64)) {
         (void)attempt;
         reset_jumping_player(g->u, test_origin, 2);
 
-        REQUIRE(g->walk_move( destination, false ));
+        REQUIRE(g->walk_move(destination, false));
         if (g->u.has_effect(effect_bleed)) {
             started_bleeding = true;
             break;
@@ -300,18 +300,18 @@ TEST_CASE("jump_over_tile_is_generic_but_reuses_ledge_landing_rules", "[map][mov
     clear_all_state();
 
     auto& here = get_map();
-    const auto origin_abs = test_origin_at_z( 1 );
+    const auto origin_abs = test_origin_at_z(1);
     const auto middle_abs = origin_abs + tripoint_rel_ms::east();
     const auto landing_abs = middle_abs + tripoint_rel_ms::east();
-    const auto origin_local = abs_to_map_local( here, origin_abs );
-    for (const auto& pos : here.points_in_radius( origin_local, 2 )) {
+    const auto origin_local = abs_to_map_local(here, origin_abs);
+    for (const auto& pos : here.points_in_radius(origin_local, 2)) {
         here.ter_set(pos, ter_id("t_floor"));
         here.furn_set(pos, furn_id("f_null"));
         const auto below = pos + tripoint_rel_ms::below();
         here.ter_set(below, ter_id("t_floor"));
         here.furn_set(below, furn_id("f_null"));
     }
-    g->u.setpos( origin_abs );
+    g->u.setpos(origin_abs);
     const auto origin = g->u.bub_pos();
     const auto middle = origin + tripoint_rel_ms::east();
     const auto landing = middle + tripoint_rel_ms::east();
@@ -382,7 +382,7 @@ TEST_CASE("jump_over_tile_is_generic_but_reuses_ledge_landing_rules", "[map][mov
 
     SECTION("can jump through a closed window and bash it out") {
         here.ter_set(middle, ter_id("t_window"));
-        auto& jumper = spawn_window_jump_npc( origin_abs, 8 );
+        auto& jumper = spawn_window_jump_npc(origin_abs, 8);
 
         CHECK(iexamine::can_jump_over_tile(jumper, middle));
         REQUIRE(iexamine::jump_over_tile(jumper, middle));
@@ -392,7 +392,7 @@ TEST_CASE("jump_over_tile_is_generic_but_reuses_ledge_landing_rules", "[map][mov
 
     SECTION("cannot jump through reinforced boarded windows") {
         here.ter_set(middle, ter_id("t_window_reinforced"));
-        reset_jumping_player( g->u, origin_abs, 20 );
+        reset_jumping_player(g->u, origin_abs, 20);
 
         CHECK_FALSE(iexamine::can_jump_over_tile(g->u, middle));
         CHECK_FALSE(iexamine::jump_over_tile(g->u, middle));
@@ -400,12 +400,12 @@ TEST_CASE("jump_over_tile_is_generic_but_reuses_ledge_landing_rules", "[map][mov
     }
 
     SECTION("jumping through a closed window can cut exposed body parts") {
-        auto& jumper = spawn_window_jump_npc( origin_abs, 2 );
+        auto& jumper = spawn_window_jump_npc(origin_abs, 2);
         auto took_damage = false;
         for (const auto attempt : std::views::iota(0, 16)) {
             (void)attempt;
             here.ter_set(middle, ter_id("t_window"));
-            reset_jumping_player( jumper, origin_abs, 2 );
+            reset_jumping_player(jumper, origin_abs, 2);
 
             const auto hp_before = jumper.get_hp();
             CHECK(iexamine::can_jump_over_tile(jumper, middle));
@@ -424,7 +424,7 @@ TEST_CASE("jump_over_tile_is_generic_but_reuses_ledge_landing_rules", "[map][mov
         for (const auto attempt : std::views::iota(0, 16)) {
             (void)attempt;
             here.ter_set(middle, ter_id("t_fence_barbed"));
-            reset_jumping_player( g->u, origin_abs, 2 );
+            reset_jumping_player(g->u, origin_abs, 2);
 
             const auto hp_before = g->u.get_hp();
             CHECK(iexamine::can_jump_over_tile(g->u, middle));
@@ -443,7 +443,7 @@ TEST_CASE("jump_over_tile_is_generic_but_reuses_ledge_landing_rules", "[map][mov
         for (const auto attempt : std::views::iota(0, 32)) {
             (void)attempt;
             here.ter_set(middle, ter_id("t_fence_barbed"));
-            reset_jumping_player( g->u, origin_abs, 2 );
+            reset_jumping_player(g->u, origin_abs, 2);
 
             CHECK(iexamine::can_jump_over_tile(g->u, middle));
             REQUIRE(iexamine::jump_over_tile(g->u, middle));
@@ -457,12 +457,12 @@ TEST_CASE("jump_over_tile_is_generic_but_reuses_ledge_landing_rules", "[map][mov
     }
 
     SECTION("jumping through a closed window with only hands exposed damages an arm") {
-        auto& jumper = spawn_window_jump_npc( origin_abs, 2 );
+        auto& jumper = spawn_window_jump_npc(origin_abs, 2);
         auto took_arm_damage = false;
         for (const auto attempt : std::views::iota(0, 16)) {
             (void)attempt;
             here.ter_set(middle, ter_id("t_window"));
-            reset_jumping_player( jumper, origin_abs, 2 );
+            reset_jumping_player(jumper, origin_abs, 2);
             REQUIRE_FALSE(jumper.wear_item(item::spawn("longshirt"), false));
             REQUIRE_FALSE(jumper.wear_item(item::spawn("jeans"), false));
 
@@ -600,12 +600,12 @@ TEST_CASE("destroy_grabbed_furniture") {
     clear_all_state();
     GIVEN("Furniture grabbed by the player") {
         map& here = get_map();
-        g->u.setpos( test_origin );
+        g->u.setpos(test_origin);
         const auto grab_point_abs = test_origin + tripoint_rel_ms::east();
-        here.furn_set( abs_to_bub( grab_point_abs ), furn_id("f_chair") );
+        here.furn_set(abs_to_bub(grab_point_abs), furn_id("f_chair"));
         g->u.grab(OBJECT_FURNITURE, tripoint_rel_ms::east());
         WHEN("The furniture grabbed by the player is destroyed") {
-            here.destroy( abs_to_bub( grab_point_abs ) );
+            here.destroy(abs_to_bub(grab_point_abs));
             THEN("The player's grab is released") {
                 CHECK(g->u.get_grab_type() == OBJECT_NONE);
                 CHECK(g->u.grab_point == tripoint_rel_ms::zero());
@@ -618,8 +618,8 @@ TEST_CASE("spilled_liquids_become_fields_without_dropping_items", "[map][item][l
     clear_all_state();
 
     auto& here = get_map();
-    g->u.setpos( test_origin );
-    for (const auto& pos : here.points_in_radius( bub_test_origin(), 2 )) {
+    g->u.setpos(test_origin);
+    for (const auto& pos : here.points_in_radius(bub_test_origin(), 2)) {
         here.i_clear(pos);
         here.remove_field(pos, fd_blood);
         here.ter_set(pos, ter_id("t_floor"));
@@ -629,22 +629,21 @@ TEST_CASE("spilled_liquids_become_fields_without_dropping_items", "[map][item][l
     auto spilled_blood = item::spawn("blood", calendar::turn);
     spilled_blood->charges = 10;
 
-    REQUIRE_FALSE(here.add_item_or_charges( bub_test_origin(), std::move(spilled_blood),
-                                            false ));
+    REQUIRE_FALSE(here.add_item_or_charges(bub_test_origin(), std::move(spilled_blood), false));
 
-    auto center_items = here.i_at( bub_test_origin() );
+    auto center_items = here.i_at(bub_test_origin());
     CHECK(center_items.empty());
 
-    CHECK(count_field_tiles_in_radius( here, bub_test_origin(), 2, fd_blood ) > 1);
+    CHECK(count_field_tiles_in_radius(here, bub_test_origin(), 2, fd_blood) > 1);
 }
 
 TEST_CASE("repeated_liquid_spills_intensify_before_expanding", "[map][item][liquid][field]") {
     clear_all_state();
 
     auto& here = get_map();
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
     const auto water_field = field_type_id("fd_water");
-    for (const auto& pos : here.points_in_radius( bub_test_origin(), 2 )) {
+    for (const auto& pos : here.points_in_radius(bub_test_origin(), 2)) {
         here.i_clear(pos);
         here.remove_field(pos, water_field);
         here.ter_set(pos, ter_id("t_floor"));
@@ -653,33 +652,33 @@ TEST_CASE("repeated_liquid_spills_intensify_before_expanding", "[map][item][liqu
 
     auto first_pour = item::spawn("water", calendar::turn);
     first_pour->charges = 1;
-    REQUIRE_FALSE(here.add_item_or_charges( bub_test_origin(), std::move(first_pour), false ));
-    CHECK(count_field_tiles_in_radius( here, bub_test_origin(), 2, water_field ) == 1);
-    REQUIRE(here.get_field( bub_test_origin(), water_field ) != nullptr);
-    CHECK(here.get_field( bub_test_origin(), water_field )->get_field_intensity() == 1);
+    REQUIRE_FALSE(here.add_item_or_charges(bub_test_origin(), std::move(first_pour), false));
+    CHECK(count_field_tiles_in_radius(here, bub_test_origin(), 2, water_field) == 1);
+    REQUIRE(here.get_field(bub_test_origin(), water_field) != nullptr);
+    CHECK(here.get_field(bub_test_origin(), water_field)->get_field_intensity() == 1);
 
     auto second_pour = item::spawn("water", calendar::turn);
     second_pour->charges = 1;
-    REQUIRE_FALSE(here.add_item_or_charges( bub_test_origin(), std::move(second_pour), false ));
-    CHECK(count_field_tiles_in_radius( here, bub_test_origin(), 2, water_field ) == 1);
-    REQUIRE(here.get_field( bub_test_origin(), water_field ) != nullptr);
-    CHECK(here.get_field( bub_test_origin(), water_field )->get_field_intensity() == 2);
+    REQUIRE_FALSE(here.add_item_or_charges(bub_test_origin(), std::move(second_pour), false));
+    CHECK(count_field_tiles_in_radius(here, bub_test_origin(), 2, water_field) == 1);
+    REQUIRE(here.get_field(bub_test_origin(), water_field) != nullptr);
+    CHECK(here.get_field(bub_test_origin(), water_field)->get_field_intensity() == 2);
 
     auto third_pour = item::spawn("water", calendar::turn);
     third_pour->charges = 1;
-    REQUIRE_FALSE(here.add_item_or_charges( bub_test_origin(), std::move(third_pour), false ));
-    CHECK(count_field_tiles_in_radius( here, bub_test_origin(), 2, water_field ) == 1);
-    REQUIRE(here.get_field( bub_test_origin(), water_field ) != nullptr);
-    CHECK(here.get_field( bub_test_origin(), water_field )->get_field_intensity()
+    REQUIRE_FALSE(here.add_item_or_charges(bub_test_origin(), std::move(third_pour), false));
+    CHECK(count_field_tiles_in_radius(here, bub_test_origin(), 2, water_field) == 1);
+    REQUIRE(here.get_field(bub_test_origin(), water_field) != nullptr);
+    CHECK(here.get_field(bub_test_origin(), water_field)->get_field_intensity()
           == water_field.obj().get_max_intensity());
 
     auto fourth_pour = item::spawn("water", calendar::turn);
     fourth_pour->charges = 1;
-    REQUIRE_FALSE(here.add_item_or_charges( bub_test_origin(), std::move(fourth_pour), false ));
+    REQUIRE_FALSE(here.add_item_or_charges(bub_test_origin(), std::move(fourth_pour), false));
 
-    auto center_items = here.i_at( bub_test_origin() );
+    auto center_items = here.i_at(bub_test_origin());
     CHECK(center_items.empty());
-    CHECK(count_field_tiles_in_radius( here, bub_test_origin(), 2, water_field ) > 1);
+    CHECK(count_field_tiles_in_radius(here, bub_test_origin(), 2, water_field) > 1);
 }
 
 TEST_CASE("field_intensity_can_make_a_tile_impassable", "[map][field][movement]") {
@@ -687,19 +686,19 @@ TEST_CASE("field_intensity_can_make_a_tile_impassable", "[map][field][movement]"
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
 
     auto& here = get_map();
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
     const auto foamcrete = field_type_id("fd_foamcrete");
-    here.ter_set( bub_test_origin(), ter_id("t_floor") );
-    here.furn_set( bub_test_origin(), furn_id("f_null") );
-    here.remove_field( bub_test_origin(), foamcrete );
+    here.ter_set(bub_test_origin(), ter_id("t_floor"));
+    here.furn_set(bub_test_origin(), furn_id("f_null"));
+    here.remove_field(bub_test_origin(), foamcrete);
 
-    REQUIRE(here.passable( bub_test_origin() ));
-    REQUIRE(here.add_field( bub_test_origin(), foamcrete, 1 ));
-    CHECK_FALSE(here.passable( bub_test_origin() ));
+    REQUIRE(here.passable(bub_test_origin()));
+    REQUIRE(here.add_field(bub_test_origin(), foamcrete, 1));
+    CHECK_FALSE(here.passable(bub_test_origin()));
 
-    CHECK(here.set_field_intensity( bub_test_origin(), foamcrete, 2 ) == 2);
-    CHECK_FALSE(here.passable( bub_test_origin() ));
-    CHECK(here.move_cost( bub_test_origin() ) == 0);
+    CHECK(here.set_field_intensity(bub_test_origin(), foamcrete, 2) == 2);
+    CHECK_FALSE(here.passable(bub_test_origin()));
+    CHECK(here.move_cost(bub_test_origin()) == 0);
 }
 
 TEST_CASE(
@@ -707,13 +706,14 @@ TEST_CASE(
     "[map][item][liquid][field][fluid_regression]") {
     clear_all_state();
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
 
     auto independent = map(2);
     independent.load(get_map().get_abs_sub(), false);
-    const auto center_abs = tripoint_abs_ms( project_to<coords::ms>( independent.get_abs_sub() ), 0 ) +
-                            tripoint_rel_ms( 13, 13, 0 );
-    const auto center = abs_to_map_local( independent, center_abs );
+    const auto center_abs =
+        tripoint_abs_ms(project_to<coords::ms>(independent.get_abs_sub()), 0)
+        + tripoint_rel_ms(13, 13, 0);
+    const auto center = abs_to_map_local(independent, center_abs);
     const auto water_field = field_type_id("fd_water");
     REQUIRE(&independent != &get_map());
     REQUIRE(independent.get_submap_at(center) != nullptr);
@@ -756,9 +756,9 @@ TEST_CASE(
     clear_all_state();
 
     auto& here = get_map();
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
     const auto fuel_field = field_type_id("fd_fuel");
-    for (const auto& pos : here.points_in_radius( bub_test_origin(), 12 )) {
+    for (const auto& pos : here.points_in_radius(bub_test_origin(), 12)) {
         here.i_clear(pos);
         here.remove_field(pos, fuel_field);
         here.ter_set(pos, ter_id("t_floor"));
@@ -774,27 +774,25 @@ TEST_CASE(
     const auto expected_visual_intensity = std::min(
         static_cast<int>(std::max<decltype(spill_tiles)>(1, spill_tiles)), 90 * max_fuel_intensity);
 
-    REQUIRE_FALSE(here.add_item_or_charges( bub_test_origin(),
-                                            std::move(spilled_gasoline), false ));
-    CHECK(count_field_tiles_in_radius( here, bub_test_origin(), 12, fuel_field ) <= 90);
+    REQUIRE_FALSE(here.add_item_or_charges(bub_test_origin(), std::move(spilled_gasoline), false));
+    CHECK(count_field_tiles_in_radius(here, bub_test_origin(), 12, fuel_field) <= 90);
+    CHECK(total_field_intensity_in_radius(here, bub_test_origin(), 12, fuel_field)
+          == expected_visual_intensity);
+    REQUIRE(here.get_field(bub_test_origin(), fuel_field) != nullptr);
     CHECK(
-        total_field_intensity_in_radius( here, bub_test_origin(), 12, fuel_field )
-        == expected_visual_intensity);
-    REQUIRE(here.get_field( bub_test_origin(), fuel_field ) != nullptr);
-    CHECK(here.get_field( bub_test_origin(), fuel_field )->get_field_intensity()
-          == max_fuel_intensity);
+        here.get_field(bub_test_origin(), fuel_field)->get_field_intensity() == max_fuel_intensity);
 }
 TEST_CASE("mop_spills_respects_jsonized_field_property", "[map][field][mop]") {
     clear_all_state();
 
     auto& here = get_map();
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
     SECTION("moppable fields are removed") {
         const auto bile_field = field_type_id("fd_bile");
-        here.add_field( bub_test_origin(), bile_field );
+        here.add_field(bub_test_origin(), bile_field);
 
-        CHECK(here.mop_spills( bub_test_origin() ));
-        CHECK(here.get_field( bub_test_origin(), bile_field ) == nullptr);
+        CHECK(here.mop_spills(bub_test_origin()));
+        CHECK(here.get_field(bub_test_origin(), bile_field) == nullptr);
     }
 
     SECTION("spilled liquid fields are removed") {
@@ -802,38 +800,36 @@ TEST_CASE("mop_spills_respects_jsonized_field_property", "[map][field][mop]") {
         auto spilled_water = item::spawn("water_clean", calendar::turn);
         spilled_water->charges = 1;
 
-        REQUIRE_FALSE(here.add_item_or_charges( bub_test_origin(),
-                                                std::move(spilled_water), false ));
-        CHECK(here.get_field( bub_test_origin(), water_field ) != nullptr);
-        CHECK(here.mop_spills( bub_test_origin() ));
-        CHECK(here.get_field( bub_test_origin(), water_field ) == nullptr);
+        REQUIRE_FALSE(here.add_item_or_charges(bub_test_origin(), std::move(spilled_water), false));
+        CHECK(here.get_field(bub_test_origin(), water_field) != nullptr);
+        CHECK(here.mop_spills(bub_test_origin()));
+        CHECK(here.get_field(bub_test_origin(), water_field) == nullptr);
     }
 
     SECTION("non-moppable fields remain") {
         const auto fire_field = field_type_id("fd_fire");
-        here.add_field( bub_test_origin(), fire_field );
+        here.add_field(bub_test_origin(), fire_field);
 
-        CHECK_FALSE(here.mop_spills( bub_test_origin() ));
-        CHECK(here.get_field( bub_test_origin(), fire_field ) != nullptr);
+        CHECK_FALSE(here.mop_spills(bub_test_origin()));
+        CHECK(here.get_field(bub_test_origin(), fire_field) != nullptr);
     }
 
     SECTION("plain liquid fields are removed when marked moppable") {
         const auto water_field = field_type_id("fd_water");
-        here.add_field( bub_test_origin(), water_field );
+        here.add_field(bub_test_origin(), water_field);
 
-        CHECK(here.mop_spills( bub_test_origin() ));
-        CHECK(here.get_field( bub_test_origin(), water_field ) == nullptr);
+        CHECK(here.mop_spills(bub_test_origin()));
+        CHECK(here.get_field(bub_test_origin(), water_field) == nullptr);
     }
 }
 TEST_CASE("mapbuffer_vehicle_lookup_uses_absolute_coordinates") {
     clear_all_state();
 
     auto& here = get_map();
-    g->u.setpos( test_origin );
-    here.ter_set( bub_test_origin(), ter_id("t_floor") );
+    g->u.setpos(test_origin);
+    here.ter_set(bub_test_origin(), ter_id("t_floor"));
 
-    auto* const veh =
-        here.add_vehicle(vproto_id("none"), bub_test_origin(), 0_degrees, 0, 0);
+    auto* const veh = here.add_vehicle(vproto_id("none"), bub_test_origin(), 0_degrees, 0, 0);
     REQUIRE(veh != nullptr);
     REQUIRE(veh->install_part(tripoint_mnt_veh::zero(), vpart_id("frame_vertical")) >= 0);
     REQUIRE(veh->install_part(tripoint_mnt_veh::zero(), vpart_id("windshield"), true) >= 0);
@@ -850,7 +846,7 @@ TEST_CASE("place_player_can_safely_move_multiple_submaps") {
     // Regression test for the situation where game::place_player would misuse
     // map::shift if the resulting shift exceeded a single submap, leading to a
     // broken active item cache.
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
     CHECK(get_map().check_submap_active_item_consistency().empty());
     CHECK(get_map().get_abs_sub() == player_reality_bubble_origin().xy());
 }
@@ -859,11 +855,11 @@ TEST_CASE("json_flammable_terrain_counts_as_flammable", "[map][fire]") {
     clear_all_state();
 
     auto& here = get_map();
-    g->u.setpos( test_origin );
-    here.ter_set( bub_test_origin(), ter_str_id("t_test_flammable_bool").id() );
+    g->u.setpos(test_origin);
+    here.ter_set(bub_test_origin(), ter_str_id("t_test_flammable_bool").id());
 
-    CHECK(here.is_flammable( bub_test_origin() ));
-    CHECK_FALSE(here.has_flag("FLAMMABLE", bub_test_origin() ));
+    CHECK(here.is_flammable(bub_test_origin()));
+    CHECK_FALSE(here.has_flag("FLAMMABLE", bub_test_origin()));
 }
 
 TEST_CASE(
@@ -874,7 +870,7 @@ TEST_CASE(
 
     auto& here = get_map();
     const auto pos_abs = test_origin;
-    const auto pos = abs_to_bub( pos_abs );
+    const auto pos = abs_to_bub(pos_abs);
     here.furn_set(pos, f_null);
     here.ter_set(pos, ter_str_id("t_test_flammable_hard_parent").id());
     REQUIRE(here.has_flag("FLAMMABLE_HARD", pos));
@@ -936,7 +932,7 @@ TEST_CASE(
 
     auto& here = get_map();
     const auto pos_abs = test_origin;
-    const auto pos = abs_to_bub( pos_abs );
+    const auto pos = abs_to_bub(pos_abs);
     const auto furniture = furn_id(GENERATE("f_null", "f_brazier"));
     const auto fuel_before_fire = GENERATE(true, false);
     const auto fuel_field = field_type_id("fd_fuel");
@@ -986,11 +982,11 @@ TEST_CASE("auto_stair_travel_finds_remembered_stairs", "[map][stair][autotravel]
     const auto remembered_stairs_abs = origin_abs + tripoint_rel_ms::east() * 5;
     auto& here = get_map();
 
-    g->u.setpos( origin_abs );
+    g->u.setpos(origin_abs);
     const auto origin = g->u.bub_pos();
     const auto remembered_stairs = origin + tripoint_rel_ms::east() * 5;
     here.ter_set(remembered_stairs, ter_id("t_floor"));
-    g->u.memorize_terrain_tile( remembered_stairs_abs, "t_stairs_up", 0, 0 );
+    g->u.memorize_terrain_tile(remembered_stairs_abs, "t_stairs_up", 0, 0);
 
     const auto found_stairs = g->find_local_stairs_leading_to(here, origin.z() + 1);
 
@@ -1008,7 +1004,7 @@ TEST_CASE("auto_stair_travel_finds_unseen_loaded_stairs", "[map][stair][autotrav
     auto& you = g->u;
     auto& here = get_map();
 
-    you.setpos( origin_abs );
+    you.setpos(origin_abs);
     const auto origin = you.bub_pos();
     const auto unseen_stairs = origin + tripoint_rel_ms::east() * 5;
     you.add_effect(effect_blind, 1_days, bodypart_str_id::NULL_ID());
@@ -1030,7 +1026,7 @@ TEST_CASE("auto_stair_travel_finds_ramp_transitions", "[map][stair][autotravel]"
     auto& you = g->u;
     auto& here = get_map();
 
-    you.setpos( origin_abs );
+    you.setpos(origin_abs);
     const auto origin = you.bub_pos();
     const auto ramp_down = origin + tripoint_rel_ms::east() * 5;
     here.ter_set(ramp_down, ter_id("t_ramp_down_low"));
@@ -1049,7 +1045,7 @@ TEST_CASE("current_ramp_transition_finds_vertical_destination", "[map][stair][au
     auto& you = g->u;
     auto& here = get_map();
 
-    you.setpos( origin_abs );
+    you.setpos(origin_abs);
     const auto origin = you.bub_pos();
     here.ter_set(origin, ter_id("t_ramp_down_low"));
     here.ter_set(origin + tripoint_rel_ms::below(), ter_id("t_thconc_floor"));
@@ -1069,7 +1065,7 @@ TEST_CASE("auto_stair_travel_route_continues_with_vertical_move", "[map][stair][
     auto& you = g->u;
     auto& here = get_map();
 
-    you.setpos( origin_abs );
+    you.setpos(origin_abs);
     const auto origin = you.bub_pos();
     const auto stairs = origin + tripoint_rel_ms::east();
     here.ter_set(stairs, ter_id("t_stairs_up"));
@@ -1083,7 +1079,7 @@ TEST_CASE("auto_stair_travel_route_continues_with_vertical_move", "[map][stair][
     CHECK(you.get_next_auto_move_direction()
           == get_movement_action_from_delta(stairs - origin, iso_rotate::yes));
 
-    you.setpos( stairs_abs );
+    you.setpos(stairs_abs);
     CHECK(you.get_next_auto_move_direction() == ACTION_MOVE_UP);
     you.clear_destination();
 }
@@ -1494,8 +1490,8 @@ TEST_CASE("place_player_overmap_reanchors_loaded_map") {
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
 
     const auto destination = tripoint_abs_omt(20, -20, 0);
-    const auto expected_map_origin = project_to<coords::sm>( destination ).xy() +
-                                     point_rel_sm( -g_half_mapsize, -g_half_mapsize );
+    const auto expected_map_origin =
+        project_to<coords::sm>(destination).xy() + point_rel_sm(-g_half_mapsize, -g_half_mapsize);
     const auto expected_player_local =
         tripoint_bub_ms(g_half_mapsize_x, g_half_mapsize_y, destination.z());
 
@@ -1532,8 +1528,8 @@ TEST_CASE("avatar_setpos_updates_map_from_absolute_position") {
 
     you.setpos(destination_abs);
 
-    CHECK(here.get_abs_sub() ==
-          reality_bubble_origin_from_player(destination_abs, g_reality_bubble_size).xy());
+    CHECK(here.get_abs_sub()
+          == reality_bubble_origin_from_player(destination_abs, g_reality_bubble_size).xy());
     CHECK(you.abs_pos() == destination_abs);
     CHECK(g->update_map(you) == point_rel_sm::zero());
 
@@ -1551,12 +1547,11 @@ TEST_CASE("monster_tracker_uses_absolute_positions") {
     you.setpos(player_center_abs);
 
     const auto monster_start_abs = player_center_abs + tripoint_rel_ms(2, 0, 0);
-    auto* const mon =
-        g->place_critter_at(mtype_id("mon_zombie"), abs_to_bub( monster_start_abs ));
+    auto* const mon = g->place_critter_at(mtype_id("mon_zombie"), abs_to_bub(monster_start_abs));
     REQUIRE(mon != nullptr);
     const auto monster_abs = mon->abs_pos();
 
-    CHECK(g->critter_at<monster>( abs_to_bub( monster_start_abs ) ) == mon);
+    CHECK(g->critter_at<monster>(abs_to_bub(monster_start_abs)) == mon);
     CHECK(g->critter_at<monster>(monster_abs) == mon);
 
     you.setpos(you.abs_pos() + tripoint_rel_ms(SEEX, 0, 0));
@@ -1584,7 +1579,7 @@ TEST_CASE("binding_dimensions_rebuilds_vehicle_caches", "[map][vehicle][dimensio
         clear_vehicles();
     });
     const auto pos_abs = test_origin;
-    const auto pos = abs_to_bub( pos_abs );
+    const auto pos = abs_to_bub(pos_abs);
     here.ter_set(pos, ter_id("t_floor"));
     auto* const veh = here.add_vehicle(vproto_id("none"), pos, 0_degrees, 0, 0);
     REQUIRE(veh != nullptr);
@@ -1638,14 +1633,14 @@ TEST_CASE("tree_terrain_supports_climbing_destination_above") {
 
     static const ter_str_id t_tree("t_tree");
     static const ter_str_id t_open_air("t_open_air");
-    const auto tree_pos_abs = test_origin + tripoint_rel_ms( 5, 5, 0 );
+    const auto tree_pos_abs = test_origin + tripoint_rel_ms(5, 5, 0);
     const auto climb_destination_abs = tree_pos_abs + tripoint_rel_ms::above();
 
-    here.ter_set( abs_to_bub( tree_pos_abs ), t_tree );
-    here.ter_set( abs_to_bub( climb_destination_abs ), t_open_air );
+    here.ter_set(abs_to_bub(tree_pos_abs), t_tree);
+    here.ter_set(abs_to_bub(climb_destination_abs), t_open_air);
 
-    CHECK(here.supports_above( abs_to_bub( tree_pos_abs ) ));
-    CHECK(here.has_floor_or_support( abs_to_bub( climb_destination_abs ) ));
+    CHECK(here.supports_above(abs_to_bub(tree_pos_abs)));
+    CHECK(here.has_floor_or_support(abs_to_bub(climb_destination_abs)));
 }
 
 /* Uncomment when omt pillar stair linkage from #9566 is enabled
@@ -1693,26 +1688,26 @@ TEST_CASE("bash_through_roof_can_destroy_multiple_times") {
     static const ter_str_id t_strong_roof("t_strong_roof");
     static const ter_str_id t_rock_floor_no_roof("t_rock_floor_no_roof");
     static const ter_str_id t_open_air("t_open_air");
-    const auto p_abs = test_origin_at_z( 1 ) + tripoint_rel_ms( 5, 5, 0 );
+    const auto p_abs = test_origin_at_z(1) + tripoint_rel_ms(5, 5, 0);
     WHEN("A wall has a matching roof above it, but the roof turns to a stronger roof on successful "
          "bash") {
         static const ter_str_id t_fragile_wall("t_fragile_wall");
-        here.ter_set( abs_to_bub( p_abs + tripoint_rel_ms::below() ), t_fragile_wall );
-        here.ter_set( abs_to_bub( p_abs ), t_fragile_roof );
+        here.ter_set(abs_to_bub(p_abs + tripoint_rel_ms::below()), t_fragile_wall);
+        here.ter_set(abs_to_bub(p_abs), t_fragile_roof);
         AND_WHEN("The roof is bashed with only enough strength to destroy the weaker roof type") {
-            here.bash( abs_to_bub( p_abs ), 10, false, false, true );
+            here.bash(abs_to_bub(p_abs), 10, false, false, true);
             THEN("The roof turns to the stronger type and the wall doesn't change") {
-                CHECK(here.ter( abs_to_bub( p_abs ) ) == t_strong_roof);
-                CHECK(here.ter( abs_to_bub( p_abs + tripoint_rel_ms::below() ) ) == t_fragile_wall);
+                CHECK(here.ter(abs_to_bub(p_abs)) == t_strong_roof);
+                CHECK(here.ter(abs_to_bub(p_abs + tripoint_rel_ms::below())) == t_fragile_wall);
             }
         }
 
         AND_WHEN("The roof is bashed with enough strength to destroy any roof") {
-            here.bash( abs_to_bub( p_abs ), 1000, false, false, true );
+            here.bash(abs_to_bub(p_abs), 1000, false, false, true);
             THEN("Both the roof and the wall are destroyed") {
-                CHECK(here.ter( abs_to_bub( p_abs ) ) == t_open_air);
-                CHECK(here.ter( abs_to_bub( p_abs + tripoint_rel_ms::below() ) ) ==
-                      t_rock_floor_no_roof);
+                CHECK(here.ter(abs_to_bub(p_abs)) == t_open_air);
+                CHECK(
+                    here.ter(abs_to_bub(p_abs + tripoint_rel_ms::below())) == t_rock_floor_no_roof);
             }
         }
     }
@@ -1720,23 +1715,22 @@ TEST_CASE("bash_through_roof_can_destroy_multiple_times") {
     WHEN("A passable floor has a matching roof above it, but both the roof and the floor turn into "
          "stronger variants on destroy") {
         static const ter_str_id t_fragile_floor("t_fragile_floor");
-        here.ter_set( abs_to_bub( p_abs + tripoint_rel_ms::below() ), t_fragile_floor );
-        here.ter_set( abs_to_bub( p_abs ), t_fragile_roof );
+        here.ter_set(abs_to_bub(p_abs + tripoint_rel_ms::below()), t_fragile_floor);
+        here.ter_set(abs_to_bub(p_abs), t_fragile_roof);
         AND_WHEN("The roof is bashed with only enough strength to destroy the weaker roof type") {
-            here.bash( abs_to_bub( p_abs ), 10, false, false, true );
+            here.bash(abs_to_bub(p_abs), 10, false, false, true);
             THEN("The roof turns to the stronger type and the floor doesn't change") {
-                CHECK(here.ter( abs_to_bub( p_abs ) ) == t_strong_roof);
-                CHECK(here.ter( abs_to_bub( p_abs + tripoint_rel_ms::below() ) ) ==
-                      t_fragile_floor);
+                CHECK(here.ter(abs_to_bub(p_abs)) == t_strong_roof);
+                CHECK(here.ter(abs_to_bub(p_abs + tripoint_rel_ms::below())) == t_fragile_floor);
             }
         }
 
         AND_WHEN("The roof is bashed with enough strength to destroy any roof") {
-            here.bash( abs_to_bub( p_abs ), 1000, false, false, true );
+            here.bash(abs_to_bub(p_abs), 1000, false, false, true);
             THEN("Both the roof and the floor are completely destroyed to default terrain") {
-                CHECK(here.ter( abs_to_bub( p_abs ) ) == t_open_air);
-                CHECK(here.ter( abs_to_bub( p_abs + tripoint_rel_ms::below() ) ) ==
-                      t_rock_floor_no_roof);
+                CHECK(here.ter(abs_to_bub(p_abs)) == t_open_air);
+                CHECK(
+                    here.ter(abs_to_bub(p_abs + tripoint_rel_ms::below())) == t_rock_floor_no_roof);
             }
         }
     }
@@ -1747,7 +1741,7 @@ TEST_CASE("flammable_fields_can_be_ignited", "[map][field][fire]") {
     const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
     auto& here = get_map();
     const auto pos_abs = test_origin;
-    const auto pos = abs_to_bub( pos_abs );
+    const auto pos = abs_to_bub(pos_abs);
     here.ter_set(pos, ter_str_id("t_rock_floor").id());
     here.furn_set(pos, f_null);
     const auto fuel = field_type_id(

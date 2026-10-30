@@ -678,7 +678,7 @@ auto mapbuffer_abs_tile_view::get_ter() const -> ter_id { return sm_->get_ter(lo
 auto mapbuffer_abs_tile_view::get_furn() const -> furn_id { return sm_->get_furn(local_); }
 
 auto mapbuffer_abs_tile_view::get_trap() const -> trap_id {
-    return sm_->get_effective_trap( local_ );
+    return sm_->get_effective_trap(local_);
 }
 
 auto mapbuffer_abs_tile_view::get_ter_t() const -> const ter_t& { return get_ter().obj(); }
@@ -697,26 +697,18 @@ auto mapbuffer_abs_tile_view::get_furn_vars() const -> const data_vars::data_set
     return sm_->get_furn_vars(local_);
 }
 
-auto mapbuffer_abs_tile_view::has_graffiti() const -> bool {
-    return sm_->has_graffiti( local_ );
-}
+auto mapbuffer_abs_tile_view::has_graffiti() const -> bool { return sm_->has_graffiti(local_); }
 
 auto mapbuffer_abs_tile_view::get_graffiti() const -> std::optional<std::string> {
-    if( !has_graffiti() ) {
-        return std::nullopt;
-    }
-    return sm_->get_graffiti( local_ );
+    if (!has_graffiti()) { return std::nullopt; }
+    return sm_->get_graffiti(local_);
 }
 
-auto mapbuffer_abs_tile_view::has_signage() const -> bool {
-    return sm_->has_signage( local_ );
-}
+auto mapbuffer_abs_tile_view::has_signage() const -> bool { return sm_->has_signage(local_); }
 
 auto mapbuffer_abs_tile_view::get_signage() const -> std::optional<std::string> {
-    if( !has_signage() ) {
-        return std::nullopt;
-    }
-    return sm_->get_signage( local_ );
+    if (!has_signage()) { return std::nullopt; }
+    return sm_->get_signage(local_);
 }
 
 auto mapbuffer_abs_tile_view::get_radiation() const -> int { return sm_->get_radiation(local_); }
@@ -1404,7 +1396,8 @@ auto mapbuffer::resolve_abs_submap_view(
     return mapbuffer_abs_submap_view(p, *sm);
 }
 
-auto mapbuffer::resolve_abs_omt_view(const tripoint_abs_omt& p, const mapbuffer_lookup_options options)
+auto mapbuffer::resolve_abs_omt_view(
+    const tripoint_abs_omt& p, const mapbuffer_lookup_options options)
     -> std::optional<mapbuffer_abs_omt_view> {
     auto submaps = std::array<const submap*, 4>{};
     auto found_any = false;
@@ -1798,7 +1791,9 @@ auto mapbuffer::veh_at(const tripoint_abs_ms& p, const mapbuffer_lookup_options 
     if (const auto local = active_reality_bubble_local(p)) { return g->m.veh_at(*local); }
 
     const auto target_sm = project_to<coords::sm>(p);
-    if (resolve_submap(target_sm, options) == nullptr) { return optional_vpart_position(std::nullopt); }
+    if (resolve_submap(target_sm, options) == nullptr) {
+        return optional_vpart_position(std::nullopt);
+    }
 
     return vehicle_part_at_loaded_tile(p);
 }
@@ -2046,7 +2041,7 @@ auto mapbuffer::get_trap(const tripoint_abs_ms& p, const mapbuffer_lookup_option
     const auto tile = lookup_tile(*this, p, options);
     if (!tile) { return std::nullopt; }
 
-    return tile->sm->get_effective_trap( tile->local );
+    return tile->sm->get_effective_trap(tile->local);
 }
 
 auto mapbuffer::set_trap(

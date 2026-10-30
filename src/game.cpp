@@ -12953,7 +12953,8 @@ bool game::walk_move( const tripoint_abs_ms &dest_loc, const bool via_ramp )
         multiplier *= 3;
     }
 
-    const int mcost = m.combined_movecost( u.bub_pos(), abs_to_bub( dest_loc ), grabbed_vehicle, modifier,
+    const int mcost = m.combined_movecost( u.bub_pos(), abs_to_bub( dest_loc ), grabbed_vehicle,
+                                           modifier,
                                            via_ramp ) * multiplier;
     if( grabbed_move( dp, allow_furniture_z_move ) ) {
         return true;
@@ -13022,7 +13023,8 @@ bool game::walk_move( const tripoint_abs_ms &dest_loc, const bool via_ramp )
     u.last_target_pos = std::nullopt;
 
     // Print a message if movement is slow
-    const int mcost_to = here.move_cost( dest_loc ).value(); //calculate this _after_ calling grabbed_move
+    const int mcost_to = here.move_cost(
+                             dest_loc ).value(); //calculate this _after_ calling grabbed_move
     const bool fungus = here.has_flag_ter_or_furn( TFLAG_FUNGUS, u.abs_pos() ) ||
                         here.has_flag_ter_or_furn( TFLAG_FUNGUS,
                                 dest_loc ); //fungal furniture has no slowing effect on mycus characters
@@ -13223,7 +13225,7 @@ auto game::process_player_movement( const tripoint_abs_ms &dest_abs ) -> point_r
     };
     const auto destination_name = [&]( const auto flag ) -> std::string {
         return has_destination_ter_flag( flag ) ? destination.get_ter_t().name()
-               : here.furnname( dest_abs );
+        : here.furnname( dest_abs );
     };
     const auto regular_pit_move = pit_trap_helpers::is_regular_pit_destination_from_pit(
                                       source_tile->get_trap_t(), destination.get_trap_t() );
@@ -13350,7 +13352,7 @@ auto game::process_player_movement( const tripoint_abs_ms &dest_abs ) -> point_r
     }
     const auto can_put_items = ( !has_destination_flag( "NOITEM" ) &&
                                  !has_destination_flag( "SEALED" ) ) ||
-                                vp1.part_with_feature( "CARGO", true );
+                               vp1.part_with_feature( "CARGO", true );
     if( u.is_hauling() && ( !can_put_items ||
                             has_destination_flag( TFLAG_DEEP_WATER ) ||
                             vp1 ) ) {
@@ -13378,7 +13380,7 @@ auto game::process_player_movement( const tripoint_abs_ms &dest_abs ) -> point_r
         const std::string forage_type = get_option<std::string>( "AUTO_FORAGING" );
         const auto player_abs = u.abs_pos();
         if( forage_type != "off" ) {
-            const auto forage = [&]( const tripoint_abs_ms &pos ) {
+            const auto forage = [&]( const tripoint_abs_ms & pos ) {
                 const auto tile = here.resolve_abs_tile( pos );
                 if( !tile ) {
                     return;
@@ -13430,7 +13432,7 @@ auto game::process_player_movement( const tripoint_abs_ms &dest_abs ) -> point_r
                 }
             }
         } else if( pulp_butcher == "pulp" || pulp_butcher == "pulp_adjacent" ) {
-            const auto pulp = [&]( const tripoint_abs_ms &pos ) {
+            const auto pulp = [&]( const tripoint_abs_ms & pos ) {
                 if( const auto items = here.get_items( pos ) ) {
                     for( const auto &maybe_corpse : *items ) {
                         if( maybe_corpse->is_corpse() && maybe_corpse->can_revive() &&

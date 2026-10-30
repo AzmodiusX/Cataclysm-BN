@@ -2681,10 +2681,11 @@ void vehicle::relocate_passengers(const std::vector<Character*>& passengers) {
     for (auto* passenger : passengers) {
         for (const vpart_reference& vp : boardables) {
             if (vp.part().passenger_id != passenger->getID()) { continue; }
-            if( player *const passenger_player = passenger->as_player(); passenger_player == &g->u ) {
-                passenger_player->set_internal_position( map_local_to_abs( g->m, vp.pos() ) );
+            if (player* const passenger_player = passenger->as_player();
+                passenger_player == &g->u) {
+                passenger_player->set_internal_position(map_local_to_abs(g->m, vp.pos()));
             } else {
-                passenger->setpos( vp.pos() );
+                passenger->setpos(vp.pos());
             }
         }
     }

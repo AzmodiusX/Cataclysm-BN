@@ -351,8 +351,7 @@ public:
     auto tile_at(const tripoint_abs_ms& p) const -> std::optional<mapbuffer_abs_tile_view>;
     auto tile_with_vehicle_at(const tripoint_abs_ms& p) const
         -> std::optional<mapbuffer_abs_tile_with_vehicle_view>;
-    auto submap_view_at(const tripoint_abs_sm& p) const
-        -> std::optional<mapbuffer_abs_submap_view>;
+    auto submap_view_at(const tripoint_abs_sm& p) const -> std::optional<mapbuffer_abs_submap_view>;
     auto omt_view_at(const tripoint_abs_omt& p) const -> std::optional<mapbuffer_abs_omt_view>;
 
 private:

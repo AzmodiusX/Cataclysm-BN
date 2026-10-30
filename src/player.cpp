@@ -14,7 +14,8 @@
 #include <memory>
 #include <string>
 
-namespace {
+namespace
+{
 
 auto update_map_after_internal_position( player &who, const tripoint_abs_ms &old_pos ) -> void
 {

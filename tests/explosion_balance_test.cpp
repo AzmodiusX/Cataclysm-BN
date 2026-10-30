@@ -36,15 +36,15 @@ enum class outcome_type { Kill, Casualty };
 
 namespace {
 
-auto test_map_pos( const tripoint_rel_ms& offset ) -> tripoint_abs_ms {
-    const auto map_origin_abs = tripoint_abs_ms( project_to<coords::ms>( get_map().get_abs_sub() ), 0 );
+auto test_map_pos(const tripoint_rel_ms& offset) -> tripoint_abs_ms {
+    const auto map_origin_abs = tripoint_abs_ms(project_to<coords::ms>(get_map().get_abs_sub()), 0);
     return map_origin_abs + offset;
 }
 
-auto set_off_explosion( item& explosive, const tripoint_abs_ms& origin_abs ) -> void {
+auto set_off_explosion(item& explosive, const tripoint_abs_ms& origin_abs) -> void {
     explosion_handler::get_explosion_queue().clear();
     explosive.charges = 0;
-    explosive.type->invoke( g->u, explosive, abs_to_bub( origin_abs ) );
+    explosive.type->invoke(g->u, explosive, abs_to_bub(origin_abs));
     explosion_handler::get_explosion_queue().execute();
 }
 
@@ -63,19 +63,19 @@ void check_lethality(
         clear_map();
         move_player_out_of_the_way();
         // Spawn some monsters in a circle.
-        const auto origin_abs = test_map_pos( tripoint_rel_ms( 30, 30, 0 ) );
+        const auto origin_abs = test_map_pos(tripoint_rel_ms(30, 30, 0));
         int num_subjects_this_time = 0;
-        for (const tripoint_abs_ms& monster_position_abs : closest_points_first(origin_abs, range)) {
+        for (const tripoint_abs_ms& monster_position_abs :
+             closest_points_first(origin_abs, range)) {
             if (rl_dist(monster_position_abs, origin_abs) != range) { continue; }
             num_subjects++;
             num_subjects_this_time++;
             monster& new_monster =
-                spawn_test_monster("mon_test_explosion_target",
-                                   abs_to_bub( monster_position_abs ) );
+                spawn_test_monster("mon_test_explosion_target", abs_to_bub(monster_position_abs));
             new_monster.no_extra_death_drops = true;
         }
         item& explosive = *item::spawn_temporary(explosive_id);
-        set_off_explosion( explosive, origin_abs );
+        set_off_explosion(explosive, origin_abs);
         // see how many monsters survive
         std::vector<Creature*> survivors = g->get_creatures_if([](const Creature& critter) {
             return critter.is_monster();
@@ -117,19 +117,19 @@ auto get_part_hp(vehicle* veh) -> std::vector<int> {
 void check_vehicle_damage(
     const std::string& explosive_id, const std::string& vehicle_id, const int range) {
     move_player_out_of_the_way();
-    const auto origin_abs = test_map_pos( tripoint_rel_ms( 30, 30, 0 ) );
+    const auto origin_abs = test_map_pos(tripoint_rel_ms(30, 30, 0));
 
     vehicle* target_vehicle =
-        get_map().add_vehicle(vproto_id(vehicle_id), abs_to_bub( origin_abs ), 0_degrees, -1, 0);
+        get_map().add_vehicle(vproto_id(vehicle_id), abs_to_bub(origin_abs), 0_degrees, -1, 0);
     std::vector<int> before_hp = get_part_hp(target_vehicle);
 
     auto explosion_origin_abs = origin_abs;
-    while (get_map().veh_at( abs_to_bub( explosion_origin_abs ) )) {
+    while (get_map().veh_at(abs_to_bub(explosion_origin_abs))) {
         explosion_origin_abs += tripoint_rel_ms::east();
     }
-    explosion_origin_abs += tripoint_rel_ms( range, 0, 0 );
+    explosion_origin_abs += tripoint_rel_ms(range, 0, 0);
     item& explosive = *item::spawn_temporary(explosive_id);
-    set_off_explosion( explosive, explosion_origin_abs );
+    set_off_explosion(explosive, explosion_origin_abs);
 
     std::vector<int> after_hp = get_part_hp(target_vehicle);
 
@@ -164,7 +164,7 @@ TEST_CASE("grenade_vs_vehicle", "[grenade][explosion][balance]") {
 TEST_CASE("shrapnel behind wall", "[grenade][explosion][balance]") {
     clear_all_state();
     move_player_out_of_the_way();
-    const auto origin_abs = test_map_pos( tripoint_rel_ms( 30, 30, 0 ) );
+    const auto origin_abs = test_map_pos(tripoint_rel_ms(30, 30, 0));
 
     item& grenade = *item::spawn_temporary("test_shrapnel_blast");
     REQUIRE(grenade.get_use("explosion") != nullptr);
@@ -177,19 +177,17 @@ TEST_CASE("shrapnel behind wall", "[grenade][explosion][balance]") {
 
     for (const tripoint_abs_ms& pt_abs : closest_points_first(origin_abs, 2)) {
         if (square_dist(origin_abs, pt_abs) > 1) {
-            g->m.ter_set( abs_to_bub( pt_abs ), ter_id("test_t_shrapnel_wall") );
+            g->m.ter_set(abs_to_bub(pt_abs), ter_id("test_t_shrapnel_wall"));
         }
     }
 
     // Not on the bomb because shrapnel always hits that square
-    const monster& m_in_range =
-        spawn_test_monster("mon_test_explosion_target",
-                           abs_to_bub( origin_abs + tripoint_rel_ms::east() ) );
-    const monster& m_behind_wall =
-        spawn_test_monster("mon_test_explosion_target",
-                           abs_to_bub( origin_abs + tripoint_rel_ms( 3, 0, 0 ) ) );
+    const monster& m_in_range = spawn_test_monster(
+        "mon_test_explosion_target", abs_to_bub(origin_abs + tripoint_rel_ms::east()));
+    const monster& m_behind_wall = spawn_test_monster(
+        "mon_test_explosion_target", abs_to_bub(origin_abs + tripoint_rel_ms(3, 0, 0)));
 
-    set_off_explosion( grenade, origin_abs );
+    set_off_explosion(grenade, origin_abs);
 
     CHECK(m_in_range.hp_percentage() < 100);
     CHECK(m_behind_wall.hp_percentage() == 100);
@@ -198,7 +196,7 @@ TEST_CASE("shrapnel behind wall", "[grenade][explosion][balance]") {
 TEST_CASE("shrapnel at huge range", "[grenade][explosion]") {
     clear_all_state();
     move_player_out_of_the_way();
-    const auto origin_abs = test_map_pos( tripoint_rel_ms::zero() );
+    const auto origin_abs = test_map_pos(tripoint_rel_ms::zero());
 
     item& grenade = *item::spawn_temporary("test_long_shrapnel_blast");
     REQUIRE(grenade.get_use("explosion") != nullptr);
@@ -208,14 +206,14 @@ TEST_CASE("shrapnel at huge range", "[grenade][explosion]") {
     REQUIRE(static_cast<bool>(actor->explosion.fragment));
     REQUIRE(actor->explosion.radius <= 0);
     REQUIRE(actor->explosion.fragment->range >= 300);
-    const auto range = static_cast<int>( std::pow( actor->explosion.fragment->range, 1.4 ) - 1 );
-    const auto placement = std::min( range, g_mapsize_x - 1 );
+    const auto range = static_cast<int>(std::pow(actor->explosion.fragment->range, 1.4) - 1);
+    const auto placement = std::min(range, g_mapsize_x - 1);
 
     const monster& m = spawn_test_monster(
         "mon_test_explosion_target",
-        abs_to_bub( test_map_pos( tripoint_rel_ms( placement, placement, 0 ) ) ) );
+        abs_to_bub(test_map_pos(tripoint_rel_ms(placement, placement, 0))));
 
-    set_off_explosion( grenade, origin_abs );
+    set_off_explosion(grenade, origin_abs);
 
     CHECK(m.is_dead_state());
 }
@@ -223,8 +221,7 @@ TEST_CASE("shrapnel at huge range", "[grenade][explosion]") {
 TEST_CASE("shrapnel at max grenade range", "[grenade][explosion]") {
     clear_all_state();
     move_player_out_of_the_way();
-    const auto origin_abs =
-        test_map_pos( tripoint_rel_ms( g_half_mapsize_x, g_half_mapsize_y, 0 ) );
+    const auto origin_abs = test_map_pos(tripoint_rel_ms(g_half_mapsize_x, g_half_mapsize_y, 0));
 
     item& grenade = *item::spawn_temporary("test_shrapnel_blast");
     REQUIRE(grenade.get_use("explosion") != nullptr);
@@ -237,13 +234,13 @@ TEST_CASE("shrapnel at max grenade range", "[grenade][explosion]") {
 
     const int range = actor->explosion.fragment->range;
     for (const tripoint_abs_ms& pt_abs : closest_points_first(origin_abs, range + 1)) {
-        spawn_test_monster("mon_test_explosion_sturdy_target", abs_to_bub( pt_abs ) );
+        spawn_test_monster("mon_test_explosion_sturdy_target", abs_to_bub(pt_abs));
     }
 
-    set_off_explosion( grenade, origin_abs );
+    set_off_explosion(grenade, origin_abs);
 
     for (const tripoint_abs_ms& pt_abs : closest_points_first(origin_abs, range + 1)) {
-        const monster* m = g->critter_at<monster>( abs_to_bub( pt_abs ) );
+        const monster* m = g->critter_at<monster>(abs_to_bub(pt_abs));
         REQUIRE(m != nullptr);
         CAPTURE(m->abs_pos());
         CAPTURE(rl_dist(origin_abs, m->abs_pos()));
@@ -258,32 +255,31 @@ TEST_CASE("shrapnel at max grenade range", "[grenade][explosion]") {
 TEST_CASE("rotated_vehicle_walls_block_explosions") {
     clear_all_state();
     move_player_out_of_the_way();
-    const auto origin_abs =
-        test_map_pos( tripoint_rel_ms( g_half_mapsize_x, g_half_mapsize_y, 0 ) );
+    const auto origin_abs = test_map_pos(tripoint_rel_ms(g_half_mapsize_x, g_half_mapsize_y, 0));
 
     item& grenade = *item::spawn_temporary("test_shrapnel_blast");
 
     map& here = get_map();
 
-    here.add_vehicle(vproto_id("test_explosion_wall_vehicle"), abs_to_bub( origin_abs ),
-                     -45_degrees, 0, 0);
+    here.add_vehicle(
+        vproto_id("test_explosion_wall_vehicle"), abs_to_bub(origin_abs), -45_degrees, 0, 0);
 
     here.build_map_cache(0);
 
-    const auto mon_origin_abs =
-        test_map_pos( tripoint_rel_ms( g_half_mapsize_x - 2, g_half_mapsize_y + 1, 0 ) );
+    const auto mon_origin_abs = test_map_pos(
+        tripoint_rel_ms(g_half_mapsize_x - 2, g_half_mapsize_y + 1, 0));
 
-    monster& s = spawn_test_monster("mon_test_explosion_target", abs_to_bub( mon_origin_abs ) );
+    monster& s = spawn_test_monster("mon_test_explosion_target", abs_to_bub(mon_origin_abs));
 
-    REQUIRE(veh_pointer_or_null(here.veh_at( abs_to_bub( mon_origin_abs ) )) != nullptr);
+    REQUIRE(veh_pointer_or_null(here.veh_at(abs_to_bub(mon_origin_abs))) != nullptr);
 
     const auto explode_at_abs = mon_origin_abs + tripoint_rel_ms::north_west();
 
-    REQUIRE(veh_pointer_or_null(here.veh_at( abs_to_bub( explode_at_abs ) )) == nullptr);
+    REQUIRE(veh_pointer_or_null(here.veh_at(abs_to_bub(explode_at_abs))) == nullptr);
 
-    set_off_explosion( grenade, explode_at_abs );
+    set_off_explosion(grenade, explode_at_abs);
 
-    const monster* m = g->critter_at<monster>( abs_to_bub( mon_origin_abs ) );
+    const monster* m = g->critter_at<monster>(abs_to_bub(mon_origin_abs));
     REQUIRE(m != nullptr);
     CHECK(m == &s);
     CHECK(m->get_hp() == m->get_hp_max());
@@ -300,14 +296,13 @@ TEST_CASE("explosion queue defers drains during item processing", "[explosion][e
     auto& queue = explosion_handler::get_explosion_queue();
     queue.clear();
 
-    const auto origin_abs =
-        test_map_pos( tripoint_rel_ms( g_half_mapsize_x, g_half_mapsize_y, 0 ) );
+    const auto origin_abs = test_map_pos(tripoint_rel_ms(g_half_mapsize_x, g_half_mapsize_y, 0));
     const auto ex = explosion_data{.damage = 10, .radius = 2.0f};
 
     {
         // Stands in for the map::process_items() window.
         explosion_handler::scoped_drain_deferral defer;
-        explosion_handler::explosion( abs_to_bub( origin_abs ), ex, nullptr );
+        explosion_handler::explosion(abs_to_bub(origin_abs), ex, nullptr);
         REQUIRE_FALSE(queue.empty());
 
         // A re-entrant drain must not run here (it would re-detonate forever).
@@ -326,7 +321,7 @@ TEST_CASE("explosion queue defers drains during item processing", "[explosion][e
     {
         // A suppressed request satisfied by any real drain must not linger.
         explosion_handler::scoped_drain_deferral defer;
-        explosion_handler::explosion( abs_to_bub( origin_abs ), ex, nullptr );
+        explosion_handler::explosion(abs_to_bub(origin_abs), ex, nullptr);
         queue.execute(); // suppressed: sets the request
     }
     queue.execute(); // real drain satisfies it
@@ -340,14 +335,13 @@ TEST_CASE("EMP bomb processed next to a searchlight does not run away", "[explos
     // Sympathetic detonation must be on for the runaway (default; set explicitly).
     const auto explodium = override_option("MADE_OF_EXPLODIUM", "30");
 
-    const auto bomb_pos_abs =
-        test_map_pos( tripoint_rel_ms( g_half_mapsize_x, g_half_mapsize_y, 0 ) );
-    const auto sl_pos_abs =
-        test_map_pos( tripoint_rel_ms( g_half_mapsize_x + 1, g_half_mapsize_y, 0 ) );
-    g->m.i_clear( abs_to_bub( bomb_pos_abs ) );
+    const auto bomb_pos_abs = test_map_pos(tripoint_rel_ms(g_half_mapsize_x, g_half_mapsize_y, 0));
+    const auto sl_pos_abs = test_map_pos(
+        tripoint_rel_ms(g_half_mapsize_x + 1, g_half_mapsize_y, 0));
+    g->m.i_clear(abs_to_bub(bomb_pos_abs));
 
     // A searchlight the EMP kills; its FOCUSEDBEAM death drains the queue.
-    auto& searchlight = spawn_test_monster("mon_turret_searchlight", abs_to_bub( sl_pos_abs ) );
+    auto& searchlight = spawn_test_monster("mon_turret_searchlight", abs_to_bub(sl_pos_abs));
     searchlight.set_hp(1);
 
     // Active EMP bomb on its own tile, charges 0 so it detonates on its tick.
@@ -355,7 +349,7 @@ TEST_CASE("EMP bomb processed next to a searchlight does not run away", "[explos
         item::spawn("EMPbomb_act", calendar::start_of_cataclysm, item::default_charges_tag());
     bomb->activate();
     bomb->charges = 0;
-    g->m.add_item( abs_to_bub( bomb_pos_abs ), std::move(bomb) );
+    g->m.add_item(abs_to_bub(bomb_pos_abs), std::move(bomb));
 
     auto& queue = explosion_handler::get_explosion_queue();
     queue.clear();
@@ -375,15 +369,15 @@ TEST_CASE("EMP bomb processed next to a searchlight does not run away", "[explos
 TEST_CASE("queued explosions drop their source when the creature is removed", "[explosion]") {
     clear_all_state();
 
-    const auto source_pos_abs =
-        test_map_pos( tripoint_rel_ms( g_half_mapsize_x + 1, g_half_mapsize_y, 0 ) );
-    auto& source = spawn_test_monster("mon_zombie", abs_to_bub( source_pos_abs ) );
+    const auto source_pos_abs = test_map_pos(
+        tripoint_rel_ms(g_half_mapsize_x + 1, g_half_mapsize_y, 0));
+    auto& source = spawn_test_monster("mon_zombie", abs_to_bub(source_pos_abs));
     const Creature* source_ptr = &source;
 
     auto& queue = explosion_handler::get_explosion_queue();
     queue.clear();
     const auto ex = explosion_data{.damage = 10, .radius = 2.0f};
-    explosion_handler::explosion( abs_to_bub( source_pos_abs ), ex, &source );
+    explosion_handler::explosion(abs_to_bub(source_pos_abs), ex, &source);
     REQUIRE(queue.references_source(source_ptr));
 
     // The source dies and is destroyed while its blast is still queued (e.g. a

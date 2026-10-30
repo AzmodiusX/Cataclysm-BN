@@ -28,29 +28,29 @@
 
 namespace {
 
-auto test_map_bub_origin_at_z( const map &here, const int z ) -> tripoint_bub_ms {
-    const auto map_origin = tripoint_abs_ms( project_to<coords::ms>( here.get_abs_sub() ), z );
-    return abs_to_bub( map_origin );
+auto test_map_bub_origin_at_z(const map& here, const int z) -> tripoint_bub_ms {
+    const auto map_origin = tripoint_abs_ms(project_to<coords::ms>(here.get_abs_sub()), z);
+    return abs_to_bub(map_origin);
 }
 
-auto test_map_bub_max_at_z( const map &here, const int z ) -> tripoint_bub_ms {
-    const auto origin = test_map_bub_origin_at_z( here, z );
+auto test_map_bub_max_at_z(const map& here, const int z) -> tripoint_bub_ms {
+    const auto origin = test_map_bub_origin_at_z(here, z);
     const auto map_width = here.getmapsize() * SEEX;
     const auto map_height = here.getmapsize() * SEEY;
-    return tripoint_bub_ms( origin.x() + map_width - 1, origin.y() + map_height - 1, z );
+    return tripoint_bub_ms(origin.x() + map_width - 1, origin.y() + map_height - 1, z);
 }
 
 // This is an absolute fixture position for tests that need to move the player
 // away from the fixture center.  Bubble coordinates are derived only at the
 // legacy player/map API boundary.
-auto test_out_of_way_position( const int z ) -> tripoint_abs_ms {
-    return test_origin_at_z( z ) + tripoint_rel_ms( SEEX - 1, SEEY - 1, 0 );
+auto test_out_of_way_position(const int z) -> tripoint_abs_ms {
+    return test_origin_at_z(z) + tripoint_rel_ms(SEEX - 1, SEEY - 1, 0);
 }
 
-auto mark_test_overmap_seen_without_generation( const point_abs_omt &pos, const int z ) -> void {
-    auto &overmap_buffer = get_overmapbuffer( g->get_current_dimension_id() );
-    const auto overmap_location = overmap_buffer.get_om_global( tripoint_abs_omt( pos, z ) );
-    overmap_location.om->seen( overmap_location.local ) = true;
+auto mark_test_overmap_seen_without_generation(const point_abs_omt& pos, const int z) -> void {
+    auto& overmap_buffer = get_overmapbuffer(g->get_current_dimension_id());
+    const auto overmap_location = overmap_buffer.get_om_global(tripoint_abs_omt(pos, z));
+    overmap_location.om->seen(overmap_location.local) = true;
 }
 
 } // namespace
@@ -69,10 +69,10 @@ void wipe_map_terrain() {
     auto& here = get_map();
     for (int z = -2; z <= OVERMAP_HEIGHT; ++z) {
         const ter_id terrain = z == 0 ? t_grass : z < 0 ? t_rock : t_open_air;
-        const auto map_origin = test_map_bub_origin_at_z( here, z );
-        const auto map_max = test_map_bub_max_at_z( here, z );
-        for( const tripoint_bub_ms &p : here.points_in_rectangle( map_origin, map_max ) ) {
-            here.set( p, terrain, f_null );
+        const auto map_origin = test_map_bub_origin_at_z(here, z);
+        const auto map_max = test_map_bub_max_at_z(here, z);
+        for (const tripoint_bub_ms& p : here.points_in_rectangle(map_origin, map_max)) {
+            here.set(p, terrain, f_null);
         }
     }
     clear_vehicles();
@@ -97,13 +97,12 @@ void clear_fields(const int zlevel) {
     const int mapsize = here.getmapsize();
     for (int x = 0; x < mapsize; ++x) {
         for (int y = 0; y < mapsize; ++y) {
-            const auto grid_pos = here.get_abs_sub() + tripoint_rel_sm( x, y, zlevel );
-            submap* const sm = here.get_mapbuffer().find_resident_submap(
-                grid_pos);
+            const auto grid_pos = here.get_abs_sub() + tripoint_rel_sm(x, y, zlevel);
+            submap* const sm = here.get_mapbuffer().find_resident_submap(grid_pos);
             if (sm == nullptr || sm->field_count == 0) { continue; }
 
             const auto clear_field_at = [&](const point_sm_ms& local) {
-                const auto p = abs_to_bub( project_combine( grid_pos, local ) );
+                const auto p = abs_to_bub(project_combine(grid_pos, local));
                 field& field_at_pos = sm->get_field(local);
                 if (field_at_pos.field_count() == 0) { return; }
 
@@ -132,10 +131,10 @@ void clear_fields(const int zlevel) {
 
 void clear_items(const int zlevel) {
     auto& here = get_map();
-    const auto map_origin = test_map_bub_origin_at_z( here, zlevel );
-    const auto map_max = test_map_bub_max_at_z( here, zlevel );
-    for( const tripoint_bub_ms &p : here.points_in_rectangle( map_origin, map_max ) ) {
-        here.i_clear( p );
+    const auto map_origin = test_map_bub_origin_at_z(here, zlevel);
+    const auto map_max = test_map_bub_max_at_z(here, zlevel);
+    for (const tripoint_bub_ms& p : here.points_in_rectangle(map_origin, map_max)) {
+        here.i_clear(p);
     }
 }
 
@@ -162,11 +161,11 @@ void clear_map() {
 
 void put_player_underground() {
     // Make sure the player doesn't block the path of the monster being tested.
-    g->u.setpos( test_out_of_way_position( -2 ) );
+    g->u.setpos(test_out_of_way_position(-2));
 }
 
 auto move_player_out_of_the_way() -> void {
-    g->u.setpos( test_out_of_way_position( g->u.abs_pos().z() ) );
+    g->u.setpos(test_out_of_way_position(g->u.abs_pos().z()));
 }
 
 auto spawn_test_monster(const std::string& monster_type, const tripoint_bub_ms& start)
@@ -180,8 +179,8 @@ auto spawn_test_monster(const std::string& monster_type, const tripoint_bub_ms& 
 // furniture, traps, or items.
 void build_test_map(const ter_id& terrain) {
     auto& here = get_map();
-    const auto map_origin = test_map_bub_origin_at_z( here, 0 );
-    const auto map_max = test_map_bub_max_at_z( here, 0 );
+    const auto map_origin = test_map_bub_origin_at_z(here, 0);
+    const auto map_max = test_map_bub_max_at_z(here, 0);
     for (const tripoint_bub_ms& p : here.points_in_rectangle(map_origin, map_max)) {
         here.furn_set(p, furn_id("f_null"));
         here.ter_set(p, terrain);
@@ -198,20 +197,18 @@ void build_water_test_map(const ter_id& surface, const ter_id& mid, const ter_id
     constexpr int z_bottom = -2;
 
     map& here = get_map();
-    const auto min_omt = project_to<coords::omt>( here.get_abs_sub() );
+    const auto min_omt = project_to<coords::omt>(here.get_abs_sub());
     const auto max_omt = project_to<coords::omt>(
-                             here.get_abs_sub() + point_rel_sm( here.getmapsize() - 1,
-                                     here.getmapsize() - 1 ) );
-    for( int x = min_omt.x(); x <= max_omt.x(); ++x ) {
-        for( int y = min_omt.y(); y <= max_omt.y(); ++y ) {
-            for( const int z : { z_bottom, -1, z_surface } ) {
-                mark_test_overmap_seen_without_generation( point_abs_omt( x, y ), z );
+        here.get_abs_sub() + point_rel_sm(here.getmapsize() - 1, here.getmapsize() - 1));
+    for (int x = min_omt.x(); x <= max_omt.x(); ++x) {
+        for (int y = min_omt.y(); y <= max_omt.y(); ++y) {
+            for (const int z : {z_bottom, -1, z_surface}) {
+                mark_test_overmap_seen_without_generation(point_abs_omt(x, y), z);
             }
         }
     }
     for (const tripoint_bub_ms& p : here.points_in_rectangle(
-             test_map_bub_origin_at_z( here, z_surface ),
-             test_map_bub_max_at_z( here, z_bottom ))) {
+             test_map_bub_origin_at_z(here, z_surface), test_map_bub_max_at_z(here, z_bottom))) {
 
         if (p.z() == z_surface) {
             here.ter_set(p, surface);
@@ -237,18 +234,14 @@ void set_time(const time_point& time) {
     g->m.update_visibility_cache(z);
 }
 
-auto test_origin_at_z( const int z ) -> tripoint_abs_ms {
-    return tripoint_abs_ms( test_origin.xy(), z );
+auto test_origin_at_z(const int z) -> tripoint_abs_ms {
+    return tripoint_abs_ms(test_origin.xy(), z);
 }
 
 auto test_map_origin() -> point_abs_sm {
-    return reality_bubble_origin_from_player( test_origin, g_reality_bubble_size ).xy();
+    return reality_bubble_origin_from_player(test_origin, g_reality_bubble_size).xy();
 }
 
-auto bub_test_origin() -> tripoint_bub_ms {
-    return bub_test_origin( test_origin.z() );
-}
+auto bub_test_origin() -> tripoint_bub_ms { return bub_test_origin(test_origin.z()); }
 
-auto bub_test_origin( const int z ) -> tripoint_bub_ms {
-    return abs_to_bub( test_origin_at_z( z ) );
-}
+auto bub_test_origin(const int z) -> tripoint_bub_ms { return abs_to_bub(test_origin_at_z(z)); }

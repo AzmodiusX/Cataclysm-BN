@@ -60,14 +60,14 @@ TEST_CASE("avatar diving", "[diving][!mayfail]") {
 
             THEN("avatar is underwater at z-1") {
                 const auto expected_abs = test_origin + tripoint_rel_ms::below();
-                const auto expected_local = abs_to_bub( expected_abs );
-                const auto direct_terrain = here.get_mapbuffer().get_ter( expected_abs );
+                const auto expected_local = abs_to_bub(expected_abs);
+                const auto direct_terrain = here.get_mapbuffer().get_ter(expected_abs);
                 REQUIRE(dummy.abs_pos() == expected_abs);
-                INFO("map origin " << here.get_abs_sub() << " player " << dummy.abs_pos()
-                                  << " expected " << expected_abs << " local " << expected_local
-                                  << " actual terrain "
-                                  << here.ter(expected_local).id().str() << " direct terrain "
-                                  << ( direct_terrain ? direct_terrain->id().str() : "<missing>" ));
+                INFO("map origin "
+                     << here.get_abs_sub() << " player " << dummy.abs_pos() << " expected "
+                     << expected_abs << " local " << expected_local << " actual terrain "
+                     << here.ter(expected_local).id().str() << " direct terrain "
+                     << (direct_terrain ? direct_terrain->id().str() : "<missing>"));
                 REQUIRE(here.ter(expected_local) == ter_id("t_water_cube"));
                 REQUIRE(dummy.is_underwater());
             }
@@ -93,7 +93,7 @@ TEST_CASE("avatar diving", "[diving][!mayfail]") {
 
             THEN("avatar is underwater at z-2") {
                 const auto expected_abs = test_origin + tripoint_rel_ms(0, 0, -2);
-                const auto expected_local = abs_to_bub( expected_abs );
+                const auto expected_local = abs_to_bub(expected_abs);
                 REQUIRE(dummy.abs_pos() == expected_abs);
                 REQUIRE(here.ter(expected_local) == ter_id("t_lake_bed"));
                 REQUIRE(dummy.is_underwater());

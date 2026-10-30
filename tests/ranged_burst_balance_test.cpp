@@ -8,9 +8,7 @@
 
 #include <vector>
 
-static auto shooter_pos() -> tripoint_bub_ms {
-    return bub_test_origin();
-}
+static auto shooter_pos() -> tripoint_bub_ms { return bub_test_origin(); }
 
 static void check_burst_penalty(
     const Character& shooter, item& gun, int expected, bool bipod = false) {

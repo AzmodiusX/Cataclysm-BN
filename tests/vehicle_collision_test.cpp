@@ -37,20 +37,20 @@ TEST_CASE("vehicle_collision_with_wall_terminates", "[vehicle]") {
     const auto wall_pos_abs = veh_pos_abs + tripoint_rel_ms::north();
 
     auto* veh_ptr =
-        here.add_vehicle(vproto_id("bicycle_test"), abs_to_bub( veh_pos_abs ), 270_degrees, 0, 0);
+        here.add_vehicle(vproto_id("bicycle_test"), abs_to_bub(veh_pos_abs), 270_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
-    REQUIRE(here.ter_set( abs_to_bub( wall_pos_abs ), ter_id("t_concrete_wall") ));
+    REQUIRE(here.ter_set(abs_to_bub(wall_pos_abs), ter_id("t_concrete_wall")));
     here.build_map_cache(0, true);
 
-    CAPTURE(here.ter( abs_to_bub( wall_pos_abs ) ).id().str());
-    CAPTURE(here.move_cost_ter_furn( abs_to_bub( wall_pos_abs ) ));
-    REQUIRE(here.impassable_ter_furn( abs_to_bub( wall_pos_abs ) ));
+    CAPTURE(here.ter(abs_to_bub(wall_pos_abs)).id().str());
+    CAPTURE(here.move_cost_ter_furn(abs_to_bub(wall_pos_abs)));
+    REQUIRE(here.impassable_ter_furn(abs_to_bub(wall_pos_abs)));
 
     veh_ptr->velocity = 222;
     const auto probe = veh_ptr->part_collision(vehicle_part_collision_options{
         .part = 0,
-        .pos = abs_to_bub( wall_pos_abs ),
+        .pos = abs_to_bub(wall_pos_abs),
         .just_detect = true,
     });
     REQUIRE(probe.type != veh_coll_nothing);
@@ -58,7 +58,7 @@ TEST_CASE("vehicle_collision_with_wall_terminates", "[vehicle]") {
     veh_ptr->velocity = 222;
     const auto ret = veh_ptr->part_collision(vehicle_part_collision_options{
         .part = 0,
-        .pos = abs_to_bub( wall_pos_abs ),
+        .pos = abs_to_bub(wall_pos_abs),
     });
 
     CHECK(ret.type != veh_coll_nothing);
@@ -74,21 +74,21 @@ TEST_CASE("hallucination_monsters_do_not_shove_vehicles", "[vehicle][monster][ha
 
     const auto monster_pos_abs = test_origin;
     const auto veh_pos_abs = monster_pos_abs + tripoint_rel_ms::north();
-    auto* veh_ptr = here.add_vehicle( vproto_id("bicycle_test"), abs_to_bub( veh_pos_abs ),
-                                      270_degrees, 0, 0 );
+    auto* veh_ptr =
+        here.add_vehicle(vproto_id("bicycle_test"), abs_to_bub(veh_pos_abs), 270_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
-    auto& hallucination = spawn_test_monster( "mon_zombie_seaweed_brute",
-                                              abs_to_bub( monster_pos_abs ) );
+    auto& hallucination =
+        spawn_test_monster("mon_zombie_seaweed_brute", abs_to_bub(monster_pos_abs));
     hallucination.hallucination = true;
     REQUIRE(hallucination.is_hallucination());
     REQUIRE(hallucination.has_flag(MF_PUSH_VEH));
 
-    hallucination.shove_vehicle( abs_to_bub( veh_pos_abs + tripoint_rel_ms::north() ),
-                                abs_to_bub( veh_pos_abs ) );
+    hallucination
+        .shove_vehicle(abs_to_bub(veh_pos_abs + tripoint_rel_ms::north()), abs_to_bub(veh_pos_abs));
 
     CHECK(veh_ptr->velocity == 0);
-    CHECK(here.veh_at( abs_to_bub( veh_pos_abs ) ).has_value());
+    CHECK(here.veh_at(abs_to_bub(veh_pos_abs)).has_value());
 }
 
 TEST_CASE("vehicle_collision_with_hallucination_terminates", "[vehicle]") {
@@ -101,17 +101,17 @@ TEST_CASE("vehicle_collision_with_hallucination_terminates", "[vehicle]") {
     const auto hallucination_pos_abs = veh_pos_abs + tripoint_rel_ms::north();
 
     auto* veh_ptr =
-        here.add_vehicle(vproto_id("bicycle_test"), abs_to_bub( veh_pos_abs ), 270_degrees, 0, 0);
+        here.add_vehicle(vproto_id("bicycle_test"), abs_to_bub(veh_pos_abs), 270_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
-    auto& hallucination = spawn_test_monster( "mon_chicken", abs_to_bub( hallucination_pos_abs ) );
+    auto& hallucination = spawn_test_monster("mon_chicken", abs_to_bub(hallucination_pos_abs));
     hallucination.hallucination = true;
-    REQUIRE(g->critter_at<monster>( abs_to_bub( hallucination_pos_abs ), true ) == &hallucination);
+    REQUIRE(g->critter_at<monster>(abs_to_bub(hallucination_pos_abs), true) == &hallucination);
 
     veh_ptr->velocity = 5000;
     const auto ret = veh_ptr->part_collision(vehicle_part_collision_options{
         .part = 0,
-        .pos = abs_to_bub( hallucination_pos_abs ),
+        .pos = abs_to_bub(hallucination_pos_abs),
     });
 
     CHECK(ret.type == veh_coll_body);

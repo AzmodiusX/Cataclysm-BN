@@ -48,7 +48,7 @@ static auto reset_efficiency_state() -> void {
 
     // Move player somewhere safe
     REQUIRE_FALSE(g->u.in_vehicle);
-    g->u.setpos( test_origin_at_z( -2 ) + tripoint_rel_ms( SEEX - 1, SEEY - 1, 0 ) );
+    g->u.setpos(test_origin_at_z(-2) + tripoint_rel_ms(SEEX - 1, SEEY - 1, 0));
     // Blind the player to avoid needless drawing-related overhead
     g->u.add_effect(effect_blind, 365_days, bodypart_str_id::NULL_ID());
 }
@@ -179,11 +179,10 @@ static auto test_efficiency(
     prepare_efficiency_map(terrain);
 
     map& here = get_map();
-    const auto map_starting_point_abs = test_origin +
-                                        tripoint_rel_ms( 60 - g_half_mapsize_x,
-                                                60 - g_half_mapsize_y, 0 );
+    const auto map_starting_point_abs =
+        test_origin + tripoint_rel_ms(60 - g_half_mapsize_x, 60 - g_half_mapsize_y, 0);
     vehicle* veh_ptr =
-        here.add_vehicle(veh_id, abs_to_bub( map_starting_point_abs ), -90_degrees, 0, 0);
+        here.add_vehicle(veh_id, abs_to_bub(map_starting_point_abs), -90_degrees, 0, 0);
 
     REQUIRE(veh_ptr != nullptr);
     if (veh_ptr == nullptr) { return 0; }
@@ -273,12 +272,10 @@ TEST_CASE("vehicle_efficiency_movement_keeps_vehicle_on_valid_terrain", "[vehicl
     prepare_efficiency_map(ter_id("t_pavement"));
 
     map& here = get_map();
-    const auto map_starting_point_abs = test_origin +
-                                        tripoint_rel_ms( 60 - g_half_mapsize_x,
-                                                60 - g_half_mapsize_y, 0 );
-    vehicle* veh_ptr =
-        here.add_vehicle(vproto_id("fire_truck_test"), abs_to_bub( map_starting_point_abs ),
-                         -90_degrees, 0, 0);
+    const auto map_starting_point_abs =
+        test_origin + tripoint_rel_ms(60 - g_half_mapsize_x, 60 - g_half_mapsize_y, 0);
+    vehicle* veh_ptr = here.add_vehicle(
+        vproto_id("fire_truck_test"), abs_to_bub(map_starting_point_abs), -90_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
     vehicle& veh = *veh_ptr;
     veh.tags.insert("IN_CONTROL_OVERRIDE");

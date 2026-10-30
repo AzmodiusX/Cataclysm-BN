@@ -42,29 +42,29 @@ TEST_CASE("active_item_cache_tracks_bionic_scannable_corpses", "[item]") {
 
 TEST_CASE("nonperishable_food_does_not_enter_active_item_cache", "[item]") {
     clear_all_state();
-    g->m.i_clear( bub_test_origin() );
-    const auto abs_loc = project_to<coords::sm>( test_origin );
+    g->m.i_clear(bub_test_origin());
+    const auto abs_loc = project_to<coords::sm>(test_origin);
     const auto baseline_active_submaps = g->m.get_submaps_with_active_items();
 
     auto sugar = item::spawn("sugar");
     REQUIRE(sugar->is_food());
     REQUIRE_FALSE(sugar->goes_bad());
     REQUIRE_FALSE(sugar->needs_processing());
-    g->m.add_item( bub_test_origin(), std::move(sugar) );
+    g->m.add_item(bub_test_origin(), std::move(sugar));
     CHECK(g->m.get_submaps_with_active_items() == baseline_active_submaps);
 
     auto sashimi = item::spawn("sashimi");
     REQUIRE(sashimi->is_food());
     REQUIRE(sashimi->goes_bad());
     REQUIRE(sashimi->needs_processing());
-    g->m.add_item( bub_test_origin(), std::move(sashimi) );
+    g->m.add_item(bub_test_origin(), std::move(sashimi));
     CHECK(g->m.get_submaps_with_active_items().contains(abs_loc));
 }
 
 TEST_CASE("pointer_item_removal_updates_active_item_cache", "[item]") {
     clear_all_state();
-    g->m.i_clear( bub_test_origin() );
-    const auto abs_loc = project_to<coords::sm>( test_origin );
+    g->m.i_clear(bub_test_origin());
+    const auto abs_loc = project_to<coords::sm>(test_origin);
 
     auto active =
         item::spawn("firecracker_act", calendar::start_of_cataclysm, item::default_charges_tag());
@@ -72,10 +72,10 @@ TEST_CASE("pointer_item_removal_updates_active_item_cache", "[item]") {
     REQUIRE(active->needs_processing());
     auto* const active_ptr = &*active;
 
-    g->m.add_item( bub_test_origin(), std::move(active) );
+    g->m.add_item(bub_test_origin(), std::move(active));
     REQUIRE(g->m.get_submaps_with_active_items().contains(abs_loc));
 
-    auto removed = g->m.i_rem( bub_test_origin(), active_ptr );
+    auto removed = g->m.i_rem(bub_test_origin(), active_ptr);
     REQUIRE(removed != nullptr);
     CHECK_FALSE(g->m.get_submaps_with_active_items().contains(abs_loc));
     CHECK(g->m.check_submap_active_item_consistency().empty());
@@ -83,18 +83,18 @@ TEST_CASE("pointer_item_removal_updates_active_item_cache", "[item]") {
 
 TEST_CASE("stack_iterator_item_removal_updates_active_item_cache", "[item]") {
     clear_all_state();
-    g->m.i_clear( bub_test_origin() );
-    const auto abs_loc = project_to<coords::sm>( test_origin );
+    g->m.i_clear(bub_test_origin());
+    const auto abs_loc = project_to<coords::sm>(test_origin);
 
     auto active =
         item::spawn("firecracker_act", calendar::start_of_cataclysm, item::default_charges_tag());
     active->activate();
     REQUIRE(active->needs_processing());
 
-    g->m.add_item( bub_test_origin(), std::move(active) );
+    g->m.add_item(bub_test_origin(), std::move(active));
     REQUIRE(g->m.get_submaps_with_active_items().contains(abs_loc));
 
-    auto stack = g->m.i_at( bub_test_origin() );
+    auto stack = g->m.i_at(bub_test_origin());
     detached_ptr<item> removed;
     const auto next = stack.erase(stack.begin(), &removed);
     REQUIRE(removed != nullptr);
@@ -105,18 +105,18 @@ TEST_CASE("stack_iterator_item_removal_updates_active_item_cache", "[item]") {
 
 TEST_CASE("stack_clear_updates_active_item_cache", "[item]") {
     clear_all_state();
-    g->m.i_clear( bub_test_origin() );
-    const auto abs_loc = project_to<coords::sm>( test_origin );
+    g->m.i_clear(bub_test_origin());
+    const auto abs_loc = project_to<coords::sm>(test_origin);
 
     auto active =
         item::spawn("firecracker_act", calendar::start_of_cataclysm, item::default_charges_tag());
     active->activate();
     REQUIRE(active->needs_processing());
 
-    g->m.add_item( bub_test_origin(), std::move(active) );
+    g->m.add_item(bub_test_origin(), std::move(active));
     REQUIRE(g->m.get_submaps_with_active_items().contains(abs_loc));
 
-    auto stack = g->m.i_at( bub_test_origin() );
+    auto stack = g->m.i_at(bub_test_origin());
     auto removed = stack.clear();
     REQUIRE(removed.size() == 1);
     CHECK_FALSE(g->m.get_submaps_with_active_items().contains(abs_loc));
@@ -194,7 +194,7 @@ TEST_CASE("active_item_cache_moves_items_when_processing_speed_changes", "[item]
 
 TEST_CASE("content_removal_helpers_invalidate_processing_cache", "[item]") {
     clear_all_state();
-    g->m.i_clear( bub_test_origin() );
+    g->m.i_clear(bub_test_origin());
 
     SECTION("spill contents") {
         auto backpack = item::spawn("backpack");
@@ -204,7 +204,7 @@ TEST_CASE("content_removal_helpers_invalidate_processing_cache", "[item]") {
         backpack->put_in(std::move(active));
 
         REQUIRE(backpack->needs_processing());
-        backpack->contents.spill_contents( bub_test_origin() );
+        backpack->contents.spill_contents(bub_test_origin());
         CHECK_FALSE(backpack->needs_processing());
     }
 
@@ -281,9 +281,10 @@ TEST_CASE("place_active_item_at_various_coordinates", "[item]") {
     for (auto z = -OVERMAP_DEPTH; z <= OVERMAP_HEIGHT; ++z) {
         for (auto x = 0; x < g_mapsize_x; ++x) {
             for (auto y = 0; y < g_mapsize_y; ++y) {
-                const auto abs_pos = tripoint_abs_ms( project_to<coords::ms>( here.get_abs_sub() ), z )
-                                     + tripoint_rel_ms( x, y, 0 );
-                g->m.i_clear( abs_to_bub( abs_pos ) );
+                const auto abs_pos =
+                    tripoint_abs_ms(project_to<coords::ms>(here.get_abs_sub()), z)
+                    + tripoint_rel_ms(x, y, 0);
+                g->m.i_clear(abs_to_bub(abs_pos));
             }
         }
     }
@@ -297,9 +298,10 @@ TEST_CASE("place_active_item_at_various_coordinates", "[item]") {
     const auto z = 0;
     for (auto x = 0; x < g_mapsize_x; ++x) {
         for (auto y = 0; y < g_mapsize_y; ++y) {
-            const auto abs_pos = tripoint_abs_ms( project_to<coords::ms>( here.get_abs_sub() ), z )
-                                 + tripoint_rel_ms( x, y, 0 );
-            const auto bub_pos = abs_to_bub( abs_pos );
+            const auto abs_pos =
+                tripoint_abs_ms(project_to<coords::ms>(here.get_abs_sub()), z)
+                + tripoint_rel_ms(x, y, 0);
+            const auto bub_pos = abs_to_bub(abs_pos);
             REQUIRE(g->m.i_at(bub_pos).empty());
             CAPTURE(x, y, z);
             const auto abs_loc = g->m.get_abs_sub() + tripoint_rel_sm(x / SEEX, y / SEEY, z);

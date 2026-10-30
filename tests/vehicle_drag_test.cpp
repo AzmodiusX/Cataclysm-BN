@@ -33,7 +33,7 @@ static void clear_game_drag(const ter_id& terrain) {
     avatar& player_character = get_avatar();
     // Move player somewhere safe
     CHECK(!player_character.in_vehicle);
-    player_character.setpos( test_origin );
+    player_character.setpos(test_origin);
     // Blind the player to avoid needless drawing-related overhead
     player_character.add_effect(effect_blind, 365_days, bodypart_str_id::NULL_ID());
     // Make sure the ST is 8 so that muscle powered results are consistent
@@ -47,11 +47,10 @@ static void clear_game_drag(const ter_id& terrain) {
 
 static auto setup_drag_test(const vproto_id& veh_id) -> vehicle* { // *NOPAD*
     map& here = get_map();
-    const auto map_starting_point_abs = test_origin +
-                                        tripoint_rel_ms( 60 - g_half_mapsize_x,
-                                                60 - g_half_mapsize_y, 0 );
+    const auto map_starting_point_abs =
+        test_origin + tripoint_rel_ms(60 - g_half_mapsize_x, 60 - g_half_mapsize_y, 0);
     vehicle* veh_ptr =
-        here.add_vehicle(veh_id, abs_to_bub( map_starting_point_abs ), -90_degrees, 0, 0);
+        here.add_vehicle(veh_id, abs_to_bub(map_starting_point_abs), -90_degrees, 0, 0);
 
     REQUIRE(veh_ptr != nullptr);
     if (veh_ptr == nullptr) { return nullptr; }

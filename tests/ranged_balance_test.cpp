@@ -202,9 +202,7 @@ static void assert_encumbrance(npc& shooter, int encumbrance) {
     }
 }
 
-static auto shooter_pos() -> tripoint_bub_ms {
-    return bub_test_origin();
-}
+static auto shooter_pos() -> tripoint_bub_ms { return bub_test_origin(); }
 
 TEST_CASE("unskilled_shooter_accuracy", "[ranged][balance][slow][!mayfail]") {
     clear_all_state();

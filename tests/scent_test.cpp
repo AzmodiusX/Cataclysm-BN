@@ -1,7 +1,7 @@
 
 #include "../src/map/map.h"
-#include "catch/catch.hpp"
 #include "avatar.h"
+#include "catch/catch.hpp"
 #include "game.h"
 #include "map_helpers.h"
 #include "scent_map.h"
@@ -140,8 +140,8 @@ TEST_CASE("scent_blockers_ignore_vehicle_parts_outside_cache", "[scent]") {
 
     auto scent_transfer = std::vector<char>(MAPSIZE_X * MAPSIZE_Y, 5);
     here.scent_blockers(
-        scent_transfer, MAPSIZE_Y, vehicle_origin + tripoint_rel_ms( -5, -5, 0 ),
-        vehicle_origin + tripoint_rel_ms( 5, 5, 0 ));
+        scent_transfer, MAPSIZE_Y, vehicle_origin + tripoint_rel_ms(-5, -5, 0),
+        vehicle_origin + tripoint_rel_ms(5, 5, 0));
 
     CHECK(scent_transfer[MAPSIZE_Y] == 1);
 }
@@ -149,20 +149,20 @@ TEST_CASE("scent_blockers_ignore_vehicle_parts_outside_cache", "[scent]") {
 TEST_CASE("scent_matches_old", "[.]") {
     clear_all_state();
     // The comparison implementation indexes fixed-size bubble arrays directly.
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
     map& here = get_map();
 
-    here.ter_set( bub_test_origin() + tripoint_south_west, t_brick_wall);
-    here.ter_set( bub_test_origin() + tripoint_west, t_brick_wall);
-    here.ter_set( bub_test_origin() + tripoint_north, t_rock_wall_half);
-    here.ter_set( bub_test_origin(), t_rock_wall_half);
+    here.ter_set(bub_test_origin() + tripoint_south_west, t_brick_wall);
+    here.ter_set(bub_test_origin() + tripoint_west, t_brick_wall);
+    here.ter_set(bub_test_origin() + tripoint_north, t_rock_wall_half);
+    here.ter_set(bub_test_origin(), t_rock_wall_half);
     g->scent.reset();
 
-    g->scent.set( bub_test_origin(), 1000, scenttype_id("sc_human") );
+    g->scent.set(bub_test_origin(), 1000, scenttype_id("sc_human"));
 
-    g->scent.update( bub_test_origin(), here );
-    g->scent.update( bub_test_origin(), here );
-    g->scent.update( bub_test_origin(), here );
+    g->scent.update(bub_test_origin(), here);
+    g->scent.update(bub_test_origin(), here);
+    g->scent.update(bub_test_origin(), here);
 
     std::array<std::array<int, MAPSIZE_Y>, MAPSIZE_X> old_scent;
     for (auto& elem : old_scent) {

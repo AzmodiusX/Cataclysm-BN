@@ -60,7 +60,8 @@ static auto find_valid_teleporters_omt(const tripoint_abs_omt& omt_pt)
     // an OMT is SEEX * SEEY in size
     const auto sm_pt = project_to<coords::sm>(omt_pt.xy());
     mapbuffer& buf = get_map().get_mapbuffer();
-    auto omt_view = buf.resolve_abs_omt_view(omt_pt, {.policy = mapbuffer_lookup_policy::load_from_disk});
+    auto omt_view =
+        buf.resolve_abs_omt_view(omt_pt, {.policy = mapbuffer_lookup_policy::load_from_disk});
 
     if (!omt_view || !omt_view->has_any_submap()) { return std::nullopt; }
 
@@ -90,7 +91,7 @@ auto teleporter_list::place_avatar_overmap(Character& you, const tripoint_abs_om
         omt_dest->x() + g_half_mapsize_x, omt_dest->y() + g_half_mapsize_y, omt_dest->z());
     you.add_effect(efftype_id("ignore_fall_damage"), 1_seconds, bodypart_str_id::NULL_ID(), 0, true);
     g->place_player_overmap(omt_pt);
-    g->u.set_internal_position( bub_to_abs( local_dest ) );
+    g->u.set_internal_position(bub_to_abs(local_dest));
     return true;
 }
 

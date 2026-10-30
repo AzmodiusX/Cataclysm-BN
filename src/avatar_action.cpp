@@ -773,8 +773,10 @@ bool avatar_action::move( const tripoint_rel_ms &d )
                 }
             }
         }
-    } else if( here.get_ter( dest_loc ) == t_door_locked || here.get_ter( dest_loc ) == t_door_locked_peep ||
-               here.get_ter( dest_loc ) == t_door_locked_alarm || here.get_ter( dest_loc ) == t_door_locked_interior ) {
+    } else if( here.get_ter( dest_loc ) == t_door_locked ||
+               here.get_ter( dest_loc ) == t_door_locked_peep ||
+               here.get_ter( dest_loc ) == t_door_locked_alarm ||
+               here.get_ter( dest_loc ) == t_door_locked_interior ) {
         // Don't drain move points for learning something you could learn just by looking
         add_msg( _( "That door is locked!" ) );
     } else if( here.get_ter( dest_loc ) == t_door_bar_locked ) {
@@ -902,7 +904,8 @@ void avatar_action::swim( const tripoint_abs_ms &p )
             return;
         }
     }
-    if( m.has_flag_ter_or_furn( TFLAG_HIDE_PLACE, abs_to_bub( p ) ) && you.get_size() <= creature_size::medium ) {
+    if( m.has_flag_ter_or_furn( TFLAG_HIDE_PLACE, abs_to_bub( p ) ) &&
+        you.get_size() <= creature_size::medium ) {
         add_msg( m_good, _( "You are hiding in the %s." ), m.name( abs_to_bub( p ) ) );
     }
     g->process_player_movement( p );

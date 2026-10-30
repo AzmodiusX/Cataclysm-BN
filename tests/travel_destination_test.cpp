@@ -14,12 +14,12 @@ TEST_CASE("travel_destination_accepts_memorized_tiles", "[travel][map_memory]") 
     you.clear_map_memory();
     const auto cleanup = on_out_of_scope([&you]() { you.clear_map_memory(); });
 
-    const auto target_abs = tripoint_abs_ms( project_to<coords::ms>( get_map().get_abs_sub() ),
-                                             you.abs_pos().z() );
-    const auto target = abs_to_bub( target_abs );
+    const auto target_abs =
+        tripoint_abs_ms(project_to<coords::ms>(get_map().get_abs_sub()), you.abs_pos().z());
+    const auto target = abs_to_bub(target_abs);
     REQUIRE_FALSE(you.sees(target));
 
-    you.memorize_symbol( target_abs, '#' );
+    you.memorize_symbol(target_abs, '#');
 
     CHECK(avatar_knows_travel_destination(you, target));
 }

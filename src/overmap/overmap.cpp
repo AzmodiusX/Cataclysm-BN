@@ -6082,7 +6082,8 @@ void overmap::spawn_ores(const tripoint_abs_omt& p) {
              point_range<point_omt_sm>(point_omt_sm::zero(), point_omt_sm(1, 1))) {
             const auto dest_pos = target_sub + offset.raw();
 
-            submap* destsm = MAPBUFFER_REGISTRY.get(dimension_id_).load_submap_from_storage(dest_pos);
+            submap* destsm =
+                MAPBUFFER_REGISTRY.get(dimension_id_).load_submap_from_storage(dest_pos);
             submap* srcsm = generated_buffer.find_resident_submap(dest_pos);
             if (destsm == nullptr || srcsm == nullptr) { continue; }
 

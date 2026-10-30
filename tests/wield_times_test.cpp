@@ -65,8 +65,7 @@ static void do_test(const bool generating_cases) {
     wield_check_inv("Wielding combat knife from inventory while unencumbered", dummy,
                     item::spawn("knife_combat"), 125);
     wield_check_floor("Wielding metal tank from outside inventory while unencumbered",
-                      bub_test_origin(), dummy,
-                      item::spawn("metal_tank"), 300);
+                      bub_test_origin(), dummy, item::spawn("metal_tank"), 300);
     dummy.worn.clear();
     dummy.worn.push_back(item::spawn("gloves_work"));
     dummy.reset_encumbrance();

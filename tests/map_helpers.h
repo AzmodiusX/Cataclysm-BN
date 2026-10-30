@@ -27,9 +27,9 @@ void clear_vehicles();
 void build_test_map(const ter_id& terrain);
 void build_water_test_map(const ter_id& surface, const ter_id& mid, const ter_id& bottom);
 void set_time(const time_point& time);
-auto test_origin_at_z( int z ) -> tripoint_abs_ms;
+auto test_origin_at_z(int z) -> tripoint_abs_ms;
 auto test_map_origin() -> point_abs_sm;
 auto bub_test_origin() -> tripoint_bub_ms;
-auto bub_test_origin( int z ) -> tripoint_bub_ms;
+auto bub_test_origin(int z) -> tripoint_bub_ms;
 
 #endif // CATA_TESTS_MAP_HELPERS_H

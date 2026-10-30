@@ -259,14 +259,13 @@ TEST_CASE("reload_discovery_source_order_and_mounted_range", "[reload][reload_se
     auto& carried = who.i_add(item::spawn("38_special", calendar::start_of_cataclysm, 1));
     auto ground_owner = item::spawn("38_special", calendar::start_of_cataclysm, 6);
     auto& ground = *ground_owner;
-    here.add_item_or_charges( bub_test_origin(), std::move(ground_owner) );
+    here.add_item_or_charges(bub_test_origin(), std::move(ground_owner));
     here.add_item_or_charges(
         bub_test_origin() + tripoint_south * 2,
         item::spawn("38_special", calendar::start_of_cataclysm, 6));
 
-    auto* cart =
-        here.add_vehicle( vproto_id("shopping_cart"),
-                          bub_test_origin() + tripoint_east, 0_degrees, 0, 0 );
+    auto* cart = here.add_vehicle(
+        vproto_id("shopping_cart"), bub_test_origin() + tripoint_east, 0_degrees, 0, 0);
     REQUIRE(cart != nullptr);
     const auto cargo = cart->part_with_feature(tripoint_mnt_veh::zero(), "CARGO", true);
     REQUIRE(cargo >= 0);
@@ -283,7 +282,7 @@ TEST_CASE("reload_discovery_source_order_and_mounted_range", "[reload][reload_se
     CHECK(unmounted.options[2].ammo == &vehicle_ammo);
     for (const auto& option : unmounted.options) { CHECK(option.target == &gun); }
 
-    auto& horse = spawn_test_monster( "mon_horse", bub_test_origin() + tripoint_north );
+    auto& horse = spawn_test_monster("mon_horse", bub_test_origin() + tripoint_north);
     who.mount_creature(horse);
     REQUIRE(who.is_mounted());
     const auto mounted = reload::discover_ammo(who, gun);

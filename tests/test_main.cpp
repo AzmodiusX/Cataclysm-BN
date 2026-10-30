@@ -237,7 +237,7 @@ static void init_global_game_state(
     disable_mapgen = true;
 
     g->load_map(test_map_origin(), false);
-    g->u.setpos( test_origin );
+    g->u.setpos(test_origin);
 
     get_weather().update_weather();
 }
