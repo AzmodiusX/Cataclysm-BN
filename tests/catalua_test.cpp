@@ -2092,8 +2092,9 @@ TEST_CASE("lua_map_vehicle_replacement", "[lua]") {
     clear_all_state();
 
     auto& here = get_map();
-    const auto origin_abs = tripoint_abs_ms( project_to<coords::ms>( here.get_abs_sub() ), 0 ) +
-                            tripoint_rel_ms( 60, 60, 0 );
+    const auto origin_abs = test_origin +
+                            tripoint_rel_ms( 60 - g_half_mapsize_x,
+                                    60 - g_half_mapsize_y, 0 );
     const auto origin = abs_to_map_local( here, origin_abs );
     const auto original_facing = -90_degrees;
     const auto overridden_facing = 180_degrees;

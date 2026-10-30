@@ -98,12 +98,6 @@ auto player::setpos( const tripoint_abs_ms &p ) -> void
     if( p == abs_pos() ) {
         return;
     }
-
-    if( g != nullptr && this == &g->u ) {
-        g->process_player_movement( p );
-        return;
-    }
-
     set_internal_position( p );
 }
 

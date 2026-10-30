@@ -49,7 +49,8 @@ static auto fire_shell_at_target(
     target.set_body();
     target.setpos( target_abs );
     const auto target_pos = target.bub_pos();
-    const auto shooter_pos = target_pos - tripoint_rel_ms( 2, 0, 0 );
+    const auto shooter_pos_abs = target_abs - tripoint_rel_ms( 2, 0, 0 );
+    const auto shooter_pos = abs_to_bub( shooter_pos_abs );
     target.worn.clear();
     target.set_dodge_bonus(-100.0f);
     for (const auto& armor_id : armor_ids) { target.worn.push_back(item::spawn(armor_id)); }
@@ -223,10 +224,10 @@ TEST_CASE("shaped attacks apply trail ammo effects", "[ranged][projectile]") {
 
     map& here = get_map();
     auto& attacker = get_player_character();
-    const auto origin = bub_test_origin();
+    attacker.setpos( test_origin );
+    const auto origin = abs_to_bub( test_origin );
     const auto target = origin + 5 * point_east;
     attacker.set_body();
-    attacker.setpos( test_origin );
 
     const auto shape_factory = cone_factory(15_degrees, 6.0);
     const auto attack_shape = shape_factory.create(rl_vec3d(origin), rl_vec3d(target));
@@ -276,7 +277,8 @@ TEST_CASE(
     target.set_body();
     target.setpos( target_abs );
     const auto target_pos = target.bub_pos();
-    const auto shooter_pos = target_pos - tripoint_rel_ms( 2, 0, 0 );
+    const auto shooter_pos_abs = target_abs - tripoint_rel_ms( 2, 0, 0 );
+    const auto shooter_pos = abs_to_bub( shooter_pos_abs );
     target.worn.clear();
     target.set_dodge_bonus(-100.0f);
     REQUIRE(g->critter_at<avatar>(target_pos) != nullptr);

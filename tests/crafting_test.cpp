@@ -925,15 +925,14 @@ TEST_CASE("oven electric grid", "[crafting][overmap][grids][slow]") {
     avatar& u = get_avatar();
     u.setpos( test_origin );
     const auto start_pos_abs = test_origin;
-    const auto start_pos = u.bub_pos();
     clear_avatar();
     GIVEN("player is near an oven on an electric grid with a battery on it") {
         // TODO: clear_grids()
         auto om = ACTIVE_OVERMAP_BUFFER.get_om_global(u.abs_omt_pos());
         om.om->set_electric_grid_connections(om.local, {});
 
-        m.furn_set(start_pos + point(10, 0), furn_str_id("f_battery"));
-        m.furn_set(start_pos + point_east, furn_str_id("f_oven"));
+        m.furn_set( abs_to_bub( start_pos_abs + point( 10, 0 ) ), furn_str_id("f_battery") );
+        m.furn_set( abs_to_bub( start_pos_abs + point_east ), furn_str_id("f_oven") );
 
         distribution_grid_tracker& grid_tracker = get_distribution_grid_tracker();
         distribution_grid& grid = grid_tracker.grid_at(start_pos_abs + point(10, 0));

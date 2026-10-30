@@ -152,8 +152,9 @@ TEST_CASE(
 TEST_CASE("Aiming at a loaded target on another z-level", "[ranged][aiming][zlevel]") {
     clear_all_state();
 
-    const auto shooter_pos = shooter_pos_bub();
-    g->u.setpos( bub_to_abs( shooter_pos ) );
+    const auto shooter_abs = shooter_pos_abs();
+    g->u.setpos( shooter_abs );
+    const auto shooter_pos = abs_to_bub( shooter_abs );
     auto& shooter = g->u;
     clear_character(shooter, true);
     shooter.add_effect(efftype_id("debug_clairvoyance"), 1_seconds);

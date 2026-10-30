@@ -31,8 +31,9 @@ TEST_CASE("reload_on_vehicle_cargo", "[magazine][visitable][item][item_location]
 
     // Spawn a car...
     map& here = get_map();
-    const auto vehicle_center_abs = tripoint_abs_ms( project_to<coords::ms>( here.get_abs_sub() ), 0 ) +
-                                    tripoint_rel_ms( 65, 65, z );
+    const auto vehicle_center_abs = test_origin_at_z( z ) +
+                                    tripoint_rel_ms( 65 - g_half_mapsize_x,
+                                            65 - g_half_mapsize_y, 0 );
     const auto vehicle_center = abs_to_map_local( here, vehicle_center_abs );
     const vproto_id car_id("car");
 

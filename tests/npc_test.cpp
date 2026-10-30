@@ -63,13 +63,13 @@ TEST_CASE("hallucination_npcs_do_not_push_real_npcs", "[npc][hallucination]") {
     npc& hallucination_npc = spawn_npc( abs_to_bub( hallucination_pos_abs ), "test_talker" );
     hallucination_npc.hallucination = true;
     REQUIRE(hallucination_npc.is_hallucination());
-    REQUIRE(hallucination_npc.bub_pos() == abs_to_bub( hallucination_pos_abs ));
-    REQUIRE(bystander.bub_pos() == abs_to_bub( bystander_pos_abs ));
+    REQUIRE(hallucination_npc.abs_pos() == hallucination_pos_abs);
+    REQUIRE(bystander.abs_pos() == bystander_pos_abs);
 
     hallucination_npc.move_to( abs_to_bub( bystander_pos_abs ), true, nullptr );
 
-    CHECK(hallucination_npc.bub_pos() == abs_to_bub( hallucination_pos_abs ));
-    CHECK(bystander.bub_pos() == abs_to_bub( bystander_pos_abs ));
+    CHECK(hallucination_npc.abs_pos() == hallucination_pos_abs);
+    CHECK(bystander.abs_pos() == bystander_pos_abs);
 }
 
 TEST_CASE("hallucination_npcs_do_not_board_real_vehicles", "[npc][hallucination]") {
@@ -91,7 +91,7 @@ TEST_CASE("hallucination_npcs_do_not_board_real_vehicles", "[npc][hallucination]
     REQUIRE(hallucination_npc.is_hallucination());
     hallucination_npc.move_to( abs_to_bub( seat_pos_abs ), true, nullptr );
 
-    CHECK(hallucination_npc.bub_pos() == abs_to_bub( seat_pos_abs ));
+    CHECK(hallucination_npc.abs_pos() == seat_pos_abs);
     CHECK_FALSE(hallucination_npc.in_vehicle);
     CHECK(veh_ptr->get_passenger(
               here.veh_at( abs_to_bub( seat_pos_abs ) )
@@ -516,8 +516,9 @@ TEST_CASE("npc_can_target_player") {
     clear_creatures();
 
     Character& player_character = get_player_character();
-    npc& hostile = spawn_npc(player_character.bub_pos() + point_south, "thug");
-    REQUIRE(rl_dist(player_character.bub_pos(), hostile.bub_pos()) <= 1);
+    const auto hostile_pos_abs = player_character.abs_pos() + tripoint_rel_ms::south();
+    npc& hostile = spawn_npc(abs_to_bub( hostile_pos_abs ), "thug");
+    REQUIRE(rl_dist(player_character.abs_pos(), hostile.abs_pos()) <= 1);
     hostile.set_attitude(NPCATT_KILL);
     hostile.name = "Enemy NPC";
 

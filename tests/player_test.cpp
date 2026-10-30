@@ -624,17 +624,14 @@ TEST_CASE("player_move_through_vehicle_holes") {
     clear_all_state();
     player& dummy = get_avatar();
 
-    const auto pos_abs = test_origin;
-    const auto pos = abs_to_bub( pos_abs );
-
     get_map().add_vehicle( vproto_id("apc"),
-                           abs_to_bub( pos_abs + tripoint_rel_ms( 2, -1, 0 ) ),
+                           abs_to_bub( test_origin + tripoint_rel_ms( 2, -1, 0 ) ),
                            -45_degrees, 0, 0 );
-    get_map().build_map_cache(pos.z());
+    get_map().build_map_cache(test_origin.z());
 
-    REQUIRE(get_avatar().bub_pos() == pos);
+    REQUIRE(get_avatar().abs_pos() == test_origin);
 
-    avatar_action::move(get_avatar(), get_map(), point_rel_ms::north_west());
+    avatar_action::move(point_rel_ms::north_west());
 
-    CHECK(get_avatar().bub_pos() == pos);
+    CHECK(get_avatar().abs_pos() == test_origin);
 }

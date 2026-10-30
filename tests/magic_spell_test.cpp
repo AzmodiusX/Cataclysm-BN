@@ -132,12 +132,10 @@ TEST_CASE(
     const auto caster_pos_abs = test_origin;
     const auto target_pos_abs = caster_pos_abs + tripoint_rel_ms( 5, 0, 0 );
     you.setpos( caster_pos_abs );
-    const auto caster_pos = you.bub_pos();
-    const auto target_pos = caster_pos + tripoint_rel_ms( 5, 0, 0 );
     you.set_mutation(trait_id("INFRARED"));
     you.recalc_sight_limits();
 
-    monster& target = spawn_test_monster("mon_zombie", target_pos);
+    monster& target = spawn_test_monster("mon_zombie", abs_to_bub( target_pos_abs ) );
     map& here = get_map();
     here.invalidate_map_cache(you.bub_pos().z());
     g->refresh_player_visibility_cache_if_needed();
@@ -149,9 +147,9 @@ TEST_CASE(
     REQUIRE(
         std::ranges::contains(ranged::targetable_creatures(you, hostile_spell.range()), &target));
     REQUIRE(!you.sees_with_specials(target, true).is_null());
-    REQUIRE_FALSE(you.sees(target_pos));
+    REQUIRE_FALSE(you.sees( abs_to_bub( target_pos_abs ) ));
 
-    CHECK(spell_target_can_be_resolved(hostile_spell, you, target_pos));
+    CHECK(spell_target_can_be_resolved(hostile_spell, you, abs_to_bub( target_pos_abs ) ));
 }
 
 TEST_CASE("known magic remembers the last cast spell", "[magic][spell][save]") {

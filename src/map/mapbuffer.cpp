@@ -677,7 +677,9 @@ auto mapbuffer_abs_tile_view::get_ter() const -> ter_id { return sm_->get_ter(lo
 
 auto mapbuffer_abs_tile_view::get_furn() const -> furn_id { return sm_->get_furn(local_); }
 
-auto mapbuffer_abs_tile_view::get_trap() const -> trap_id { return sm_->get_trap(local_); }
+auto mapbuffer_abs_tile_view::get_trap() const -> trap_id {
+    return sm_->get_effective_trap( local_ );
+}
 
 auto mapbuffer_abs_tile_view::get_ter_t() const -> const ter_t& { return get_ter().obj(); }
 
@@ -693,6 +695,28 @@ auto mapbuffer_abs_tile_view::get_items() const -> const location_vector<item>& 
 
 auto mapbuffer_abs_tile_view::get_furn_vars() const -> const data_vars::data_set& {
     return sm_->get_furn_vars(local_);
+}
+
+auto mapbuffer_abs_tile_view::has_graffiti() const -> bool {
+    return sm_->has_graffiti( local_ );
+}
+
+auto mapbuffer_abs_tile_view::get_graffiti() const -> std::optional<std::string> {
+    if( !has_graffiti() ) {
+        return std::nullopt;
+    }
+    return sm_->get_graffiti( local_ );
+}
+
+auto mapbuffer_abs_tile_view::has_signage() const -> bool {
+    return sm_->has_signage( local_ );
+}
+
+auto mapbuffer_abs_tile_view::get_signage() const -> std::optional<std::string> {
+    if( !has_signage() ) {
+        return std::nullopt;
+    }
+    return sm_->get_signage( local_ );
 }
 
 auto mapbuffer_abs_tile_view::get_radiation() const -> int { return sm_->get_radiation(local_); }
@@ -2022,7 +2046,7 @@ auto mapbuffer::get_trap(const tripoint_abs_ms& p, const mapbuffer_lookup_option
     const auto tile = lookup_tile(*this, p, options);
     if (!tile) { return std::nullopt; }
 
-    return tile->sm->get_trap(tile->local);
+    return tile->sm->get_effective_trap( tile->local );
 }
 
 auto mapbuffer::set_trap(

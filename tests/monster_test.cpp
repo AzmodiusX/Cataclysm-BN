@@ -244,12 +244,10 @@ static auto moves_to_destination(
     -> int {
     clear_creatures();
     REQUIRE(g->num_creatures() == 1); // the player
-    const auto start = abs_to_bub(start_abs);
-    const auto end = abs_to_bub(end_abs);
-    monster& test_monster = spawn_test_monster(monster_type, start);
+    monster& test_monster = spawn_test_monster(monster_type, abs_to_bub( start_abs ) );
     // Get it riled up and give it a goal.
     test_monster.anger = 100;
-    test_monster.set_dest(end);
+    test_monster.set_dest( abs_to_bub( end_abs ) );
     test_monster.set_moves(0);
     const int monster_speed = test_monster.get_speed();
     int moves_spent = 0;
@@ -724,14 +722,15 @@ TEST_CASE("zombie_technician_pull_through_helicopter_windshield_is_blocked", "[m
     const auto windshield_pos = abs_to_map_local( here, seat_abs + tripoint_rel_ms::east() );
     REQUIRE(here.veh_at(windshield_pos).obstacle_at_part().has_value());
     you.setpos( seat_abs );
-    const auto technician_pos = abs_to_bub( seat_abs + tripoint_rel_ms( 2, 0, 0 ) );
+    const auto technician_pos_abs = seat_abs + tripoint_rel_ms( 2, 0, 0 );
     you.str_cur = 4;
     you.remove_primary_weapon();
     you.wield(item::spawn(pipe_id));
     REQUIRE(you.primary_weapon().typeId() == pipe_id);
 
-    monster& technician = spawn_test_monster("mon_zombie_technician", technician_pos);
-    technician.set_goal(you.bub_pos());
+    monster& technician = spawn_test_monster("mon_zombie_technician",
+                                             abs_to_bub( technician_pos_abs ) );
+    technician.set_goal( abs_to_bub( seat_abs ) );
     REQUIRE(technician.sees(you));
 
     CHECK_FALSE(mattack::pull_metal_weapon(&technician));
@@ -758,17 +757,17 @@ TEST_CASE("zombie_technician_pull_uses_physical_clear_path", "[monster][z-level]
 
     here.ter_set( abs_to_map_local( here, target_abs ), ter_id( "t_floor" ) );
     you.setpos( target_abs );
-    const auto target_pos = you.bub_pos();
-    here.ter_set( target_pos, ter_id( "t_open_air" ) );
-    const auto technician_pos = target_pos + tripoint_rel_ms::below();
-    here.ter_set( technician_pos, ter_id( "t_floor" ) );
+    here.ter_set( abs_to_bub( target_abs ), ter_id( "t_open_air" ) );
+    const auto technician_pos_abs = target_abs + tripoint_rel_ms::below();
+    here.ter_set( abs_to_bub( technician_pos_abs ), ter_id( "t_floor" ) );
     you.str_cur = 4;
     you.remove_primary_weapon();
     you.wield(item::spawn(flaregun_id));
     REQUIRE(you.primary_weapon().typeId() == flaregun_id);
 
-    monster& technician = spawn_test_monster("mon_zombie_technician", technician_pos);
-    technician.set_goal(you.bub_pos());
+    monster& technician = spawn_test_monster("mon_zombie_technician",
+                                             abs_to_bub( technician_pos_abs ) );
+    technician.set_goal( abs_to_bub( target_abs ) );
 
     SECTION("open air allows metal pulls") {
         CHECK(mattack::pull_metal_weapon(&technician));
@@ -776,7 +775,7 @@ TEST_CASE("zombie_technician_pull_uses_physical_clear_path", "[monster][z-level]
     }
 
     SECTION("vehicle floors block metal pulls") {
-        auto* veh = here.add_vehicle(vproto_id("none"), target_pos, 0_degrees, 0, 0);
+        auto* veh = here.add_vehicle(vproto_id("none"), abs_to_bub( target_abs ), 0_degrees, 0, 0);
 
         REQUIRE(veh != nullptr);
         veh->install_part(tripoint_mnt_veh::zero(), vpart_id("frame_vertical"));

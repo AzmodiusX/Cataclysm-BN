@@ -193,6 +193,10 @@ public:
     auto get_field() const -> const field&;
     auto get_items() const -> const location_vector<item>&;
     auto get_furn_vars() const -> const data_vars::data_set&;
+    auto has_graffiti() const -> bool;
+    auto get_graffiti() const -> std::optional<std::string>;
+    auto has_signage() const -> bool;
+    auto get_signage() const -> std::optional<std::string>;
     auto get_radiation() const -> int;
     auto get_lum() const -> std::uint8_t;
     auto move_cost_ter_furn() const -> int;

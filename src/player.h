@@ -37,10 +37,12 @@ class player : public Character
         void setpos( const tripoint_bub_ms &p ) override;
         void setpos( const tripoint_abs_ms &p ) override;
 
-        /// Move the player without applying normal movement effects.
+        /// Set the player at an absolute position without applying normal movement effects.
         ///
-        /// This is for loading, setup, map/dimension transitions, temporary presentation moves,
-        /// and other explicit relocation paths.  Normal gameplay movement must use setpos().
+        /// This synchronizes the active map when the player is the global avatar.  It is for
+        /// loading, setup, map/dimension transitions, temporary presentation moves, and other
+        /// explicit relocation paths.  Normal gameplay movement must use the game-owned walking
+        /// transaction.
         auto set_internal_position( const tripoint_abs_ms &p ) -> void;
 
         // populate variables, inventory items, and misc from json object

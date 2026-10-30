@@ -893,9 +893,13 @@ class game : public submap_load_listener
         bool npc_menu( npc &who, const bool &force = false );
 
         // Handle phasing through walls, returns true if it handled the move
-        bool phasing_move( const tripoint_bub_ms &dest, bool via_ramp = false );
+        bool phasing_move( const tripoint_abs_ms &dest, bool via_ramp = false );
         // Regular movement. Returns false if it failed for any reason
-        bool walk_move( const tripoint_bub_ms &dest, bool via_ramp = false );
+        bool walk_move( const tripoint_abs_ms &dest, bool via_ramp = false );
+        /// Applies the movement effects for an already-authorized player step.
+        /// Callers that perform a specialized movement path, such as swimming,
+        /// must invoke this explicitly instead of relying on player::setpos().
+        auto process_player_movement( const tripoint_abs_ms &dest ) -> point_rel_sm;
         void on_move_effects();
     private:
         // Game-start procedures
@@ -965,12 +969,6 @@ class game : public submap_load_listener
 
         void butcher(); // Butcher a corpse  'B'
         void dissect(); // dissect a corpse
-    private:
-        // Applies the complete normal player movement transaction for an absolute destination.
-        // player::setpos() is the public movement entry point; this helper remains game-owned
-        // because the transaction still coordinates map, vehicle, creature, and player effects.
-        auto process_player_movement( const tripoint_abs_ms &dest ) -> point_rel_sm;
-
     public:
         void place_player_overmap( const tripoint_abs_omt &om_dest );
 

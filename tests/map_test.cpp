@@ -215,9 +215,9 @@ TEST_CASE("moving_between_adjacent_pit_traps") {
         const auto hp_before = g->u.get_hp();
 
         CHECK(g->get_dangerous_tile( abs_to_bub( positions.destination ) ).empty());
-        REQUIRE(avatar_action::move(g->u, get_map(), tripoint_rel_ms::east()));
+        REQUIRE(avatar_action::move(tripoint_rel_ms::east()));
 
-        CHECK(g->u.bub_pos() == abs_to_bub( positions.destination ));
+        CHECK(g->u.abs_pos() == positions.destination);
         CHECK(g->u.get_hp() == hp_before);
         CHECK(g->u.has_effect(effect_in_pit));
     }
@@ -228,9 +228,9 @@ TEST_CASE("moving_between_adjacent_pit_traps") {
         const auto hp_before = g->u.get_hp();
 
         CHECK_FALSE(g->get_dangerous_tile( abs_to_bub( positions.destination ) ).empty());
-        REQUIRE(avatar_action::move(g->u, get_map(), tripoint_rel_ms::east()));
+        REQUIRE(avatar_action::move(tripoint_rel_ms::east()));
 
-        CHECK(g->u.bub_pos() == abs_to_bub( positions.destination ));
+        CHECK(g->u.abs_pos() == positions.destination);
         CHECK(g->u.get_hp() < hp_before);
     }
 
@@ -240,9 +240,9 @@ TEST_CASE("moving_between_adjacent_pit_traps") {
         const auto hp_before = g->u.get_hp();
 
         CHECK_FALSE(g->get_dangerous_tile( abs_to_bub( positions.destination ) ).empty());
-        REQUIRE(avatar_action::move(g->u, get_map(), tripoint_rel_ms::east()));
+        REQUIRE(avatar_action::move(tripoint_rel_ms::east()));
 
-        CHECK(g->u.bub_pos() == abs_to_bub( positions.destination ));
+        CHECK(g->u.abs_pos() == positions.destination);
         CHECK(g->u.get_hp() < hp_before);
     }
 
@@ -251,9 +251,9 @@ TEST_CASE("moving_between_adjacent_pit_traps") {
         const auto hp_before = g->u.get_hp();
 
         CHECK(g->get_dangerous_tile( abs_to_bub( positions.destination ) ).empty());
-        REQUIRE(avatar_action::move(g->u, get_map(), tripoint_rel_ms::east()));
+        REQUIRE(avatar_action::move(tripoint_rel_ms::east()));
 
-        CHECK(g->u.bub_pos() == abs_to_bub( positions.destination ));
+        CHECK(g->u.abs_pos() == positions.destination);
         CHECK(g->u.get_hp() == hp_before);
         CHECK(g->u.has_effect(effect_in_pit));
     }
@@ -286,7 +286,7 @@ TEST_CASE("moving through a sharp window frame can cause bleeding") {
         (void)attempt;
         reset_jumping_player(g->u, test_origin, 2);
 
-        REQUIRE(g->walk_move( abs_to_bub( destination ), false ));
+        REQUIRE(g->walk_move( destination, false ));
         if (g->u.has_effect(effect_bleed)) {
             started_bleeding = true;
             break;
@@ -1465,7 +1465,7 @@ TEST_CASE("free_bubble_conversions_follow_avatar_position") {
     const auto player_sm = tripoint_abs_sm(100, 200, 2);
     const auto player_offset = tripoint_rel_ms(3, 4, 0);
     const auto player_abs = project_to<coords::ms>(player_sm) + player_offset;
-    you.Character::setpos(player_abs);
+    you.setpos(player_abs);
 
     const auto expected_origin = player_sm - tripoint_rel_sm(g_half_mapsize, g_half_mapsize, 0);
     const auto expected_bub = tripoint_bub_ms(
@@ -1484,9 +1484,26 @@ TEST_CASE("free_bubble_conversions_follow_avatar_position") {
     const auto moved_bub =
         tripoint_bub_ms(g_half_mapsize_x + 1, g_half_mapsize_y + 2, player_abs.z());
     const auto moved_abs = bub_to_abs(moved_bub);
-    you.Character::setpos(moved_abs);
+    you.setpos(moved_abs);
     CHECK(you.abs_pos() == moved_abs);
     CHECK(you.bub_pos() == moved_bub);
+}
+
+TEST_CASE("place_player_overmap_reanchors_loaded_map") {
+    clear_all_state();
+    const auto cleanup = on_out_of_scope([]() { clear_all_state(); });
+
+    const auto destination = tripoint_abs_omt(20, -20, 0);
+    const auto expected_map_origin = project_to<coords::sm>( destination ).xy() +
+                                     point_rel_sm( -g_half_mapsize, -g_half_mapsize );
+    const auto expected_player_local =
+        tripoint_bub_ms(g_half_mapsize_x, g_half_mapsize_y, destination.z());
+
+    g->place_player_overmap(destination);
+
+    CHECK(get_map().get_abs_sub() == expected_map_origin);
+    CHECK(g->u.abs_pos() == map_local_to_abs(get_map(), expected_player_local));
+    CHECK(g->u.abs_pos() == bub_to_abs(g->u.bub_pos()));
 }
 
 TEST_CASE("reality_bubble_origin_helpers_use_explicit_size") {
@@ -1518,7 +1535,6 @@ TEST_CASE("avatar_setpos_updates_map_from_absolute_position") {
     CHECK(here.get_abs_sub() ==
           reality_bubble_origin_from_player(destination_abs, g_reality_bubble_size).xy());
     CHECK(you.abs_pos() == destination_abs);
-    CHECK(you.bub_pos() == abs_to_bub(destination_abs));
     CHECK(g->update_map(you) == point_rel_sm::zero());
 
     const auto moved_origin = here.get_abs_sub();
@@ -1540,14 +1556,12 @@ TEST_CASE("monster_tracker_uses_absolute_positions") {
     REQUIRE(mon != nullptr);
     const auto monster_abs = mon->abs_pos();
 
-    CHECK(mon->bub_pos() == abs_to_bub( monster_start_abs ));
     CHECK(g->critter_at<monster>( abs_to_bub( monster_start_abs ) ) == mon);
     CHECK(g->critter_at<monster>(monster_abs) == mon);
 
     you.setpos(you.abs_pos() + tripoint_rel_ms(SEEX, 0, 0));
     const auto player_shifted_monster_pos = abs_to_bub(monster_abs);
     CHECK(mon->abs_pos() == monster_abs);
-    CHECK(mon->bub_pos() == player_shifted_monster_pos);
     CHECK(g->critter_at<monster>(monster_abs) == mon);
     CHECK(g->critter_at<monster>(player_shifted_monster_pos) == mon);
 

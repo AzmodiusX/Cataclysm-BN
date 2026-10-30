@@ -96,10 +96,10 @@ TEST_CASE("Avatar drags manually grabbed monster while moving", "[player][melee]
     REQUIRE(g->critter_at<monster>( abs_to_bub( monster_start_abs ) ) == &zed);
 
     const auto avatar_destination_abs = avatar_start_abs + tripoint_rel_ms::east();
-    REQUIRE(g->walk_move( abs_to_bub( avatar_destination_abs ), false ));
+    REQUIRE(g->walk_move( avatar_destination_abs, false ));
 
-    CHECK(dummy.bub_pos() == abs_to_bub( avatar_destination_abs ));
-    CHECK(zed.bub_pos() == abs_to_bub( avatar_start_abs ));
+    CHECK(dummy.abs_pos() == avatar_destination_abs);
+    CHECK(zed.abs_pos() == avatar_start_abs);
     CHECK(g->critter_at<monster>( abs_to_bub( avatar_start_abs ) ) == &zed);
 }
 
@@ -123,7 +123,7 @@ TEST_CASE("Manually grabbed monster cannot walk away", "[player][melee][grab]") 
     CHECK_FALSE(zed.can_move_to( abs_to_bub( monster_destination_abs ) ));
     CHECK(zed.can_move_to( abs_to_bub( monster_start_abs ) ));
     CHECK_FALSE(zed.move_to( abs_to_bub( monster_destination_abs ) ));
-    CHECK(zed.bub_pos() == abs_to_bub( monster_start_abs ));
+    CHECK(zed.abs_pos() == monster_start_abs);
 }
 
 TEST_CASE(
@@ -157,8 +157,8 @@ TEST_CASE(
             abs_to_bub( monster_start_abs + tripoint_rel_ms::north() ),
             abs_to_bub( monster_start_abs + tripoint_rel_ms::north() + tripoint_rel_ms::north() )};
         g->knockback(trajectory, 0, 0, &dummy);
-        REQUIRE(zed.bub_pos() == abs_to_bub( monster_start_abs + tripoint_rel_ms::north() +
-                                             tripoint_rel_ms::north() ));
+        REQUIRE(zed.abs_pos() == monster_start_abs + tripoint_rel_ms::north() +
+                 tripoint_rel_ms::north());
     }
     SECTION("Cardinally adjacent grab persists") { remains_adjacent = true; }
     SECTION("Diagonally adjacent grab persists") {

@@ -36,11 +36,10 @@ auto setup_shriek_stun_test() -> shriek_stun_setup {
     auto& target = get_avatar();
     const auto target_abs = test_origin + tripoint_rel_ms( 2, 0, 0 );
     target.setpos( target_abs );
-    const auto target_pos = target.bub_pos();
-    const auto screecher_pos = target_pos - tripoint_rel_ms( 2, 0, 0 );
+    const auto screecher_pos_abs = target_abs - tripoint_rel_ms( 2, 0, 0 );
 
-    auto& screecher = spawn_test_monster("mon_zombie_screecher", screecher_pos);
-    screecher.set_dest(target.bub_pos());
+    auto& screecher = spawn_test_monster("mon_zombie_screecher", abs_to_bub( screecher_pos_abs ) );
+    screecher.set_dest( abs_to_bub( target_abs ) );
     screecher.add_effect(effect_shrieking, 1_minutes);
 
     return {.screecher = screecher, .target = target};
