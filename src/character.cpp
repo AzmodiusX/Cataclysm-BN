@@ -1371,7 +1371,7 @@ void Character::mount_creature( monster &z )
             add_msg( m_warning, _( "You let go of the grabbed object." ) );
             g->u.grab( OBJECT_NONE );
         }
-        g->place_player( pnt );
+        setpos( bub_to_abs( pnt ) );
     } else {
         npc &guy = dynamic_cast<npc &>( *this );
         guy.setpos( pnt );

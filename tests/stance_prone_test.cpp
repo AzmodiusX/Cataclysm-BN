@@ -15,12 +15,12 @@
 
 #include <vector>
 
-static constexpr tripoint_bub_ms shooter_pos(60, 60, 0);
+static auto shooter_pos() -> tripoint_bub_ms { return bub_test_origin(); }
 
 TEST_CASE("prone_stance_movement_costs", "[stance][prone][movement]") {
     clear_all_state();
     avatar& shooter = g->u;
-    g->place_player(shooter_pos);
+    g->u.setpos( bub_to_abs( shooter_pos() ) );
 
     GIVEN("character standing") {
         shooter.set_movement_mode(character_movemode::CMM_WALK);
@@ -96,7 +96,7 @@ TEST_CASE("prone_stance_movement_costs", "[stance][prone][movement]") {
 TEST_CASE("prone_stance_ranged_effects", "[stance][prone][ranged]") {
     clear_all_state();
     avatar& shooter = g->u;
-    g->place_player(shooter_pos);
+    g->u.setpos( bub_to_abs( shooter_pos() ) );
     build_test_map(ter_id("t_dirt"));
 
     GIVEN("a rifle with bipod") {

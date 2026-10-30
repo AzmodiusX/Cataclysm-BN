@@ -169,6 +169,7 @@ bool is_valid_in_w_terrain( point p );
 // NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
 class game : public submap_load_listener
 {
+        friend class player;
         friend class editmap;
         friend class advanced_inventory;
         friend class main_menu;
@@ -964,9 +965,13 @@ class game : public submap_load_listener
 
         void butcher(); // Butcher a corpse  'B'
         void dissect(); // dissect a corpse
+    private:
+        // Applies the complete normal player movement transaction for an absolute destination.
+        // player::setpos() is the public movement entry point; this helper remains game-owned
+        // because the transaction still coordinates map, vehicle, creature, and player effects.
+        auto process_player_movement( const tripoint_abs_ms &dest ) -> point_rel_sm;
+
     public:
-        // Places the player at the specified point; hurts feet, lists items etc.
-        auto place_player( const tripoint_bub_ms &dest ) -> point_rel_sm;
         void place_player_overmap( const tripoint_abs_omt &om_dest );
 
         unsigned int get_seed() const;

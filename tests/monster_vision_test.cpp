@@ -11,7 +11,8 @@
 
 struct tripoint;
 
-static auto spawn_and_clear(const tripoint_bub_ms& pos, bool set_floor) -> monster& { // *NOPAD*
+static auto spawn_and_clear(const tripoint_abs_ms& pos_abs, bool set_floor) -> monster& { // *NOPAD*
+    const auto pos = abs_to_bub(pos_abs);
     if (set_floor) { get_map().set(pos, t_floor, f_null); }
     return spawn_test_monster("mon_zombie", pos);
 }
@@ -21,12 +22,13 @@ static const time_point midday = calendar::turn_zero + 12_hours;
 TEST_CASE("monsters shouldn't see through floors", "[vision]") {
     clear_all_state();
     calendar::turn = midday;
-    monster& upper = spawn_and_clear({5, 5, 0}, true);
-    monster& adjacent = spawn_and_clear({5, 6, 0}, true);
-    monster& distant = spawn_and_clear({5, 3, 0}, true);
-    monster& lower = spawn_and_clear({5, 5, -1}, true);
-    monster& deep = spawn_and_clear({5, 5, -2}, true);
-    monster& sky = spawn_and_clear({5, 5, 1}, false);
+    const auto origin_abs = test_origin;
+    monster& upper = spawn_and_clear(origin_abs + tripoint_rel_ms(5, 5, 0), true);
+    monster& adjacent = spawn_and_clear(origin_abs + tripoint_rel_ms(5, 6, 0), true);
+    monster& distant = spawn_and_clear(origin_abs + tripoint_rel_ms(5, 3, 0), true);
+    monster& lower = spawn_and_clear(origin_abs + tripoint_rel_ms(5, 5, -1), true);
+    monster& deep = spawn_and_clear(origin_abs + tripoint_rel_ms(5, 5, -2), true);
+    monster& sky = spawn_and_clear(origin_abs + tripoint_rel_ms(5, 5, 1), false);
 
     // First check monsters whose vision should be blocked by floors.
     // One intervening floor between monsters.
@@ -73,12 +75,13 @@ TEST_CASE("monsters_dont_see_through_vehicle_holes", "[vision]") {
     clear_all_state();
     calendar::turn = midday;
     move_player_out_of_the_way();
-    tripoint_bub_ms origin(60, 60, 0);
+    const auto origin_abs = test_origin;
+    const auto origin = abs_to_bub(origin_abs);
 
     get_map().add_vehicle(vproto_id("apc"), origin, -45_degrees, 0, 0);
     get_map().build_map_cache(0);
 
-    tripoint_bub_ms mon_origin = origin + tripoint_rel_ms(-2, 1, 0);
+    const auto mon_origin = abs_to_bub(origin_abs + tripoint_rel_ms(-2, 1, 0));
 
     monster& inside = spawn_test_monster("mon_zombie", mon_origin);
 

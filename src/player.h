@@ -37,6 +37,12 @@ class player : public Character
         void setpos( const tripoint_bub_ms &p ) override;
         void setpos( const tripoint_abs_ms &p ) override;
 
+        /// Move the player without applying normal movement effects.
+        ///
+        /// This is for loading, setup, map/dimension transitions, temporary presentation moves,
+        /// and other explicit relocation paths.  Normal gameplay movement must use setpos().
+        auto set_internal_position( const tripoint_abs_ms &p ) -> void;
+
         // populate variables, inventory items, and misc from json object
         virtual void deserialize( JsonIn &jsin ) = 0;
 

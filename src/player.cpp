@@ -1,6 +1,7 @@
 #include "player.h"
 
 #include "enums.h"
+#include "avatar.h"
 #include "flag.h"
 #include "game.h"
 #include "map/map.h"
@@ -13,10 +14,11 @@
 #include <memory>
 #include <string>
 
-static auto update_map_after_player_setpos( player &who,
-        const tripoint_abs_ms &old_pos ) -> void
+namespace {
+
+auto update_map_after_internal_position( player &who, const tripoint_abs_ms &old_pos ) -> void
 {
-    if( g == nullptr || !who.is_avatar() ) {
+    if( g == nullptr || &who != &g->u ) {
         return;
     }
 
@@ -35,6 +37,8 @@ static auto update_map_after_player_setpos( player &who,
         g->vertical_shift( old_pos.z(), new_pos.z() );
     }
 }
+
+} // namespace
 
 player::player()
 {
@@ -91,9 +95,23 @@ auto player::setpos( const tripoint_bub_ms &p ) -> void
 
 auto player::setpos( const tripoint_abs_ms &p ) -> void
 {
-    const auto old_pos = position;
+    if( p == abs_pos() ) {
+        return;
+    }
+
+    if( g != nullptr && this == &g->u ) {
+        g->process_player_movement( p );
+        return;
+    }
+
+    set_internal_position( p );
+}
+
+auto player::set_internal_position( const tripoint_abs_ms &p ) -> void
+{
+    const auto old_pos = abs_pos();
     position = p;
-    update_map_after_player_setpos( *this, old_pos );
+    update_map_after_internal_position( *this, old_pos );
 }
 
 

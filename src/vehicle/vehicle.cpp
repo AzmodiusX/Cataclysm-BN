@@ -2680,7 +2680,12 @@ void vehicle::relocate_passengers(const std::vector<Character*>& passengers) {
     const auto boardables = get_avail_parts("BOARDABLE");
     for (auto* passenger : passengers) {
         for (const vpart_reference& vp : boardables) {
-            if (vp.part().passenger_id == passenger->getID()) { passenger->setpos(vp.pos()); }
+            if (vp.part().passenger_id != passenger->getID()) { continue; }
+            if( player *const passenger_player = passenger->as_player(); passenger_player == &g->u ) {
+                passenger_player->set_internal_position( map_local_to_abs( g->m, vp.pos() ) );
+            } else {
+                passenger->setpos( vp.pos() );
+            }
         }
     }
 }

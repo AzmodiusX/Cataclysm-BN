@@ -1858,7 +1858,11 @@ void map::board_vehicle(const tripoint_bub_ms& pos, Character* who) {
     vp->part().passenger_id = who->getID();
     vp->vehicle().invalidate_mass();
 
-    who->setpos(pos);
+    if( player *const passenger = who->as_player(); passenger == &g->u ) {
+        passenger->set_internal_position( map_local_to_abs( *this, pos ) );
+    } else {
+        who->setpos( pos );
+    }
     who->in_vehicle = true;
 }
 
@@ -2001,7 +2005,11 @@ auto map::displace_vehicle(vehicle& veh, const tripoint_rel_ms& dp) -> bool {
                 z_change = psgp.z() != part_pos.z();
             }
 
-            psg->setpos(psgp);
+            if( player *const passenger = psg->as_player(); passenger == &g->u ) {
+                passenger->set_internal_position( map_local_to_abs( *this, psgp ) );
+            } else {
+                psg->setpos( psgp );
+            }
             r.moved = true;
         }
     }

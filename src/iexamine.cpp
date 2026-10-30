@@ -1413,7 +1413,7 @@ void iexamine::chainfence( player &p, const tripoint_bub_ms &examp )
     if( p.in_vehicle ) {
         here.unboard_vehicle( p.bub_pos() );
     }
-    p.setpos( examp );
+    p.set_internal_position( bub_to_abs( examp ) );
 }
 
 /**
@@ -1441,7 +1441,7 @@ void iexamine::bars( player &p, const tripoint_bub_ms &examp )
     }
     p.moves -= to_turns<int>( 2_seconds );
     add_msg( _( "You slide right between the bars." ) );
-    p.setpos( examp );
+    p.set_internal_position( bub_to_abs( examp ) );
 }
 
 void iexamine::deployed_furniture( player &p, const tripoint_bub_ms &pos )
@@ -6200,7 +6200,7 @@ auto iexamine::jump_over_tile( player &p, const tripoint_bub_ms &examp ) -> bool
         add_msg( m_info, _( "You leap across." ) );
         maybe_cut_from_sharp_jump_terrain( p, here, jumped_tile );
     }
-    p.setpos( jump_state.dest );
+    p.set_internal_position( jump_state.dest );
     if( stumbled ) {
         add_msg( m_bad, _( "You misjudge the leap past %s and crash to the ground." ),
                  jumped_obstacle_name );
@@ -6350,7 +6350,7 @@ void iexamine::ledge( player &p, const tripoint_bub_ms &examp_bub )
             }
 
             p.moves -= to_moves<int>( 1_seconds + 1_seconds * fall_mod );
-            p.setpos( examp );
+            p.set_internal_position( examp );
 
             if( climb_cost > 0 || rng_float( 0.8, 1.0 ) > fall_mod ) {
                 // One tile of falling less (possibly zero)
@@ -8520,7 +8520,7 @@ void iexamine::portal( player &p, const tripoint_bub_ms &examp )
 
     g->travel_to_dimension( pt->target_dim_id, wt_id, std::nullopt, dest_sm );
 
-    p.setpos( pt->target_pos );
+    p.set_internal_position( pt->target_pos );
 }
 
 void iexamine::migo_nerve_cluster( player &p, const tripoint_bub_ms &examp )

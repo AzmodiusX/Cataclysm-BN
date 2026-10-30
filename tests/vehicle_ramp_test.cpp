@@ -40,6 +40,14 @@
 #include <utility>
 #include <vector>
 
+static auto ramp_test_origin_abs() -> tripoint_abs_ms {
+    return tripoint_abs_ms( project_to<coords::ms>( get_map().get_abs_sub() ), 0 );
+}
+
+static auto ramp_test_pos_abs( const int x, const int y, const int z ) -> tripoint_abs_ms {
+    return ramp_test_origin_abs() + tripoint_rel_ms( x, y, z );
+}
+
 static void set_ramp(const int transit_x, bool use_ramp, bool up) {
     // Set to turn 0 to prevent solars from producing power
     calendar::turn = calendar::turn_zero;
@@ -49,6 +57,10 @@ static void set_ramp(const int transit_x, bool use_ramp, bool up) {
 
     map& here = get_map();
     build_test_map(ter_id("t_pavement"));
+    const auto map_origin_abs = ramp_test_origin_abs();
+    const auto map_pos = [map_origin_abs]( const int x, const int y, const int z ) {
+        return abs_to_bub( map_origin_abs + tripoint_rel_ms( x, y, z ) );
+    };
     if (use_ramp) {
         const int upper_zlevel = up ? 1 : 0;
         const int lower_zlevel = up - 1;
@@ -63,24 +75,24 @@ static void set_ramp(const int transit_x, bool use_ramp, bool up) {
         for (int y = 0; y < SEEY * MAPSIZE; y++) {
             for (int x = 0; x < transit_x; x++) {
                 const int mid = up ? upper_zlevel : lower_zlevel;
-                here.ter_set(tripoint_bub_ms(x, y, mid - 2), ter_id("t_rock"));
-                here.ter_set(tripoint_bub_ms(x, y, mid - 1), ter_id("t_rock"));
-                here.ter_set(tripoint_bub_ms(x, y, mid), ter_id("t_pavement"));
-                here.ter_set(tripoint_bub_ms(x, y, mid + 1), ter_id("t_open_air"));
-                here.ter_set(tripoint_bub_ms(x, y, mid + 2), ter_id("t_open_air"));
+                here.ter_set(map_pos( x, y, mid - 2 ), ter_id("t_rock"));
+                here.ter_set(map_pos( x, y, mid - 1 ), ter_id("t_rock"));
+                here.ter_set(map_pos( x, y, mid ), ter_id("t_pavement"));
+                here.ter_set(map_pos( x, y, mid + 1 ), ter_id("t_open_air"));
+                here.ter_set(map_pos( x, y, mid + 2 ), ter_id("t_open_air"));
             }
-            const tripoint_bub_ms ramp_up_low = tripoint_bub_ms(lowx, y, lower_zlevel);
-            const tripoint_bub_ms ramp_up_high = tripoint_bub_ms(highx, y, lower_zlevel);
-            const tripoint_bub_ms ramp_down_low = tripoint_bub_ms(lowx, y, upper_zlevel);
-            const tripoint_bub_ms ramp_down_high = tripoint_bub_ms(highx, y, upper_zlevel);
+            const auto ramp_up_low = map_pos( lowx, y, lower_zlevel );
+            const auto ramp_up_high = map_pos( highx, y, lower_zlevel );
+            const auto ramp_down_low = map_pos( lowx, y, upper_zlevel );
+            const auto ramp_down_high = map_pos( highx, y, upper_zlevel );
             here.ter_set(ramp_up_low, ter_id("t_ramp_up_low"));
             here.ter_set(ramp_up_high, ter_id("t_ramp_up_high"));
             here.ter_set(ramp_down_low, ter_id("t_ramp_down_low"));
             here.ter_set(ramp_down_high, ter_id("t_ramp_down_high"));
             for (int x = transit_x + 2; x < SEEX * MAPSIZE; x++) {
-                here.ter_set(tripoint_bub_ms(x, y, 1), ter_id("t_open_air"));
-                here.ter_set(tripoint_bub_ms(x, y, 0), ter_id("t_pavement"));
-                here.ter_set(tripoint_bub_ms(x, y, -1), ter_id("t_rock"));
+                here.ter_set( map_pos( x, y, 1 ), ter_id("t_open_air") );
+                here.ter_set( map_pos( x, y, 0 ), ter_id("t_pavement") );
+                here.ter_set( map_pos( x, y, -1 ), ter_id("t_rock") );
             }
         }
     }
@@ -91,21 +103,23 @@ static void set_ramp(const int transit_x, bool use_ramp, bool up) {
 }
 
 static auto setup_grabbed_shopping_cart(
-    const tripoint_bub_ms& player_pos, const tripoint_bub_ms& cart_pos) -> vehicle& {
+    const tripoint_abs_ms& player_pos_abs, const tripoint_abs_ms& cart_pos_abs) -> vehicle& {
     auto& here = get_map();
     auto& player_character = get_avatar();
-    player_character.setpos(player_pos);
+    player_character.setpos( player_pos_abs );
     player_character.str_max = 100;
     player_character.str_cur = 100;
 
-    auto* veh_ptr = here.add_vehicle(vproto_id("shopping_cart"), cart_pos, 0_degrees, 0, 0);
+    auto* veh_ptr = here.add_vehicle(vproto_id("shopping_cart"), abs_to_bub( cart_pos_abs ),
+                                     0_degrees, 0, 0);
     REQUIRE(veh_ptr != nullptr);
 
     for (const auto vp : veh_ptr->get_all_parts()) { veh_ptr->get_items(vp.part_index()).clear(); }
 
-    player_character.grab(OBJECT_VEHICLE, cart_pos - player_pos);
+    const auto cart_pos = abs_to_bub( cart_pos_abs );
+    player_character.grab(OBJECT_VEHICLE, cart_pos - player_character.bub_pos());
     REQUIRE(player_character.get_grab_type() == OBJECT_VEHICLE);
-    REQUIRE(player_character.grab_point == cart_pos - player_pos);
+    REQUIRE(player_character.grab_point == cart_pos - player_character.bub_pos());
 
     return *veh_ptr;
 }
@@ -129,10 +143,11 @@ static void ramp_transition_angled(
     map& here = get_map();
     set_ramp(transition_x, use_ramp, up);
 
-    const tripoint_bub_ms map_starting_point(transition_x + 4, 60, 0);
-    REQUIRE(here.ter(map_starting_point) == ter_id("t_pavement"));
-    if (here.ter(map_starting_point) != ter_id("t_pavement")) { return; }
-    vehicle* veh_ptr = here.add_vehicle(veh_id, map_starting_point, angle, 1, 0);
+    const auto map_starting_point_abs = ramp_test_pos_abs( transition_x + 4, 60, 0 );
+    const auto initial_map_starting_point = abs_to_map_local( here, map_starting_point_abs );
+    REQUIRE(here.ter(initial_map_starting_point) == ter_id("t_pavement"));
+    if (here.ter(initial_map_starting_point) != ter_id("t_pavement")) { return; }
+    vehicle* veh_ptr = here.add_vehicle(veh_id, initial_map_starting_point, angle, 1, 0);
 
     REQUIRE(veh_ptr != nullptr);
     if (veh_ptr == nullptr) { return; }
@@ -145,11 +160,12 @@ static void ramp_transition_angled(
     veh.tags.insert("IN_CONTROL_OVERRIDE");
     veh.engine_on = true;
     Character& player_character = get_player_character();
-    player_character.setpos(map_starting_point);
+    get_avatar().setpos( map_starting_point_abs );
 
+    const auto map_starting_point = player_character.bub_pos();
+    REQUIRE(player_character.abs_pos() == map_starting_point_abs);
     REQUIRE(player_character.bub_pos() == map_starting_point);
     if (player_character.bub_pos() != map_starting_point) { return; }
-    get_map().board_vehicle(map_starting_point, player_character.as_player());
     REQUIRE(player_character.bub_pos() == map_starting_point);
     if (player_character.bub_pos() != map_starting_point) { return; }
     const int transition_cycle = 3;
@@ -210,7 +226,7 @@ static void ramp_transition_angled(
         const int z_change = map_starting_point.z() - player_character.bub_pos().z();
         here.unboard_vehicle(*vp, &player_character, false);
         here.ter_set(map_starting_point, ter_id("t_pavement"));
-        player_character.setpos(map_starting_point);
+        get_avatar().setpos( map_starting_point_abs );
         if (z_change) { g->vertical_move(z_change, true); }
     }
     here.destroy_vehicle(veh_ptr);
@@ -223,7 +239,8 @@ TEST_CASE("grabbed_shopping_cart_can_be_pulled_up_ramp", "[vehicle][ramp][grab]"
     auto& here = get_map();
     auto& player_character = get_avatar();
     auto& cart =
-        setup_grabbed_shopping_cart(tripoint_bub_ms(61, 60, 0), tripoint_bub_ms(62, 60, 0));
+        setup_grabbed_shopping_cart( ramp_test_pos_abs( 61, 60, 0 ),
+                                     ramp_test_pos_abs( 62, 60, 0 ) );
     const auto player_start_abs = player_character.abs_pos();
     const auto cart_start_abs = cart.abs_ms_location();
 
@@ -245,11 +262,14 @@ TEST_CASE("grabbed_shopping_cart_can_be_pulled_on_flat_ground", "[vehicle][grab]
     auto& here = get_map();
     auto& player_character = get_avatar();
     auto& cart =
-        setup_grabbed_shopping_cart(tripoint_bub_ms(61, 60, 0), tripoint_bub_ms(62, 60, 0));
+        setup_grabbed_shopping_cart( ramp_test_pos_abs( 61, 60, 0 ),
+                                     ramp_test_pos_abs( 62, 60, 0 ) );
+    const auto player_start_abs = player_character.abs_pos();
+    const auto cart_start_abs = cart.abs_ms_location();
 
     REQUIRE(avatar_action::move(player_character, here, tripoint_rel_ms::west()));
-    CHECK(player_character.bub_pos() == tripoint_bub_ms(60, 60, 0));
-    CHECK(cart.bub_ms_location() == tripoint_bub_ms(61, 60, 0));
+    CHECK(player_character.abs_pos() == player_start_abs + tripoint_rel_ms( -1, 0, 0 ));
+    CHECK(cart.abs_ms_location() == cart_start_abs + tripoint_rel_ms( -1, 0, 0 ));
     check_avatar_still_grabs(cart);
 }
 
@@ -260,12 +280,15 @@ TEST_CASE("grabbed_shopping_cart_can_be_pulled_with_debug_noclip", "[vehicle][gr
     auto& here = get_map();
     auto& player_character = get_avatar();
     auto& cart =
-        setup_grabbed_shopping_cart(tripoint_bub_ms(61, 60, 0), tripoint_bub_ms(62, 60, 0));
+        setup_grabbed_shopping_cart( ramp_test_pos_abs( 61, 60, 0 ),
+                                     ramp_test_pos_abs( 62, 60, 0 ) );
+    const auto player_start_abs = player_character.abs_pos();
+    const auto cart_start_abs = cart.abs_ms_location();
     player_character.set_mutation(trait_id("DEBUG_NOCLIP"));
 
     REQUIRE(avatar_action::move(player_character, here, tripoint_rel_ms::west()));
-    CHECK(player_character.bub_pos() == tripoint_bub_ms(60, 60, 0));
-    CHECK(cart.bub_ms_location() == tripoint_bub_ms(61, 60, 0));
+    CHECK(player_character.abs_pos() == player_start_abs + tripoint_rel_ms( -1, 0, 0 ));
+    CHECK(cart.abs_ms_location() == cart_start_abs + tripoint_rel_ms( -1, 0, 0 ));
     check_avatar_still_grabs(cart);
 }
 
@@ -276,11 +299,14 @@ TEST_CASE("grabbed_shopping_cart_can_be_pushed_on_flat_ground", "[vehicle][grab]
     auto& here = get_map();
     auto& player_character = get_avatar();
     auto& cart =
-        setup_grabbed_shopping_cart(tripoint_bub_ms(62, 60, 0), tripoint_bub_ms(61, 60, 0));
+        setup_grabbed_shopping_cart( ramp_test_pos_abs( 62, 60, 0 ),
+                                     ramp_test_pos_abs( 61, 60, 0 ) );
+    const auto player_start_abs = player_character.abs_pos();
+    const auto cart_start_abs = cart.abs_ms_location();
 
     REQUIRE(avatar_action::move(player_character, here, tripoint_rel_ms::west()));
-    CHECK(player_character.bub_pos() == tripoint_bub_ms(61, 60, 0));
-    CHECK(cart.bub_ms_location() == tripoint_bub_ms(60, 60, 0));
+    CHECK(player_character.abs_pos() == player_start_abs + tripoint_rel_ms( -1, 0, 0 ));
+    CHECK(cart.abs_ms_location() == cart_start_abs + tripoint_rel_ms( -1, 0, 0 ));
     check_avatar_still_grabs(cart);
 }
 
@@ -291,12 +317,15 @@ TEST_CASE("grabbed_shopping_cart_can_be_pushed_with_debug_noclip", "[vehicle][gr
     auto& here = get_map();
     auto& player_character = get_avatar();
     auto& cart =
-        setup_grabbed_shopping_cart(tripoint_bub_ms(62, 60, 0), tripoint_bub_ms(61, 60, 0));
+        setup_grabbed_shopping_cart( ramp_test_pos_abs( 62, 60, 0 ),
+                                     ramp_test_pos_abs( 61, 60, 0 ) );
+    const auto player_start_abs = player_character.abs_pos();
+    const auto cart_start_abs = cart.abs_ms_location();
     player_character.set_mutation(trait_id("DEBUG_NOCLIP"));
 
     REQUIRE(avatar_action::move(player_character, here, tripoint_rel_ms::west()));
-    CHECK(player_character.bub_pos() == tripoint_bub_ms(61, 60, 0));
-    CHECK(cart.bub_ms_location() == tripoint_bub_ms(60, 60, 0));
+    CHECK(player_character.abs_pos() == player_start_abs + tripoint_rel_ms( -1, 0, 0 ));
+    CHECK(cart.abs_ms_location() == cart_start_abs + tripoint_rel_ms( -1, 0, 0 ));
     check_avatar_still_grabs(cart);
 }
 
@@ -307,7 +336,8 @@ TEST_CASE("grabbed_shopping_cart_can_be_pushed_up_ramp", "[vehicle][ramp][grab]"
     auto& here = get_map();
     auto& player_character = get_avatar();
     auto& cart =
-        setup_grabbed_shopping_cart(tripoint_bub_ms(62, 60, 0), tripoint_bub_ms(61, 60, 0));
+        setup_grabbed_shopping_cart( ramp_test_pos_abs( 62, 60, 0 ),
+                                     ramp_test_pos_abs( 61, 60, 0 ) );
     const auto player_start_abs = player_character.abs_pos();
     const auto cart_start_abs = cart.abs_ms_location();
 
@@ -329,7 +359,8 @@ TEST_CASE("grabbed_shopping_cart_can_be_pulled_down_ramp", "[vehicle][ramp][grab
     auto& here = get_map();
     auto& player_character = get_avatar();
     auto& cart =
-        setup_grabbed_shopping_cart(tripoint_bub_ms(61, 60, 0), tripoint_bub_ms(62, 60, 0));
+        setup_grabbed_shopping_cart( ramp_test_pos_abs( 61, 60, 0 ),
+                                     ramp_test_pos_abs( 62, 60, 0 ) );
     const auto player_start_abs = player_character.abs_pos();
     const auto cart_start_abs = cart.abs_ms_location();
 
@@ -351,7 +382,8 @@ TEST_CASE("grabbed_shopping_cart_can_be_pushed_down_ramp", "[vehicle][ramp][grab
     auto& here = get_map();
     auto& player_character = get_avatar();
     auto& cart =
-        setup_grabbed_shopping_cart(tripoint_bub_ms(62, 60, 0), tripoint_bub_ms(61, 60, 0));
+        setup_grabbed_shopping_cart( ramp_test_pos_abs( 62, 60, 0 ),
+                                     ramp_test_pos_abs( 61, 60, 0 ) );
     const auto player_start_abs = player_character.abs_pos();
     const auto cart_start_abs = cart.abs_ms_location();
 
