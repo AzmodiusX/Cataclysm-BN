@@ -1999,6 +1999,11 @@
     "context": [  ]
   },
   {
+    "id": "BUTCHERY_ROPE",
+    "type": "json_flag",
+    "context": [  ]
+  },
+  {
     "id": "NO_STERILE",
     "type": "json_flag",
     "context": [  ]
