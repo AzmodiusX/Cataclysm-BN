@@ -281,6 +281,9 @@ void Item_factory::finalize_pre( itype &obj )
         if( sscanf( f.c_str(), "LIGHT_%i", &ll ) == 1 && ll > 0 ) {
             obj.light_emission = ll;
         }
+        if( has_consumed_slot.contains( f ) && obj.armor && !obj.armor->consumes_slot.contains( f ) ) {
+            obj.armor->consumes_slot[f] = 1;
+        }
     }
     // remove LIGHT_[X] flags
     erase_if( obj.item_tags, []( const flag_id & f ) {
@@ -1227,6 +1230,16 @@ void Item_factory::check_definitions() const
                     }
                 }
             }
+            for( const auto &flag : type->armor->provides_slot | std::views::keys ) {
+                if( !flag.is_valid() ) {
+                    msg += string_format( "invalid slot providing flag %s used", flag.str() );
+                }
+            }
+            for( const auto &flag : type->armor->consumes_slot | std::views::keys ) {
+                if( !flag.is_valid() ) {
+                    msg += string_format( "invalid slot consuming flag %s used", flag.str() );
+                }
+            }
         }
 
         if( type->weight < 0_gram ) {
@@ -2138,6 +2151,20 @@ void Item_factory::load( islot_armor &slot, const JsonObject &jo, const std::str
             if( temp_cover_data.any() ) {
                 slot.data[0].covers = temp_cover_data;
             }
+        }
+    }
+    if( jo.has_array( "provided_slots" ) ) {
+        for( const JsonObject &obj : jo.get_array( "provided_slots" ) ) {
+            flag_id id( obj.get_string( "id" ) );
+            slot.provides_slot[id] = obj.get_int( "amount", 1 );
+            has_consumed_slot.insert( id );
+        }
+    }
+    if( jo.has_array( "consumed_slots" ) ) {
+        for( const JsonObject &obj : jo.get_array( "consumed_slots" ) ) {
+            flag_id id( obj.get_string( "id" ) );
+            slot.consumes_slot[id] = obj.get_int( "amount", 1 );
+            has_consumed_slot.insert( id );
         }
     }
 

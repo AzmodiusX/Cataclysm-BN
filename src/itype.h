@@ -329,6 +329,11 @@ struct islot_armor {
     std::vector<std::string> valid_mods;
     // Layer, encumbrance and coverage information.
     std::vector<armor_portion_data> data;
+
+    // NOTE: Theoretically this will one day become clothing modifications
+    // Today is not that day, but this will set a suitable framework
+    std::map<flag_id, int> provides_slot;
+    std::map<flag_id, int> consumes_slot;
 };
 
 struct islot_pet_armor {

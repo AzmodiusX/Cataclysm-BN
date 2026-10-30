@@ -411,4 +411,7 @@ class Item_factory
         // items who's magazines act like another magazine
         // I.E. Heavy Battery -> [ Enhanced Heavy Battery, Disposable Heavy Battery ]
         std::map<itype_id, std::set<itype_id>> magazines_like;
+
+        // flags that automatically transfer to consuming one slot
+        std::set<flag_id> has_consumed_slot;
 };
