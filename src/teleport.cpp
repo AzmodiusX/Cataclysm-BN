@@ -105,7 +105,7 @@ bool teleport::teleport( Creature &critter, int min_distance, int max_distance, 
         get_map().unboard_vehicle( p->bub_pos() );
     }
     if( p == &g->u ) {
-        p->set_internal_position( bub_to_abs( new_pos ) );
+        p->setpos( bub_to_abs( new_pos ) );
     } else {
         critter.setpos( new_pos );
     }

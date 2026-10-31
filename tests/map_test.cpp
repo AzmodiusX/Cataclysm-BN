@@ -48,6 +48,8 @@
 namespace {
 
 const auto effect_blind = efftype_id("blind");
+const auto effect_grabbed = efftype_id("grabbed");
+const auto effect_grabbing = efftype_id("grabbing");
 
 static const auto effect_in_pit = efftype_id("in_pit");
 static const auto effect_bleed = efftype_id("bleed");
@@ -1536,6 +1538,47 @@ TEST_CASE("avatar_setpos_updates_map_from_absolute_position") {
     const auto moved_origin = here.get_abs_sub();
     you.setpos(destination_abs);
     CHECK(here.get_abs_sub() == moved_origin);
+}
+
+TEST_CASE("player_internal_position_does_not_realign_map") {
+    clear_all_state();
+
+    auto &you = get_avatar();
+    auto &here = get_map();
+    const auto original_map_origin = here.get_abs_sub();
+    const auto destination_abs = test_origin + tripoint_rel_ms( SEEX, 0, 0 );
+
+    you.set_internal_position( destination_abs );
+
+    CHECK( you.abs_pos() == destination_abs );
+    CHECK( here.get_abs_sub() == original_map_origin );
+
+    g->set_player_position( test_origin );
+}
+
+TEST_CASE("avatar_setpos_clears_grab_and_moves_mount") {
+    clear_all_state();
+
+    auto &you = get_avatar();
+    const auto mount_abs = test_origin + tripoint_rel_ms::east();
+    auto &mount = spawn_test_monster( "mon_horse", abs_to_bub( mount_abs ) );
+    you.mount_creature( mount );
+    REQUIRE( you.is_mounted() );
+
+    const auto grab_target_abs = you.abs_pos() + tripoint_rel_ms::north();
+    auto &grab_target = spawn_test_monster( "mon_zombie", abs_to_bub( grab_target_abs ) );
+    you.add_effect( effect_grabbing, 1_days, body_part_torso );
+    grab_target.add_effect( effect_grabbed, 1_days, body_part_torso );
+    you.grab( OBJECT_FURNITURE, tripoint_rel_ms::north() );
+
+    const auto destination_abs = test_origin + tripoint_rel_ms( SEEX, 0, 0 );
+    you.setpos( destination_abs );
+
+    CHECK( you.abs_pos() == destination_abs );
+    CHECK( mount.abs_pos() == destination_abs );
+    CHECK( you.get_grab_type() == OBJECT_NONE );
+    CHECK_FALSE( you.has_effect( effect_grabbing ) );
+    CHECK_FALSE( grab_target.has_effect( effect_grabbed ) );
 }
 
 TEST_CASE("monster_tracker_uses_absolute_positions") {

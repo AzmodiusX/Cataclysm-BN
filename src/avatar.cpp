@@ -220,7 +220,7 @@ void avatar::control_npc( npc &np )
     g->reset_light_level();
     // The control swap keeps the loaded map window aligned with the new avatar
     // without applying an ordinary movement transaction.
-    set_internal_position( controlled_npc_pos );
+    g->set_player_position( controlled_npc_pos );
     cata::run_hooks( "on_control_npc", [ & ]( auto & params ) {
         params["npc"] = &np;
     } );

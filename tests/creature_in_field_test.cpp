@@ -89,7 +89,7 @@ TEST_CASE("waiting in slippery fields does not knock characters down", "[avatar]
     REQUIRE(here.add_field(abs_to_bub(destination), field_type_id("test_fd_slip")));
     CHECK_FALSE(you.has_effect(effect_downed));
 
-    g->u.setpos(destination);
+    g->process_player_movement(destination);
     REQUIRE(you.has_effect(effect_downed));
     you.remove_effect(effect_downed);
 
@@ -100,6 +100,6 @@ TEST_CASE("waiting in slippery fields does not knock characters down", "[avatar]
     }
 
     g->u.setpos(origin);
-    g->u.setpos(destination);
+    g->process_player_movement(destination);
     CHECK(you.has_effect(effect_downed));
 }

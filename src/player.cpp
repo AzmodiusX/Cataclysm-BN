@@ -6,6 +6,7 @@
 #include "game.h"
 #include "map/map.h"
 #include "messages.h"
+#include "monster.h"
 #include "output.h"
 #include "string_id.h"
 #include "vitamin.h"
@@ -13,33 +14,6 @@
 #include <map>
 #include <memory>
 #include <string>
-
-namespace
-{
-
-auto update_map_after_internal_position( player &who, const tripoint_abs_ms &old_pos ) -> void
-{
-    if( g == nullptr || &who != &g->u ) {
-        return;
-    }
-
-    const auto new_pos = who.abs_pos();
-    if( old_pos == new_pos ) {
-        return;
-    }
-
-    const auto old_sm = project_to<coords::sm>( old_pos );
-    const auto new_sm = project_to<coords::sm>( new_pos );
-
-    if( old_sm.xy() != new_sm.xy() ) {
-        g->update_map( who );
-    }
-    if( old_pos.z() != new_pos.z() ) {
-        g->vertical_shift( old_pos.z(), new_pos.z() );
-    }
-}
-
-} // namespace
 
 player::player()
 {
@@ -99,14 +73,31 @@ auto player::setpos( const tripoint_abs_ms &p ) -> void
     if( p == abs_pos() ) {
         return;
     }
-    set_internal_position( p );
+
+    if( g != nullptr && this == &g->u ) {
+        g->clear_avatar_grab();
+        if( in_vehicle ) {
+            g->m.unboard_vehicle( bub_pos() );
+        }
+        if( is_mounted() ) {
+            dismount();
+        }
+        g->set_player_position( p );
+    } else {
+        set_internal_position( p );
+    }
 }
 
 auto player::set_internal_position( const tripoint_abs_ms &p ) -> void
 {
-    const auto old_pos = abs_pos();
+    // This is deliberately only the coordinate write.  Map realignment belongs to
+    // game::set_player_position so lifecycle and specialized movement callers can choose it
+    // explicitly without inheriting teleport or ordinary movement effects.
     position = p;
-    update_map_after_internal_position( *this, old_pos );
+    if( g != nullptr && this == &g->u ) {
+        g->m.invalidate_visibility_caches();
+        g->mon_info_cache_dirty = true;
+    }
 }
 
 
